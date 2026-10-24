@@ -25,6 +25,7 @@ export function Desk() {
   const demo = params.get("demo") === "1";
   const source = params.get("source");
   const address = params.get("address") ?? "";
+  const depth = params.get("depth") ?? "200";
   const terminal: TerminalId = isTerminalId(params.get("terminal")) ? (params.get("terminal") as TerminalId) : "axiom";
   const bookKey = demo ? "sample" : source === "csv" ? "csv" : address || "unknown";
 
@@ -72,7 +73,7 @@ export function Desk() {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    fetch(`/api/book?address=${encodeURIComponent(address)}&terminal=${terminal}`, { signal: controller.signal })
+    fetch(`/api/book?address=${encodeURIComponent(address)}&terminal=${terminal}&depth=${encodeURIComponent(depth)}`, { signal: controller.signal })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "Could not read that wallet.");
@@ -87,7 +88,7 @@ export function Desk() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [demo, source, address, terminal, reloadKey]);
+  }, [demo, source, address, terminal, depth, reloadKey]);
 
   const trades = useMemo(() => {
     if (!book) return [];

@@ -13,7 +13,11 @@ import {
 
 const DEFAULT_RPC = "https://solana-rpc.publicnode.com";
 
-export async function fetchWalletBook(address: string, terminalInput: string | null): Promise<Book> {
+export async function fetchWalletBook(
+  address: string,
+  terminalInput: string | null,
+  depth = 200,
+): Promise<Book> {
   const wallet = address.trim();
   if (!isWalletAddress(wallet)) {
     throw new Error("That does not look like a Solana address.");
@@ -43,7 +47,7 @@ export async function fetchWalletBook(address: string, terminalInput: string | n
     }
   }
   if (fills.length === 0) {
-    const rpc = await loadRpc(wallet, solPrice.priceAt);
+    const rpc = await loadRpc(wallet, solPrice.priceAt, clampDepth(depth));
     fills = rpc.fills;
     scanned = rpc.scanned;
     if (rpc.warning) warnings.push(rpc.warning);
@@ -87,12 +91,12 @@ async function loadHelius(
 async function loadRpc(
   wallet: string,
   priceAt: (iso: string) => number,
+  depth: number,
 ): Promise<{ fills: Fill[]; scanned: number; warning?: string }> {
   const rpc = process.env.SOLANA_RPC_URL || DEFAULT_RPC;
-  const signatures = await rpcCall<{ signature: string }[]>(rpc, "getSignaturesForAddress", [wallet, { limit: 36 }]);
-  const sigs = (signatures ?? []).map((row) => row.signature).filter(Boolean);
+  const sigs = await loadSignatures(rpc, wallet, depth);
   let firstError = "";
-  const transactions = await mapPool(sigs, 4, (signature) =>
+  const transactions = await mapPool(sigs, 6, (signature) =>
     rpcCall<ParsedTransaction | null>(rpc, "getTransaction", [
       signature,
       { encoding: "jsonParsed", maxSupportedTransactionVersion: 1 },
@@ -219,7 +223,45 @@ async function loadSpotSol(): Promise<number> {
   return 150;
 }
 
+async function loadSignatures(rpc: string, wallet: string, depth: number): Promise<string[]> {
+  const signatures: string[] = [];
+  let before: string | undefined;
+  while (signatures.length < depth) {
+    const limit = Math.min(1000, depth - signatures.length);
+    const page = await rpcCall<{ signature: string }[]>(rpc, "getSignaturesForAddress", [
+      wallet,
+      before ? { limit, before } : { limit },
+    ]);
+    if (!page?.length) break;
+    for (const row of page) {
+      if (row.signature) signatures.push(row.signature);
+    }
+    before = page[page.length - 1]?.signature;
+    if (page.length < limit) break;
+  }
+  return signatures;
+}
+
+function clampDepth(depth: number): number {
+  if (!Number.isFinite(depth)) return 200;
+  return Math.max(20, Math.min(250, Math.round(depth)));
+}
+
 async function rpcCall<T>(rpc: string, method: string, params: unknown[]): Promise<T> {
+  let last = "RPC failed";
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      return await rpcCallOnce<T>(rpc, method, params);
+    } catch (error) {
+      last = error instanceof Error ? error.message : "RPC failed";
+      if (!/429|502|503|timeout|timed out|congested/i.test(last) || attempt === 3) break;
+      await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+    }
+  }
+  throw new Error(last);
+}
+
+async function rpcCallOnce<T>(rpc: string, method: string, params: unknown[]): Promise<T> {
   const response = await fetch(rpc, {
     method: "POST",
     headers: { "content-type": "application/json" },
