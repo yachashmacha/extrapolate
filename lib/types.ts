@@ -1,0 +1,185 @@
+export type MetaId =
+  | "animal"
+  | "political"
+  | "celebrity"
+  | "ai"
+  | "food"
+  | "culture"
+  | "country"
+  | "other";
+
+export type TerminalId =
+  | "axiom"
+  | "photon"
+  | "bullx"
+  | "gmgn"
+  | "trojan"
+  | "bloom"
+  | "padre"
+  | "pump"
+  | "banana"
+  | "wallet";
+
+export type KolTiming = "before" | "with" | "after";
+
+export interface KolTag {
+  id: string;
+  handle: string;
+  name: string;
+  timing: KolTiming;
+}
+
+export interface RoundTrip {
+  id: string;
+  mint: string;
+  symbol: string;
+  name: string;
+  metas: MetaId[];
+  terminal: TerminalId;
+  entryAt: string;
+  exitAt: string;
+  entryMarketCapUsd: number;
+  exitMarketCapUsd: number;
+  liquidityUsd: number;
+  amountUsd: number;
+  pnlUsd: number;
+  pnlPct: number;
+  holdMinutes: number;
+  kols: KolTag[];
+  /** Minutes from the pool opening. Negative when the chain read could not tell. */
+  minutesFromLaunch: number;
+  buys: number;
+  sells: number;
+}
+
+export interface OpenPosition {
+  mint: string;
+  symbol: string;
+  name: string;
+  tokens: number;
+  costUsd: number;
+  entryAt: string;
+  entryMarketCapUsd: number;
+  metas: MetaId[];
+}
+
+export interface Book {
+  source: "sample" | "wallet" | "csv";
+  address?: string;
+  terminal: TerminalId;
+  label: string;
+  trades: RoundTrip[];
+  opens: OpenPosition[];
+  warnings: string[];
+  fetchedAt: string;
+  scannedTransactions?: number;
+}
+
+export type PlayCategory = "entry" | "size" | "callers" | "narrative" | "behavior";
+
+export interface PlayCard {
+  id: string;
+  category: PlayCategory;
+  tone: "fix" | "keep";
+  title: string;
+  shortLabel: string;
+  sample: number;
+  winRate: number;
+  netPnlUsd: number;
+  damageUsd: number;
+  evidence: string;
+  rule: string;
+  steps: string[];
+  tradeIds: string[];
+}
+
+export interface Pattern {
+  id: string;
+  label: string;
+  side: "win" | "loss";
+  winnerShare: number;
+  loserShare: number;
+  winRate: number;
+  n: number;
+  netPnlUsd: number;
+  tradeIds: string[];
+}
+
+export interface SidePortrait {
+  trades: number;
+  medianEntryMc: number;
+  medianSize: number;
+  medianHold: number;
+  medianLiquidity: number;
+  medianLaunchMin: number;
+  avgKols: number;
+  topMeta: string;
+  topSession: string;
+  topKols: string[];
+  netPnlUsd: number;
+}
+
+export interface KolReport {
+  id: string;
+  name: string;
+  handle: string;
+  trades: number;
+  winRate: number;
+  netPnlUsd: number;
+  usualTiming: string;
+  tradeIds: string[];
+}
+
+export interface MetaReport {
+  id: MetaId;
+  label: string;
+  trades: number;
+  winRate: number;
+  netPnlUsd: number;
+  medianEntryMc: number;
+  tradeIds: string[];
+}
+
+export interface Summary {
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  netPnlUsd: number;
+  grossProfitUsd: number;
+  grossLossUsd: number;
+  profitFactor: number | null;
+  expectancyUsd: number;
+  avgWinPct: number;
+  avgLossPct: number;
+  medianHold: number;
+  spanLabel: string;
+}
+
+export interface EquityPoint {
+  at: string;
+  pnl: number;
+}
+
+export interface AnnotatedTrade extends RoundTrip {
+  result: "win" | "loss";
+  tags: string[];
+  note: string;
+  session: string;
+  revenge: boolean;
+}
+
+export interface Analysis {
+  summary: Summary;
+  lede: string;
+  comparison: { winners: SidePortrait; losers: SidePortrait };
+  patterns: Pattern[];
+  fixes: PlayCard[];
+  keeps: PlayCard[];
+  checklist: string[];
+  kols: KolReport[];
+  metas: MetaReport[];
+  equity: EquityPoint[];
+  trades: AnnotatedTrade[];
+  thin: boolean;
+}
