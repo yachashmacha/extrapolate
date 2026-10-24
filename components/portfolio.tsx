@@ -4,17 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import { BookBar } from "@/components/book-bar";
 import { BookError, BookNotices } from "@/components/book-notices";
 import { PnlCalendar } from "@/components/pnl-calendar";
+import { RecentFeed } from "@/components/recent-feed";
 import { RuleBook } from "@/components/rule-book";
 import { Suggestions } from "@/components/suggestions";
 import { Tape } from "@/components/tape";
+import { TipFeed } from "@/components/tip-feed";
 import { useBook } from "@/components/use-book";
+import { practiceTips } from "@/lib/analysis/tips";
 import { currentMonthEt, dayKeyEt, dayLabel, monthOf } from "@/lib/calendar";
 
 type FeedScope =
   | { kind: "month" }
   | { kind: "book" }
   | { kind: "day"; dayKey: string }
-  | { kind: "suggestion"; ids: string[]; label: string };
+  | { kind: "suggestion"; ids: string[]; label: string }
+  | { kind: "trade"; id: string; symbol: string };
 
 export function Portfolio() {
   const { book, analysis, error, loading, bookKey, terminal, title, note, search, reread, update } = useBook();
@@ -25,6 +29,7 @@ export function Portfolio() {
   const [month, setMonth] = useState<string | null>(null);
   const [scope, setScope] = useState<FeedScope>({ kind: "month" });
   const shownMonth = month ?? latestMonth;
+  const tips = useMemo(() => practiceTips(analysis.trades), [analysis.trades]);
 
   useEffect(() => {
     setMonth(null);
@@ -46,6 +51,7 @@ export function Portfolio() {
     if (scope.kind === "book") return true;
     if (scope.kind === "day") return day === scope.dayKey;
     if (scope.kind === "suggestion") return scope.ids.includes(trade.id);
+    if (scope.kind === "trade") return trade.id === scope.id;
     return day.startsWith(shownMonth);
   });
 
@@ -67,6 +73,27 @@ export function Portfolio() {
             }}
             onSelectDay={selectDay}
           />
+          <section className="section" id="recent">
+            <div className="feeds">
+              <RecentFeed
+                trades={analysis.trades}
+                selectedId={scope.kind === "trade" ? scope.id : null}
+                onSelect={(trade) => {
+                  setScope((current) =>
+                    current.kind === "trade" && current.id === trade.id ? { kind: "month" } : { kind: "trade", id: trade.id, symbol: trade.symbol },
+                  );
+                }}
+              />
+              <TipFeed
+                tips={tips}
+                selectedId={scope.kind === "trade" ? scope.id : null}
+                onSelect={(tip) => {
+                  setScope({ kind: "trade", id: tip.tradeId, symbol: tip.symbol });
+                  document.getElementById("feeds")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              />
+            </div>
+          </section>
           <Suggestions analysis={analysis} onShowTrades={showSuggestion} />
           <section className="section" id="feeds">
             <div className="section-head">
@@ -88,6 +115,11 @@ export function Portfolio() {
               {scope.kind === "suggestion" ? (
                 <button type="button" className="chip" aria-pressed="true" onClick={() => setScope({ kind: "month" })}>
                   {scope.label} · clear
+                </button>
+              ) : null}
+              {scope.kind === "trade" ? (
+                <button type="button" className="chip" aria-pressed="true" onClick={() => setScope({ kind: "month" })}>
+                  {scope.symbol} · clear
                 </button>
               ) : null}
               <span className="note">{scoped.length} shown</span>

@@ -1,7 +1,7 @@
 "use client";
 
-import { fmtRate, fmtUsd } from "@/lib/format";
-import type { Analysis, PlayCard } from "@/lib/types";
+import { fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
+import type { Analysis, AnnotatedTrade, PlayCard } from "@/lib/types";
 
 const CATEGORY: Record<PlayCard["category"], string> = {
   entry: "Entry",
@@ -34,6 +34,7 @@ export function Suggestions({
               <h3>{play.title}</h3>
               <p className="rule">{play.rule}</p>
               <p className="evidence">{play.evidence}</p>
+              <SourceLine trades={analysis.trades} ids={play.tradeIds} />
               <ol>
                 {play.steps.map((step) => (
                   <li key={step}>{step}</li>
@@ -47,5 +48,18 @@ export function Suggestions({
         </div>
       )}
     </section>
+  );
+}
+
+function SourceLine({ trades, ids }: { trades: AnnotatedTrade[]; ids: string[] }) {
+  const source = trades
+    .filter((trade) => ids.includes(trade.id) && trade.result === "loss")
+    .sort((left, right) => left.pnlUsd - right.pnlUsd)[0];
+  if (!source) return null;
+  const bought = source.entryMarketCapUsd > 0 ? fmtMc(source.entryMarketCapUsd) : "an unknown market cap";
+  return (
+    <p className="note">
+      From {source.symbol}, a {fmtUsd(source.pnlUsd)} loss, {fmtUsdPlain(source.amountUsd)} bought at {bought}.
+    </p>
   );
 }
