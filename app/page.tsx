@@ -16,14 +16,17 @@ export default function HomePage() {
           <Mark />
           extrapolate
         </Link>
-        <Link className="ghost" href="/desk?demo=1&terminal=axiom">Sample book</Link>
+        <span className="actions">
+          <Link className="ghost" href="/desk?demo=1&terminal=axiom">Sample book</Link>
+          <Link className="ghost" href="/portfolio?demo=1&terminal=axiom">Portfolio</Link>
+        </span>
       </header>
       <section className="hero">
         <div className="hero-copy">
           <p className="kicker">Memecoin trading desk</p>
           <h1>See the trade you keep repeating.</h1>
           <p className="lede">
-            Connect the Solana wallet your terminal trades from. Extrapolate rebuilds every closed memecoin round trip and lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. The leaks turn into rules you can run for the next ten sessions.
+            Connect the Solana wallet your terminal trades from. Extrapolate rebuilds every closed memecoin round trip and lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Losing trades get specific suggestions. Portfolio keeps the daily PnL, and your rules stay blank until you write them.
           </p>
           <ul className="facts">
             <li><b>Wallet</b><span>Phantom, Solflare, Backpack, or the trading address pasted from the terminal header.</span></li>
@@ -36,7 +39,7 @@ export default function HomePage() {
       <HomePreview analysis={analysis} />
       <footer className="footer">
         <span>Extrapolate mirrors your own fills. It is not a signal service.</span>
-        <span>Rules appear once a book has at least 8 closed trades.</span>
+        <span>Your rules stay empty until you write them.</span>
       </footer>
     </main>
   );

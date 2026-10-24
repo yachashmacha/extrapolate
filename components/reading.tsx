@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { EquityChart } from "@/components/equity-chart";
 import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import type { Analysis, Pattern, PlayCard, SidePortrait } from "@/lib/types";
@@ -15,11 +14,9 @@ const CATEGORY: Record<PlayCard["category"], string> = {
 
 export function Reading({
   analysis,
-  bookKey,
   onShowTrades,
 }: {
   analysis: Analysis;
-  bookKey: string;
   onShowTrades: (ids: string[], label: string) => void;
 }) {
   const { summary } = analysis;
@@ -93,10 +90,10 @@ export function Reading({
       <section className="section" id="fixes">
         <div className="section-head">
           <h2>Where it goes wrong</h2>
-          <p>One rule per habit: entry, size, KOLs, narrative, and the session. Each one names the trades it came from.</p>
+          <p>Suggestions from the losing trades: entry, size, KOLs, narrative, and the session. Each one names the trades it came from. Your own rules live on Portfolio, and that list starts empty.</p>
         </div>
         {analysis.fixes.length === 0 ? (
-          <p className="note">{analysis.thin ? "Rules wait for 8 closed trades." : "No leak cleared the sample bar."}</p>
+          <p className="note">{analysis.thin ? "Suggestions wait for 8 closed trades." : "No leak cleared the sample bar."}</p>
         ) : (
           <div className="play-grid">
             {analysis.fixes.map((play) => (
@@ -173,13 +170,6 @@ export function Reading({
         </div>
       </section>
 
-      <section className="section" id="checklist">
-        <div className="section-head">
-          <h2>Ten sessions</h2>
-          <p>The rules, in the order you would pin them above the buy button.</p>
-        </div>
-        <Checklist analysis={analysis} bookKey={bookKey} />
-      </section>
     </>
   );
 }
@@ -263,41 +253,3 @@ function PlayCardView({
   );
 }
 
-function Checklist({ analysis, bookKey }: { analysis: Analysis; bookKey: string }) {
-  const [checks, setChecks] = useState<Record<string, boolean>>({});
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    const raw = localStorage.getItem(`extrapolate:checks:${bookKey}`);
-    setChecks(raw ? (JSON.parse(raw) as Record<string, boolean>) : {});
-  }, [bookKey]);
-
-  function toggle(rule: string) {
-    const next = { ...checks, [rule]: !checks[rule] };
-    setChecks(next);
-    localStorage.setItem(`extrapolate:checks:${bookKey}`, JSON.stringify(next));
-  }
-
-  async function copy() {
-    const text = analysis.checklist.map((rule, index) => `${index + 1}. ${rule}`).join("\n");
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-  }
-
-  if (analysis.checklist.length === 0) return <p className="note">The checklist fills in with the rules.</p>;
-
-  return (
-    <div className="panel checklist">
-      <ol>
-        {analysis.checklist.map((rule) => (
-          <li key={rule}>
-            <label>
-              <input type="checkbox" checked={Boolean(checks[rule])} onChange={() => toggle(rule)} />
-              <span>{rule}</span>
-            </label>
-          </li>
-        ))}
-      </ol>
-      <button type="button" className="primary" onClick={copy}>{copied ? "Copied" : "Copy the rules"}</button>
-    </div>
-  );
-}

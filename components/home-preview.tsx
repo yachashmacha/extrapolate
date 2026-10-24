@@ -12,7 +12,7 @@ export function HomePreview({ analysis }: { analysis: Analysis }) {
           <p className="kicker">Sample book</p>
           <h2 id="sample-reading">What a reading looks like</h2>
         </div>
-        <p>Invented coins, real arithmetic. The desk writes rules only from the trades in front of it.</p>
+        <p>Invented coins, real arithmetic. Suggestions come from the losing trades. Rules are yours to write.</p>
       </div>
       <p className="lede-block">{analysis.lede}</p>
       <div className="stat-row">

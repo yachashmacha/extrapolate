@@ -271,11 +271,11 @@ function writeLede(
       : "Every closed trade in this window is red. The desk needs some green trades before a repeatable habit shows up.";
   }
   const kols = winners.topKols.length > 0 ? ` ${winners.topKols.slice(0, 2).join(" and ")} show up on that side.` : "";
-  return `Winners cluster near ${fmtMc(winners.medianEntryMc)} market cap, about ${fmtUsdPlain(winners.medianSize)} a ticket, held around ${fmtHold(winners.medianHold)}, mostly in the ${winners.topSession.toLowerCase()} session.${kols} Losers cluster near ${fmtMc(losers.medianEntryMc)}, about ${fmtUsdPlain(losers.medianSize)} a ticket, mostly in the ${losers.topSession.toLowerCase()} session, in ${losers.topMeta.toLowerCase()}. The book is ${fmtUsd(summary.netPnlUsd)} over ${summary.trades} closed trades. The rules below are the gap between those two clusters.`;
+  return `Winners cluster near ${fmtMc(winners.medianEntryMc)} market cap, about ${fmtUsdPlain(winners.medianSize)} a ticket, held around ${fmtHold(winners.medianHold)}, mostly in the ${winners.topSession.toLowerCase()} session.${kols} Losers cluster near ${fmtMc(losers.medianEntryMc)}, about ${fmtUsdPlain(losers.medianSize)} a ticket, mostly in the ${losers.topSession.toLowerCase()} session, in ${losers.topMeta.toLowerCase()}. The book is ${fmtUsd(summary.netPnlUsd)} over ${summary.trades} closed trades. The suggestions below come from the gap between those two clusters.`;
 }
 
 function thinLede(count: number): string {
-  return `${count} closed round trip${count === 1 ? "" : "s"} so far. The desk starts writing rules at 8, and it gets specific around 20. Size, market cap, and the hour are worth reading now. The prescriptions wait until the sample can carry them.`;
+  return `${count} closed round trip${count === 1 ? "" : "s"} so far. Suggestions start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Your own rules stay blank until you write them.`;
 }
 
 function kolModeLabel(modeName: ReturnType<typeof kolMode>): string {

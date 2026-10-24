@@ -11,28 +11,38 @@ export function Tape({
   activeLabel,
   onClear,
   onChange,
+  sideLock,
+  showHeading = true,
+  anchor = "tape",
 }: {
   trades: AnnotatedTrade[];
   activeLabel: string | null;
   onClear: () => void;
   onChange: (id: string, patch: { kols?: KolTag[]; metas?: MetaId[] }) => void;
+  sideLock?: "win" | "loss";
+  showHeading?: boolean;
+  anchor?: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [side, setSide] = useState<"all" | "win" | "loss">("all");
-  const visible = trades.filter((trade) => side === "all" || trade.result === side);
+  const [side, setSide] = useState<"all" | "win" | "loss">(sideLock ?? "all");
+  const visible = trades.filter((trade) => (sideLock ?? side) === "all" || trade.result === (sideLock ?? side));
 
   return (
-    <section className="section" id="tape">
-      <div className="section-head">
-        <h2>The tape</h2>
-        <p>Open a fill to see how it sits against the winners, and to tag the KOL or the narrative the chain could not know.</p>
-      </div>
+    <section className={showHeading ? "section" : "section tape-embed"} id={anchor}>
+      {showHeading ? (
+        <div className="section-head">
+          <h2>The tape</h2>
+          <p>Open a fill to see how it sits against the winners, and to tag the KOL or the narrative the chain could not know.</p>
+        </div>
+      ) : null}
       <div className="filter-row">
-        {(["all", "win", "loss"] as const).map((value) => (
-          <button key={value} type="button" className="chip" aria-pressed={side === value} onClick={() => setSide(value)}>
-            {value === "all" ? "All" : value === "win" ? "Winners" : "Losers"}
-          </button>
-        ))}
+        {sideLock
+          ? null
+          : (["all", "win", "loss"] as const).map((value) => (
+              <button key={value} type="button" className="chip" aria-pressed={side === value} onClick={() => setSide(value)}>
+                {value === "all" ? "All" : value === "win" ? "Winners" : "Losers"}
+              </button>
+            ))}
         {activeLabel ? (
           <button type="button" className="chip" aria-pressed="true" onClick={onClear}>
             {activeLabel} · clear
