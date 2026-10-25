@@ -1,5 +1,5 @@
 import { isWalletAddress } from "@/lib/address";
-import { isTerminalId, terminalName } from "@/lib/terminals";
+import { isTerminalId } from "@/lib/terminals";
 import type { Book, TerminalId } from "@/lib/types";
 import type { MintMeta } from "@/lib/ingest/round-trips";
 import { noteMints, startHighs } from "@/lib/ingest/highs";
@@ -24,11 +24,7 @@ export async function fetchWalletBook(
     throw new Error("That does not look like a Solana address.");
   }
   const terminal: TerminalId = isTerminalId(terminalInput) ? terminalInput : "wallet";
-  const warnings = [
-    `Fills are reconstructed from the wallet ${terminal === "wallet" ? "itself" : `${terminalName(terminal)} settles to`}. Entry market cap is fill price times current supply.`,
-    "Tracked wallets are checked for a buy of each coin. A repeated name is shown with its wallet.",
-    "Liquidity is the pool right now, not the pool at the fill.",
-  ];
+  const warnings: string[] = [];
 
   const solPrice = await loadSolPrices();
   if (solPrice.approximate) {
@@ -60,9 +56,6 @@ export async function fetchWalletBook(
   startHighs([...new Set(built.trades.map((trade) => trade.mint))]);
   if (built.trades.length === 0 && fills.length === 0) {
     warnings.push("No SOL or USDC memecoin swaps showed up in the recent transactions. A CSV export from the terminal still works.");
-  }
-  if (built.trades.length > 0) {
-    warnings.push("Entry versus the coin's high uses the daily high on the main pool. Those habits fill in as the highs come back.");
   }
 
   const accountUsd = await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, solPrice.priceAt(new Date().toISOString()), built.opens);
@@ -181,12 +174,12 @@ async function loadRpc(
     if (fill) fills.push(fill);
   });
   const missed = transactions.filter((tx) => tx === null).length;
-  const warning =
-    sigs.length === 0
-      ? "The RPC returned no recent signatures for this address."
-      : missed > sigs.length / 2
-        ? `Only ${sigs.length - missed} of the last ${sigs.length} transactions could be read${firstError ? ` (${firstError})` : ""}. A Helius key or a CSV export reaches further.`
-        : `This read covers the last ${sigs.length} signatures. Older fills need a CSV export, or a Helius key in the server environment.`;
+  let warning: string | undefined;
+  if (sigs.length === 0) {
+    warning = "The RPC returned no recent signatures for this address.";
+  } else if (missed > sigs.length / 2) {
+    warning = `Only ${sigs.length - missed} of the last ${sigs.length} transactions could be read${firstError ? ` (${firstError})` : ""}. A Helius key or a CSV export reaches further.`;
+  }
   return { fills, scanned: sigs.length, warning };
 }
 

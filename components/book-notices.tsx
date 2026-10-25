@@ -16,7 +16,7 @@ export function BookNotices({ book, kolScan }: { book: Book; kolScan?: KolScanPr
           {warning}
         </p>
       ))}
-      {kolScan && kolScan.total > 0 ? <KolScanNotice scan={kolScan} /> : null}
+      {kolScan?.pending && kolScan.total > 0 ? <KolScanNotice scan={kolScan} /> : null}
       {book.opens.length > 0 ? (
         <p className="warn">
           Still open, and left out of the win rate:{" "}
@@ -36,19 +36,12 @@ function KolScanNotice({ scan }: { scan: KolScanProgress }) {
   const shared = namesSharingWalletCount();
   const checked = scan.checked.toLocaleString("en-US");
   const total = scan.total.toLocaleString("en-US");
-  const sharedLine = `${shared} names are used by more than one wallet, so the wallet stays on the label.`;
-  if (!scan.pending && scan.matches === 0) {
-    return (
-      <p className="warn">
-        Checked {checked} of {total} tracked wallets against these coins. None of those wallets bought in. {sharedLine}
-      </p>
-    );
-  }
   const found = scan.matches === 1 ? "1 buy is on the tape" : `${scan.matches.toLocaleString("en-US")} buys are on the tape`;
   return (
     <p className="warn">
-      {scan.pending ? `Checking tracked wallets against these coins: ${checked} of ${total}.` : `Checked ${checked} of ${total} tracked wallets against these coins.`}{" "}
-      {scan.matches > 0 ? `${found}, each name with its wallet.` : "Matches show up here as they are found."} {sharedLine}
+      Checking tracked wallets against these coins: {checked} of {total}.{" "}
+      {scan.matches > 0 ? `${found}, each name with its wallet.` : "Matches show up here as they are found."} {shared} names
+      are used by more than one wallet, so the wallet stays on the label.
     </p>
   );
 }
