@@ -75,7 +75,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
         mark: "Bias",
-        detail: `Loss-chasing. Within 30 minutes of a red close, ${sizedUp.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
+        detail: `Loss-chasing. Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next tickets were at least 1.5× that size and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
       }),
     );
   }

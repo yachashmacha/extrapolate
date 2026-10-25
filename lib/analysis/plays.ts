@@ -305,7 +305,7 @@ function behaviorCandidate(
       category: "behavior",
       title: "The trade after a loss stays small",
       shortLabel: "Revenge size",
-      evidence: portrait(revenge, "The next ticket within 30 minutes of a loss, when it was at least 1.5× your median size and at least 1.5× the losing ticket"),
+      evidence: portrait(revenge, "The next ticket within 30 minutes of a loss that was about your usual size, when it was at least 1.5× your median and at least 1.5× that losing ticket"),
       rule: `After a red close, the next ticket is ${fmtUsdPlain(base)}. The larger preset stays off.`,
       steps: [
         `When a trade closes red, the only enabled preset on ${desk} is ${fmtUsdPlain(base)} until the next green close.`,

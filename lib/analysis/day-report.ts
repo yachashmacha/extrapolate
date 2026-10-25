@@ -352,7 +352,9 @@ function biasFindings(input: {
   const out: Built[] = [];
   const { revengeTrades, flat, day, fomoTrades, reentryTrades, down, once, aboveUsual, usual, usualLabel } = input;
   if (worth("negative", revengeTrades, flat.length >= 3 ? flat : others(day, revengeTrades))) {
-    const usualBit = usualLabel ? `, within 30 minutes, to at least 1.5× your usual ${usualLabel} and at least 1.5× the losing ticket` : " within 30 minutes";
+    const usualBit = usualLabel
+      ? `, within 30 minutes of a loss that was about your usual ${usualLabel}, to at least 1.5× that size and at least 1.5× the losing ticket`
+      : " within 30 minutes";
     out.push(
       built(
         "size-after-loss",

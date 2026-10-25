@@ -72,22 +72,24 @@ export function sizedUpMaterially(amount: number, previousAmount: number, usual:
 
 /**
  * Revenge trading is a larger ticket placed soon after a red close to get the loss back.
+ * The loss itself has to be about the usual size: under 1.5× this trader's median.
+ * A size-up after a ticket that was already that large is not loss-chasing.
  * The next entry has to land within 30 minutes, and the ticket has to be at least 1.5×
  * the usual size and at least 1.5× the losing ticket. A slightly larger ticket, or a
  * larger ticket hours later, is not loss-chasing.
  *
  * House money is the same size-up, soon after a win, because the gain feels spendable.
- * A bigger ticket the next session is not house money.
+ * A bigger ticket the next session is not house money. The win does not have to be the usual size.
  */
 export function revengeIds(trades: RoundTrip[]): Set<string> {
-  return reactionIds(trades, (previous) => previous.pnlUsd < 0);
+  return reactionIds(trades, (previous) => previous.pnlUsd < 0, true);
 }
 
 export function houseMoneyIds(trades: RoundTrip[]): Set<string> {
-  return reactionIds(trades, (previous) => previous.pnlUsd > 0);
+  return reactionIds(trades, (previous) => previous.pnlUsd > 0, false);
 }
 
-function reactionIds(trades: RoundTrip[], when: (trade: RoundTrip) => boolean): Set<string> {
+function reactionIds(trades: RoundTrip[], when: (trade: RoundTrip) => boolean, requireUsualLoss: boolean): Set<string> {
   const ordered = [...trades].sort((left, right) => left.entryAt.localeCompare(right.entryAt) || left.id.localeCompare(right.id));
   const usual = median(ordered.map((trade) => trade.amountUsd).filter((value) => value > 0));
   const flagged = new Set<string>();
@@ -95,6 +97,7 @@ function reactionIds(trades: RoundTrip[], when: (trade: RoundTrip) => boolean): 
     const previous = ordered[index - 1];
     const current = ordered[index];
     if (!when(previous) || !reactedSoon(previous, current)) continue;
+    if (requireUsualLoss && !(previous.amountUsd < usual * SIZE_UP)) continue;
     if (!sizedUpMaterially(current.amountUsd, previous.amountUsd, usual)) continue;
     flagged.add(current.id);
   }

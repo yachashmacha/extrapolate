@@ -118,6 +118,7 @@ describe("trading habits", () => {
     expect(sized?.mark).toBe("Bias");
     expect(sized?.detail).toMatch(/Loss-chasing/);
     expect(sized?.detail).toMatch(/30 minutes/);
+    expect(sized?.detail).toMatch(/about the usual/);
     expect(sized?.detail).toMatch(/1\.5×/);
     expect(sized?.detail).toMatch(/stays at \$10/);
     expect(sized?.detail).toMatch(/Next buy is \$10/);
@@ -311,6 +312,23 @@ describe("trading habits", () => {
     expect(habit?.detail).toMatch(/4×/);
     expect(habit?.detail).not.toMatch(/pool|supply|% of the coin/i);
     expect(habit?.tradeIds).toEqual(["big-0", "big-1", "big-2", "big-3"]);
+  });
+
+  it("does not call a size-up after an already large loss revenge", () => {
+    const trades = [
+      ...Array.from({ length: 8 }, (_, index) =>
+        row(`usual-${index}`, index, { pnl: 5, amount: 20, at: new Date(Date.UTC(2026, 9, 10, 8, index, 0)).toISOString() }),
+      ),
+      row("huge", 0, { pnl: -40, amount: 80, symbol: "HUGE", at: "2026-10-11T16:00:00.000Z" }),
+      row("chase", 0, { pnl: -50, amount: 200, symbol: "CHASE", at: "2026-10-11T16:10:00.000Z" }),
+      row("big", 0, { pnl: -30, amount: 90, symbol: "BIG", at: "2026-10-11T20:00:00.000Z" }),
+    ];
+    const negative = tradingHabits(trades).negative;
+    expect(negative.some((habit) => habit.id === "size-after-loss")).toBe(false);
+    const above = negative.find((habit) => habit.id === "size-above-usual");
+    expect(above?.tradeIds).toEqual(expect.arrayContaining(["huge", "chase", "big"]));
+    expect(above?.detail).toMatch(/1\.5×/);
+    expect(above?.detail).not.toMatch(/pool|supply/i);
   });
 
   it("does not call a modest ticket after a loss revenge or oversized", () => {

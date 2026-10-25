@@ -134,21 +134,21 @@ describe("end of day report", () => {
       row(`base-${minute}`, "2026-10-23", minute, { pnl: 5, amount: 20 }),
     );
     const revengeDay = [
-      row("small", "2026-10-24", 0, { pnl: -20, amount: 20, symbol: "SMALL" }),
-      ...[1, 2, 3, 4].map((minute) =>
-        row(`up-${minute}`, "2026-10-24", minute, { pnl: -30, amount: 20 * 2 ** minute, symbol: `UP${minute}` }),
-      ),
+      ...[0, 1, 2].flatMap((index) => [
+        row(`small-${index}`, "2026-10-24", index * 2, { pnl: -20, amount: 20, symbol: "SMALL" }),
+        row(`up-${index}`, "2026-10-24", index * 2 + 1, { pnl: -30, amount: 40, symbol: `UP${index}` }),
+      ]),
+      ...[6, 7, 8].map((minute) => row(`win-${minute}`, "2026-10-24", minute, { pnl: 10, amount: 20 })),
     ];
     const trades = [...earlier, ...revengeDay];
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.pnlUsd).toBe(-140);
-    expect(report.score).toBe(17);
+    expect(report.pnlUsd).toBe(-120);
     expect(report.score).toBeLessThan(40);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).toContain("Revenge trading");
     expect(report.lead).toMatch(/dominant bias was revenge trading/i);
-    expect(report.lead).toMatch(/\$20/);
-    expect(report.lead).toMatch(/\$120/);
+    expect(report.lead).toMatch(/about your usual \$20/);
+    expect(report.lead).toMatch(/\$90/);
     expect(report.lead).not.toMatch(/more rationally/);
     expect(report.why).toMatch(/sizing up after a loss/);
 
@@ -156,6 +156,23 @@ describe("end of day report", () => {
     expect(before.pnlUsd).toBe(40);
     expect(before.score).toBe(100);
     expect(before.biases).toEqual([]);
+  });
+
+  it("does not call a size-up after an already large loss revenge", () => {
+    const earlier = [0, 1, 2, 3, 4, 5, 6, 7].map((minute) =>
+      row(`base-${minute}`, "2026-10-23", minute, { pnl: 5, amount: 20 }),
+    );
+    const day = [
+      row("huge", "2026-10-24", 0, { pnl: -40, amount: 80, symbol: "HUGE" }),
+      row("chase", "2026-10-24", 1, { pnl: -50, amount: 200, symbol: "CHASE" }),
+      row("later", "2026-10-24", 40, { pnl: -30, amount: 90, symbol: "LATER" }),
+    ];
+    const report = endOfDayReport([...earlier, ...day], "2026-10-24");
+    expect(report.biases.map((bias) => bias.title)).not.toContain("Revenge trading");
+    expect(report.lead).not.toMatch(/revenge trading/i);
+    expect(report.biases.map((bias) => bias.title)).toContain("The ticket was well above your usual size");
+    expect(report.lead).toMatch(/1\.5×/);
+    expect(report.lead).not.toMatch(/pool|% of the coin|% of supply/i);
   });
 
   it("does not invent revenge from the day's own median when the tickets never cleared the book's usual size", () => {
