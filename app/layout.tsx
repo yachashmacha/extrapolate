@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Sans } from "next/font/google";
 import { DailyReportTab } from "@/components/daily-report-tab";
 import "./globals.css";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -18,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={plex.variable}>
+    <html lang="en" className={`${fraunces.variable} ${plex.variable}`}>
       <body>
         <DailyReportTab />
         {children}

@@ -51,7 +51,7 @@ strong, b { font-weight: 700; }
 
 .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
 .shell.narrow { padding: 32px 0; }
-h1, h2, h3, .wordmark, .bias-quote, .feed-title {
+h1, h2, h3, .wordmark, .feed-title {
   font-family: var(--sans);
   font-style: normal;
   font-weight: 700;
@@ -200,11 +200,16 @@ ul.facts span { overflow-wrap: anywhere; }
 .bias-quote {
   margin: 0;
   max-width: 16em;
+  font-family: var(--font-fraunces), "Iowan Old Style", "Palatino Linotype", serif;
   font-size: 40px;
+  font-style: normal;
+  font-weight: 460;
+  letter-spacing: -0.03em;
   line-height: 1.15;
-  font-weight: 700;
   text-wrap: balance;
 }
+.bias-quote::before { content: "\201C"; }
+.bias-quote::after { content: "\201D"; }
 .bias-lead p {
   max-width: 42rem;
   font-size: 17px;
