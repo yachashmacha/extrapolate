@@ -21,7 +21,7 @@
   --s-4: 16px;
   --s-5: 24px;
   --s-6: 32px;
-  --sans: var(--font-plex), "IBM Plex Sans", "Source Sans 3", "Segoe UI", sans-serif;
+  --sans: "IBM Plex Sans", "Source Sans 3", sans-serif;
   --serif: var(--sans);
   color-scheme: dark;
 }

@@ -8,7 +8,6 @@ const plex = IBM_Plex_Sans({
   weight: ["400", "500", "600", "700"],
   variable: "--font-plex",
   display: "swap",
-  fallback: ["Source Sans 3", "Segoe UI", "sans-serif"],
 });
 
 export const metadata: Metadata = {
