@@ -4,6 +4,7 @@ import { kolMode } from "@/lib/analysis/slices";
 import { fmtCoin, fmtHold, fmtMc, fmtUsdPlain } from "@/lib/format";
 import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
+import { overEntryShare } from "@/lib/rules";
 import type { AnnotatedTrade, KolTag, KolTiming } from "@/lib/types";
 
 export interface PracticeTip {
@@ -35,7 +36,7 @@ export function practiceTips(trades: AnnotatedTrade[], bounds?: BookBounds): Pra
       pnlUsd: trade.pnlUsd,
       pnlPct: trade.pnlPct,
       kols: trade.kols,
-      tip: writeTip(trade, winners, limits),
+      tip: writeTip(trade, winners, limits, trades),
     }));
 }
 
@@ -46,7 +47,7 @@ export function kolBoughtLine(kols: KolTag[]): string {
   return `${shown.join(" · ")}${more}`;
 }
 
-function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: BookBounds): string {
+function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: BookBounds, book: AnnotatedTrade[]): string {
   const bought =
     trade.entryMarketCapUsd > 0
       ? `${fmtUsdPlain(trade.amountUsd)} bought at ${fmtCoin(trade.entryMarketCapUsd)}`
@@ -73,7 +74,7 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
   const mcFromRule = bounds.maxMcUsd != null && bounds.maxMcUsd > 0 && passMc === bounds.maxMcUsd && (winMc === 0 || bounds.maxMcUsd < winMc);
 
   const actions: string[] = [];
-  if (ticket > 0 && trade.amountUsd > ticket * 1.25) {
+  if (pastTicketOverCeiling(trade, book, bounds)) {
     actions.push(`Keep the next ticket at ${fmtUsdPlain(ticket)}. ${ticketWhy(bounds)}`);
   }
   if (trade.entryMarketCapUsd > 0 && passMc > 0 && trade.entryMarketCapUsd > passMc * (mcFromRule ? 1.05 : 1.5)) {
@@ -116,6 +117,25 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
   }
 
   return `${loss} ${who} ${actions.slice(0, 4).join(" ")}`;
+}
+
+/** The size nudge looks at this loss against the portfolio when it was taken. The dollar it names is still the next ticket. */
+function pastTicketOverCeiling(trade: AnnotatedTrade, book: AnnotatedTrade[], bounds: BookBounds): boolean {
+  if (!(bounds.ticketUsd > 0)) return false;
+  const share = bounds.portfolioShare;
+  const portfolioBound =
+    (bounds.ticketReason === "account" || bounds.ticketReason === "account-rule") &&
+    share != null &&
+    share > 0 &&
+    bounds.accountUsd != null &&
+    bounds.accountUsd > 0;
+  if (!portfolioBound) return trade.amountUsd > bounds.ticketUsd * 1.25;
+  return overEntryShare(trade, book, {
+    accountUsd: bounds.accountUsd,
+    cashUsd: bounds.cashUsd,
+    fraction: share,
+    slack: 1.25,
+  });
 }
 
 export function ticketWhy(bounds: BookBounds): string {

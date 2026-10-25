@@ -285,6 +285,33 @@ export function ticketBrokeSize(amountUsd: number, portfolioUsd: number, fractio
   return amountUsd > portfolioUsd * fraction + 0.001;
 }
 
+/**
+ * A past ticket was over `slack` times the portfolio fraction at its own entry.
+ * The next-ticket ceiling is a different number. A fill whose entry portfolio
+ * cannot be rebuilt is not over the line.
+ */
+export function overEntryShare(
+  trade: { entryAt?: string; amountUsd?: number },
+  book: PortfolioTrade[],
+  options: {
+    accountUsd?: number | null;
+    cashUsd?: number | null;
+    opens?: OpenCost[] | null;
+    fraction: number;
+    slack?: number;
+  },
+): boolean {
+  const amount = trade.amountUsd ?? 0;
+  if (!trade.entryAt || !(amount > 0)) return false;
+  const portfolio = portfolioAtEntry(trade.entryAt, book, options.accountUsd, {
+    cashUsd: options.cashUsd,
+    opens: options.opens,
+  });
+  if (portfolio == null) return false;
+  const slack = options.slack != null && options.slack > 0 ? options.slack : 1;
+  return ticketBrokeSize(amount, portfolio, options.fraction * slack);
+}
+
 export interface RuledTrade {
   id: string;
   symbol: string;

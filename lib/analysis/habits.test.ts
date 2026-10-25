@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { tradingHabits } from "@/lib/analysis/habits";
 import { sampleBook } from "@/lib/ingest/demo";
+import { portfolioAtEntry } from "@/lib/rules";
 import type { KolTag, RoundTrip } from "@/lib/types";
 
 describe("trading habits", () => {
@@ -34,7 +35,8 @@ describe("trading habits", () => {
     expect(negative.some((habit) => habit.title === "FOMO")).toBe(false);
     expect(off?.title).toBe("Bought well under the high");
     expect(off?.mark).toBe("Tendency");
-    expect(off?.detail).toMatch(/45% of that coin's ATH/);
+    expect(off?.detail).toMatch(/45% of that coin's high/);
+    expect(off?.detail).not.toMatch(/ATH/);
     expect(off?.detail).toMatch(/30% of the high/);
     expect(off?.detail).not.toMatch(/FOMO/i);
   });
@@ -349,7 +351,43 @@ describe("trading habits", () => {
       false,
     );
   });
+
+  it("does not cap a revenge ticket that was under 10% of the portfolio at the entry", () => {
+    const trades = revengeBook(40);
+    const bounds = bookBounds({ trades, accountUsd: 100 });
+    const habit = tradingHabits(trades, bounds).negative.find((item) => item.id === "size-after-loss");
+    const entry = trades.find((trade) => trade.id === "up-0")?.entryAt ?? "";
+    const portfolio = portfolioAtEntry(entry, trades, 100);
+    expect(portfolio).not.toBeNull();
+    expect(40 / (portfolio ?? 1)).toBeLessThan(0.1);
+    expect(bounds.ticketUsd).toBe(10);
+    expect(habit?.detail).toMatch(/Loss-chasing/);
+    expect(habit?.detail ?? "").not.toMatch(/next ticket stays at/);
+    expect(habit?.detail ?? "").not.toMatch(/sit inside/);
+  });
 });
+
+function revengeBook(upAmount: number): RoundTrip[] {
+  const stamp = (hour: number, minute: number) => new Date(Date.UTC(2026, 9, 24, hour, minute, 0)).toISOString();
+  const greens = [0, 1, 2, 3, 4].map((index) =>
+    row(`g-${index}`, index, { pnl: 2, amount: 20, at: stamp(12, index * 2), exitAt: stamp(12, index * 2 + 1) }),
+  );
+  const pairs = [0, 1, 2].flatMap((index) => {
+    const hour = 13 + index;
+    return [
+      row(`loss-${index}`, index, { pnl: -2, amount: 20, at: stamp(hour, 0), exitAt: stamp(hour, 1) }),
+      row(`up-${index}`, index, {
+        pnl: -15,
+        amount: upAmount,
+        symbol: `UP${index}`,
+        at: stamp(hour, 6),
+        exitAt: stamp(hour, 7),
+      }),
+    ];
+  });
+  const wreck = row("wreck", 9, { pnl: -420, amount: 40, at: stamp(18, 0), exitAt: stamp(18, 10) });
+  return [...greens, ...pairs, wreck];
+}
 
 function kol(name: string, timing: KolTag["timing"]): KolTag {
   return { id: name.toLowerCase(), handle: name.toLowerCase(), name, timing };

@@ -1,5 +1,6 @@
 import { ticketWhy } from "@/lib/analysis/tips";
 import type { BookBounds } from "@/lib/analysis/bounds";
+import { portfolioAtEntry } from "@/lib/rules";
 import { fomoStatus } from "@/lib/analysis/fomo";
 import { houseMoneyIds, revengeIds, sessionName, SIZE_UP, sizeMultiple } from "@/lib/analysis/slices";
 import { median, net, winRate } from "@/lib/analysis/stats";
@@ -64,9 +65,9 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   for (let index = 1; index < ordered.length; index += 1) {
     const previous = ordered[index - 1];
     const current = ordered[index];
-    if (previous.pnlUsd < 0 && revenge.has(current.id)) sizedUp.push(current);
+    if (revenge.has(current.id)) sizedUp.push(current);
     if (previous.pnlUsd < 0 && !revenge.has(current.id) && current.amountUsd <= usual * 1.05) kept.push(current);
-    if (previous.pnlUsd > 0 && pressedIds.has(current.id)) pressed.push(current);
+    if (pressedIds.has(current.id)) pressed.push(current);
     if (previous.pnlUsd > 0 && current.amountUsd <= usual * 1.05) keptWin.push(current);
   }
   const out: Draft[] = [];
@@ -75,14 +76,14 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
         mark: "Bias",
-        detail: `Loss-chasing. Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next tickets were at least 1.5× that size and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
+        detail: `Loss-chasing. Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next tickets were at least 1.5× that size and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, trades, bounds)}`,
       }),
     );
   }
   if (worth("positive", kept, sizedUp.length >= 3 ? sizedUp : others(ordered, kept))) {
     out.push(
       draft("size-flat-after-loss", "positive", "Kept the ticket flat after a loss", kept, {
-        detail: `After a red close, ${kept.length} of the next tickets stayed at or under the usual ${usualLabel}. Those made ${gained(kept)}${including(kept, false)}. ${sizeCloser(kept, bounds)}`,
+        detail: `After a red close, ${kept.length} of the next tickets stayed at or under the usual ${usualLabel}. Those made ${gained(kept)}${including(kept, false)}. ${sizeCloser(kept, trades, bounds)}`,
       }),
     );
   }
@@ -90,7 +91,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-win", "negative", "House-money effect", pressed, {
         mark: "Bias",
-        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning ticket. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, bounds)}`,
+        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning ticket. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, trades, bounds)}`,
       }),
     );
   }
@@ -101,13 +102,13 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-above-usual", "negative", "The ticket was well above your usual size", above, {
         mark: "Bias",
-        detail: `Considerably bigger than your own usual ticket. ${above.length} tickets were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, bounds)}`,
+        detail: `Considerably bigger than your own usual ticket. ${above.length} tickets were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, trades, bounds)}`,
       }),
     );
   }
   if (worth("positive", pressed, others(ordered, pressed)) && net(pressed) > 0) {
-    const closer = sizeCloser(pressed, bounds);
-    const capped = Boolean(bounds && bounds.ticketUsd > 0 && median(pressed.map((trade) => trade.amountUsd)) > bounds.ticketUsd * 1.05);
+    const closer = sizeCloser(pressed, trades, bounds);
+    const capped = pressedOverCeiling(pressed, trades, bounds);
     out.push(
       draft(
         "size-press-paid",
@@ -161,13 +162,13 @@ function athHabits(trades: RoundTrip[]): Draft[] {
   if (worth("positive", off, others(known, off))) {
     out.push(
       draft("ath-off", "positive", "Bought well under the high", off, {
-        detail: `${off.length} entries were at or under 45% of that coin's ATH. The median entry sat at ${athPct(off)} of the high. Those made ${gained(off)}${including(off, false)}.`,
+        detail: `${off.length} entries were at or under 45% of that coin's high. The median entry sat at ${athPct(off)} of the high. Those made ${gained(off)}${including(off, false)}.`,
       }),
     );
   } else if (worth("negative", off, others(known, off))) {
     out.push(
       draft("ath-off-lost", "negative", "Bought under the high and still lost", off, {
-        detail: `${off.length} entries were at or under 45% of that coin's ATH. The median entry sat at ${athPct(off)} of the high. Those dropped ${money(off)}${including(off, true)}.`,
+        detail: `${off.length} entries were at or under 45% of that coin's high. The median entry sat at ${athPct(off)} of the high. Those dropped ${money(off)}${including(off, true)}.`,
       }),
     );
   }
@@ -389,13 +390,48 @@ function launchHabits(trades: RoundTrip[]): Draft[] {
   return out;
 }
 
-function sizeCloser(group: RoundTrip[], bounds?: BookBounds): string {
+function sizeCloser(group: RoundTrip[], book: RoundTrip[], bounds?: BookBounds): string {
   if (!bounds || bounds.ticketUsd <= 0) return "";
-  const mid = median(group.map((trade) => trade.amountUsd));
   const ticket = fmtUsdPlain(bounds.ticketUsd);
-  if (mid > bounds.ticketUsd * 1.05) return `The next ticket stays at ${ticket}. ${ticketWhy(bounds)}`;
+  const forward = `The next ticket stays at ${ticket}. ${ticketWhy(bounds)}`;
+  if (portfolioSized(bounds)) {
+    if (medianOverEntry(group, book, bounds, 1.05)) return forward;
+    return "";
+  }
+  const mid = median(group.map((trade) => trade.amountUsd));
+  if (mid > bounds.ticketUsd * 1.05) return forward;
   if (bounds.ticketReason !== "winners") return `Those tickets sit inside ${ticket}. ${ticketWhy(bounds)}`;
   return "";
+}
+
+function pressedOverCeiling(group: RoundTrip[], book: RoundTrip[], bounds?: BookBounds): boolean {
+  if (!bounds || !(bounds.ticketUsd > 0)) return false;
+  if (portfolioSized(bounds)) return medianOverEntry(group, book, bounds, 1.05);
+  return median(group.map((trade) => trade.amountUsd)) > bounds.ticketUsd * 1.05;
+}
+
+function portfolioSized(bounds: BookBounds): boolean {
+  return (
+    (bounds.ticketReason === "account" || bounds.ticketReason === "account-rule") &&
+    bounds.portfolioShare != null &&
+    bounds.portfolioShare > 0 &&
+    bounds.accountUsd != null &&
+    bounds.accountUsd > 0
+  );
+}
+
+/** Median ticket versus the portfolio at each entry, not versus the book now. */
+function medianOverEntry(group: RoundTrip[], book: RoundTrip[], bounds: BookBounds, slack: number): boolean {
+  const share = bounds.portfolioShare;
+  if (share == null || !(share > 0)) return false;
+  const ratios: number[] = [];
+  for (const trade of group) {
+    const portfolio = portfolioAtEntry(trade.entryAt, book, bounds.accountUsd, { cashUsd: bounds.cashUsd });
+    if (portfolio == null || !(portfolio > 0) || !(trade.amountUsd > 0)) continue;
+    ratios.push(trade.amountUsd / portfolio);
+  }
+  if (ratios.length === 0) return false;
+  return median(ratios) > share * slack;
 }
 
 function worth(tone: "positive" | "negative", group: RoundTrip[], rest: RoundTrip[], min = 3): boolean {

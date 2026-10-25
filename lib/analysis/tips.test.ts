@@ -4,6 +4,7 @@ import { bookBounds } from "@/lib/analysis/bounds";
 import { practiceTips } from "@/lib/analysis/tips";
 import { sampleBook } from "@/lib/ingest/demo";
 import { kolFromSpec } from "@/lib/kols";
+import { portfolioAtEntry } from "@/lib/rules";
 import type { AnnotatedTrade } from "@/lib/types";
 
 describe("practice tips", () => {
@@ -85,7 +86,54 @@ describe("practice tips", () => {
     expect(tips[0].tip).toMatch(/10 percent of your portfolio/);
     expect(tips[0].tip).not.toMatch(/\$500/);
   });
+
+  it("does not treat a $20 loss as oversized when the portfolio was $500 at the entry", () => {
+    const trades = sizedBook(20, -2);
+    const bounds = bookBounds({ trades, accountUsd: 98 });
+    const small = practiceTips(trades, bounds).find((tip) => tip.symbol === "SMALL");
+    expect(portfolioAtEntry("2026-10-24T15:00:00.000Z", trades, 98)).toBe(500);
+    expect(bounds.ticketUsd).toBe(9.8);
+    expect(small?.tip).not.toMatch(/Keep the next ticket/);
+    expect(small?.tip ?? "").not.toMatch(/\$9\.80/);
+  });
+
+  it("keeps the next ticket on the book now when $80 was over 10% at the entry", () => {
+    const trades = sizedBook(80, -10);
+    const bounds = bookBounds({ trades, accountUsd: 100 });
+    const wide = practiceTips(trades, bounds).find((tip) => tip.symbol === "SMALL");
+    expect(portfolioAtEntry("2026-10-24T15:00:00.000Z", trades, 100)).toBe(500);
+    expect(bounds.ticketUsd).toBe(10);
+    expect(wide?.tip).toMatch(/Keep the next ticket at \$10(?!\d)/);
+    expect(wide?.tip).toMatch(/10% of the \$100/);
+    expect(wide?.tip).not.toMatch(/\$500/);
+  });
 });
+
+function sizedBook(amountUsd: number, pnlUsd: number): AnnotatedTrade[] {
+  return [
+    at("w1", "14:00", "14:10", { amountUsd: 30, pnlUsd: 1, result: "win", kols: [] }),
+    at("w2", "14:20", "14:30", { amountUsd: 30, pnlUsd: 1, result: "win", kols: [] }),
+    at("w3", "14:40", "14:50", { amountUsd: 30, pnlUsd: 1, result: "win", kols: [] }),
+    at("small", "15:00", "15:10", { symbol: "SMALL", amountUsd, pnlUsd, result: "loss", kols: [] }),
+    at("wreck", "16:00", "16:20", { symbol: "WRECK", amountUsd: 40, pnlUsd: amountUsd === 20 ? -400 : -390, result: "loss", kols: [] }),
+  ];
+}
+
+function at(
+  id: string,
+  entry: string,
+  exit: string,
+  patch: Partial<AnnotatedTrade> & Pick<AnnotatedTrade, "amountUsd" | "pnlUsd" | "result">,
+): AnnotatedTrade {
+  return row({
+    id,
+    symbol: patch.symbol ?? id.toUpperCase(),
+    entryAt: `2026-10-24T${entry}:00.000Z`,
+    exitAt: `2026-10-24T${exit}:00.000Z`,
+    entryMarketCapUsd: 40_000,
+    ...patch,
+  });
+}
 
 function winner(id: string): AnnotatedTrade {
   return row({
