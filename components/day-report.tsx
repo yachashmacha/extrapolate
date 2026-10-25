@@ -2,14 +2,13 @@ import { RATIONALITY_NOTE, type DayFill, type DayReport } from "@/lib/analysis/d
 import { fmtUsd, fmtUsdPlain } from "@/lib/format";
 
 export function DayReportPanel({ report }: { report: DayReport }) {
-  const band = report.score == null ? "empty" : report.score >= 8 ? "high" : report.score >= 5 ? "mid" : "low";
-  const scoreLabel = report.score == null ? "No rationality score" : `Rationality ${report.score} out of 10`;
+  const band = report.score == null ? "empty" : report.score >= 80 ? "high" : report.score >= 50 ? "mid" : "low";
+  const scoreLabel = report.score == null ? "No rationality score" : `Rationality ${report.score} percent`;
   return (
     <section className="section eod" id="daily-report" data-day={report.dayKey} aria-label="End of day report">
       <div className="eod-top">
         <p className={`eod-score ${band}`} aria-label={scoreLabel}>
-          <b className="num">{report.score ?? "—"}</b>
-          {report.score == null ? null : <span>/ 10</span>}
+          <b className="num">{report.score == null ? "—" : `${report.score}%`}</b>
         </p>
         <div className="eod-title">
           <p className="kicker">End of day</p>

@@ -89,23 +89,29 @@ describe("end of day report", () => {
     expect(honest.worst[0].symbol).toBe("DEEP");
   });
 
-  it("scores a losing day of small tickets a 10 when the fills stay clean", () => {
+  it("scores a losing day of small tickets in the 90s, never at 100%", () => {
     const trades = [0, 1, 2, 3].map((minute) =>
       row(`clean-${minute}`, "2026-10-24", minute, { pnl: -5, amount: 20, mc: 30_000, ath: 100_000 }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
     expect(report.pnlUsd).toBe(-20);
-    expect(report.score).toBe(10);
-    expect(report.rational).toBe(true);
+    expect(report.score).toBe(95);
+    expect(report.score).toBeGreaterThanOrEqual(90);
+    expect(report.score).toBeLessThan(100);
+    expect(report.rational).toBe(false);
     expect(report.biases).toEqual([]);
-    expect(report.lead).toMatch(/traded more rationally that day/);
+    expect(report.lead).toMatch(/tickets stayed small/);
     expect(report.lead).toMatch(/nothing sized up after a loss/);
+    expect(report.lead).not.toMatch(/more rationally/);
     expect(report.why).toMatch(/did not repeat a costly pattern/);
     expect(report.why).toMatch(/nothing sized up after a loss/);
-    expect(RATIONALITY_NOTE).toMatch(/10 is a day the fills did not repeat the costly patterns/);
+    expect(report.why).toMatch(/red close keeps the percent under 100/);
+    expect(RATIONALITY_NOTE).toMatch(/100% is a day the fills did not repeat the costly patterns/);
+    expect(RATIONALITY_NOTE).toMatch(/red day cannot be 100%/);
+    expect(RATIONALITY_NOTE).not.toMatch(/10 is a day/);
   });
 
-  it("will not round one costly fill back up to a 10", () => {
+  it("will not round one costly fill back up to 100%", () => {
     const trades = Array.from({ length: 41 }, (_, minute) =>
       row(`slip-${minute}`, "2026-10-24", minute, {
         pnl: 2,
@@ -117,7 +123,7 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.score).toBe(9);
+    expect(report.score).toBe(99);
     expect(report.rational).toBe(true);
     expect(report.biases.map((bias) => bias.title)).not.toContain("Added to the same coin");
     expect(report.why).toMatch(/averaged down/);
@@ -136,7 +142,8 @@ describe("end of day report", () => {
     const trades = [...earlier, ...revengeDay];
     const report = endOfDayReport(trades, "2026-10-24");
     expect(report.pnlUsd).toBe(-140);
-    expect(report.score).toBe(1);
+    expect(report.score).toBe(17);
+    expect(report.score).toBeLessThan(40);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).toContain("Revenge trading");
     expect(report.lead).toMatch(/dominant bias was revenge trading/i);
@@ -147,7 +154,7 @@ describe("end of day report", () => {
 
     const before = endOfDayReport(trades, "2026-10-23");
     expect(before.pnlUsd).toBe(40);
-    expect(before.score).toBe(10);
+    expect(before.score).toBe(100);
     expect(before.biases).toEqual([]);
   });
 
@@ -161,10 +168,12 @@ describe("end of day report", () => {
     ];
     const report = endOfDayReport([...earlier, ...day], "2026-10-24");
     expect(report.pnlUsd).toBe(-27);
-    expect(report.score).toBe(10);
-    expect(report.rational).toBe(true);
+    expect(report.score).toBe(95);
+    expect(report.score).toBeLessThan(100);
+    expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).not.toContain("Revenge trading");
-    expect(report.lead).toMatch(/more rationally/);
+    expect(report.lead).toMatch(/tickets stayed small/);
+    expect(report.lead).not.toMatch(/more rationally/);
   });
 
   it("scores size-ups low even when those tickets made money, without calling the win revenge trading", () => {
@@ -176,7 +185,7 @@ describe("end of day report", () => {
       row(`press-${index}`, "2026-10-24", index * 2 + 1, { pnl: 10, amount: 80, symbol: `PRESS${index}`, ath: null }),
     ]);
     const report = endOfDayReport([...earlier, ...day], "2026-10-24");
-    expect(report.score).toBe(3);
+    expect(report.score).toBe(48);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).not.toContain("Revenge trading");
     expect(report.lead).toMatch(/sized up after a loss/);
@@ -198,7 +207,7 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.score).toBe(1);
+    expect(report.score).toBe(19);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).toContain("FOMO");
     expect(report.lead).toMatch(/volume started dropping and market cap dropped/);
@@ -219,10 +228,12 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.score).toBe(10);
-    expect(report.rational).toBe(true);
+    expect(report.score).toBe(91);
+    expect(report.score).toBeLessThan(100);
+    expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
-    expect(report.lead).not.toMatch(/FOMO|75%/);
+    expect(report.lead).toMatch(/tickets stayed small/);
+    expect(report.lead).not.toMatch(/FOMO|75%|more rationally/);
     expect(report.why).not.toMatch(/near the high|graduation|bond/i);
     expect(report.why).toMatch(/did not repeat a costly pattern/);
     expect(report.why).toMatch(/no entry faded after the fill/);
@@ -238,9 +249,10 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.score).toBe(10);
+    expect(report.score).toBe(91);
+    expect(report.score).toBeLessThan(100);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
-    expect(report.lead).not.toMatch(/FOMO|faded after/);
+    expect(report.lead).not.toMatch(/FOMO|faded after|more rationally/);
     expect(report.why).not.toMatch(/faded after/);
   });
 
@@ -266,7 +278,7 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport([...faded, ...mid], "2026-10-24");
-    expect(report.score).toBe(3);
+    expect(report.score).toBe(48);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
     expect(report.rational).toBe(false);
     expect(report.lead).not.toMatch(/more rationally|75%|bond|graduation/i);
@@ -282,7 +294,7 @@ describe("end of day report", () => {
       row(`mid-${minute}`, "2026-10-24", minute, { pnl: -10, amount: 20, mc: 60_000, ath: 100_000 }),
     );
     const report = endOfDayReport([...under, ...mid], "2026-10-24");
-    expect(report.score).toBe(10);
+    expect(report.score).toBe(100);
     expect(report.rational).toBe(true);
     expect(report.biases).toEqual([]);
     expect(report.tendency?.title).toBe("Bought well under the high");
@@ -301,7 +313,7 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.score).toBe(1);
+    expect(report.score).toBe(29);
     expect(report.biases.map((bias) => bias.title)).toEqual(["Sunk-cost fallacy"]);
     expect(report.lead).toMatch(/after a red close/);
     expect(report.lead).not.toMatch(/more rationally/);
@@ -316,7 +328,7 @@ describe("end of day report", () => {
       ...[3, 4, 5].map((minute) => row(`once-${minute}`, "2026-10-24", minute, { pnl: 10, amount: 20, buys: 1 })),
     ];
     const added = endOfDayReport(adds, "2026-10-24");
-    expect(added.score).toBe(6);
+    expect(added.score).toBe(40);
     expect(added.biases.map((bias) => bias.title)).toContain("Averaging down");
     expect(added.biases.map((bias) => bias.title)).not.toContain("Added to the same coin");
     expect(added.rational).toBe(false);
@@ -330,9 +342,45 @@ describe("end of day report", () => {
       ),
     ];
     const pool = endOfDayReport(heavy, "2026-10-24");
-    expect(pool.score).toBe(6);
+    expect(pool.score).toBe(44);
     expect(pool.biases.map((bias) => bias.title)).toContain("The ticket was large for the pool");
     expect(pool.lead).toMatch(/2% of the pool/);
+  });
+
+  it("uses the size of the loss, and weighs a named pattern more than the red close", () => {
+    const small = [0, 1, 2, 3].map((minute) =>
+      row(`small-${minute}`, "2026-10-24", minute, { pnl: -5, amount: 20 }),
+    );
+    const larger = [0, 1, 2, 3].map((minute) =>
+      row(`large-${minute}`, "2026-10-24", minute, { pnl: -100, amount: 100 }),
+    );
+    const patterned = [
+      row("seed", "2026-10-24", 0, { pnl: -40, amount: 20, mint: "again", symbol: "AGAIN" }),
+      ...[1, 2, 3].map((minute) =>
+        row(`again-${minute}`, "2026-10-24", minute, { pnl: -80, amount: 80, mint: "again", symbol: "AGAIN" }),
+      ),
+    ];
+    const green = [0, 1, 2, 3].map((minute) =>
+      row(`green-${minute}`, "2026-10-24", minute, { pnl: 8, amount: 20 }),
+    );
+    const smallReport = endOfDayReport(small, "2026-10-24");
+    const largerReport = endOfDayReport(larger, "2026-10-24");
+    const patternedReport = endOfDayReport(patterned, "2026-10-24");
+    const greenReport = endOfDayReport(green, "2026-10-24");
+
+    expect(smallReport.biases).toEqual([]);
+    expect(largerReport.biases).toEqual([]);
+    expect(smallReport.score).toBeGreaterThanOrEqual(90);
+    expect(largerReport.score).toBeGreaterThanOrEqual(90);
+    expect(largerReport.score).toBeLessThan(smallReport.score!);
+    expect(smallReport.score).toBeLessThan(100);
+    expect(largerReport.score).toBeLessThan(100);
+    expect(patternedReport.biases.map((bias) => bias.title)).toContain("Sunk-cost fallacy");
+    expect(patternedReport.score).toBeLessThan(60);
+    expect(patternedReport.score!).toBeLessThan(smallReport.score! - 30);
+    expect(greenReport.pnlUsd).toBeGreaterThan(0);
+    expect(greenReport.biases).toEqual([]);
+    expect(greenReport.score).toBe(100);
   });
 
   it("has nothing to score when the selected day has no closes", () => {

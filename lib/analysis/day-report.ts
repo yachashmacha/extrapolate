@@ -9,7 +9,7 @@ import type { RoundTrip } from "@/lib/types";
 const UNDER_HIGH = 0.45;
 
 export const RATIONALITY_NOTE =
-  "10 is a day the fills did not repeat the costly patterns. The score reads this day's behavior. It is not a prediction.";
+  "100% is a day the fills did not repeat the costly patterns and the close was not negative. A red day cannot be 100%. The score reads this day's behavior. It is not a prediction.";
 
 export interface DayFill {
   id: string;
@@ -41,7 +41,7 @@ export interface DayReport {
   rational: boolean;
   tendency: DayFinding | null;
   lead: string;
-  /** 1–10, or null when the day has no closed trades. */
+  /** Rationality as a percent from 1 to 100, or null when the day has no closed trades. */
   score: number | null;
   why: string;
 }
@@ -157,11 +157,23 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     usualLabel,
   });
   const tendency = biases.length === 0 ? paidTendency({ flat, revengeTrades, day, fomoTrades, under, known, once, multi, usualLabel }) : null;
-  const primary =
-    revengeTrades.length >= 3 || fomoTrades.length >= 3 || reentryQualifies(reentryTrades);
-  const score = toScore(weight, biases.length > 0);
-  const rational = score >= 8 && biases.length === 0;
-  const why = whyLine(counts);
+  const revengeCluster = revengeTrades.length >= 3;
+  const fomoCluster = fomoTrades.length >= 3;
+  const reentryCluster = reentryQualifies(reentryTrades);
+  const namedBias = biases.length > 0;
+  const pnlUsd = day.reduce((sum, trade) => sum + trade.pnlUsd, 0);
+  const turnoverUsd = day.reduce((sum, trade) => sum + Math.max(0, trade.amountUsd), 0);
+  const marked = day.filter((_, index) => marks[index] > 0);
+  const markedNet = marked.length ? net(marked) : 0;
+  const patternLoss = markedNet < 0 ? -markedNet : 0;
+  const cluster = revengeCluster || fomoCluster || reentryCluster;
+  // A repeated pattern leads the copy when it is named, or when the day still closed green.
+  // On a small red day the unnamed marks are only a few points, so the lead stays with the tickets.
+  const primary = namedBias || pnlUsd >= 0 ? cluster : false;
+  const fomoInScore = biases.some((bias) => bias.id === "fomo") || (pnlUsd >= 0 && fomoCluster);
+  const score = toScore({ weight, namedBias, cluster, pnlUsd, turnoverUsd, patternLoss });
+  const rational = pnlUsd >= 0 && !namedBias && score >= 80;
+  const why = whyForScore(whyLine(counts, fomoInScore), pnlUsd, namedBias);
   const lead = leadLine({
     rational,
     primary,
@@ -172,6 +184,7 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     revengeTrades,
     fomoTrades,
     reentryTrades,
+    pnlUsd,
   });
 
   const wins = [...day].filter((trade) => trade.pnlUsd > 0).sort(byBest);
@@ -180,7 +193,7 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     dayKey,
     label,
     tradeCount: day.length,
-    pnlUsd: day.reduce((sum, trade) => sum + trade.pnlUsd, 0),
+    pnlUsd,
     best: wins.slice(0, 3).map(fillOf),
     worst: losses.slice(0, 3).map(fillOf),
     noWinningTrade: wins.length === 0,
@@ -195,12 +208,10 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
 }
 
 /**
- * 10 means every close avoided the costly patterns.
- * A close that sized up after a loss, faded after the entry, or re-entered a red coin counts fully.
+ * A full mark is a close that sized up after a loss, faded after the entry, or re-entered a red coin.
  * Averaging down, or a ticket that is large for the pool, counts half.
  * When revenge sizing, a post-entry fade, or re-entry repeats (the same cluster bar as the habit feed),
  * that pattern's share is lifted so a run of them cannot hide behind a pile of small tickets.
- * A named bias cannot score as a clean day. One costly fill cannot round back up to 10.
  */
 function behaviorWeight(marks: number[], clusters: { active: boolean; share: number }[]): number {
   const mean = marks.reduce((sum, mark) => sum + mark, 0) / marks.length;
@@ -211,13 +222,63 @@ function behaviorWeight(marks: number[], clusters: { active: boolean; share: num
   return Math.max(mean, lifted);
 }
 
-function toScore(weight: number, namedBias: boolean): number {
-  let score = Math.round(10 - 9 * weight);
-  if (score > 10) score = 10;
+/**
+ * 100% means the day was not negative and every close avoided the costly patterns.
+ * The percent is not a 1–10 score times ten. It follows which fills were costly and how many
+ * dollars those fills lost.
+ * A named bias, or a repeated pattern on a day that still closed green, takes a wide slice:
+ * the share of the day, then the dollars those fills lost. That slice is larger than the red-close deduction.
+ * On a red day, marks that never cleared the bias bar take only a few points, so a small loss with no
+ * named bias stays in the 90s.
+ * One costly fill cannot round back up to 100%. A negative close cannot be 100% either.
+ */
+function toScore(input: {
+  weight: number;
+  namedBias: boolean;
+  cluster: boolean;
+  pnlUsd: number;
+  turnoverUsd: number;
+  patternLoss: number;
+}): number {
+  const { weight, namedBias, cluster, pnlUsd, turnoverUsd, patternLoss } = input;
+  let score = 100;
+  if (namedBias) {
+    // The name costs more than a red close. The dollars those fills lost then open the gap
+    // between a small fade and a day of revenge sizing.
+    score -= 20 * weight;
+    if (patternLoss > 0) score -= 22 * Math.log10(Math.max(patternLoss, 1));
+    score -= 10;
+  } else if (cluster && pnlUsd >= 0) {
+    // A repeated pattern on a green day is still the behavior. It cannot read as a clean day.
+    score -= 70 * weight;
+  } else if (weight > 0) {
+    const share = 2 * weight;
+    const dollars = patternLoss > 0 ? Math.log10(1 + patternLoss) : 0;
+    score -= Math.min(4, share + dollars);
+  }
+  score = Math.round(score);
+  if (weight > 0 && score >= 100) score = 99;
+  if (pnlUsd < 0) {
+    score -= redDeduction(-pnlUsd, turnoverUsd);
+    if (score > 99) score = 99;
+  }
+  if (score > 100) score = 100;
   if (score < 1) score = 1;
-  if (weight > 0 && score === 10) score = 9;
-  if (namedBias && score > 6) score = 6;
   return score;
+}
+
+function redDeduction(lossUsd: number, turnoverUsd: number): number {
+  const byDollars = 2.4 * Math.log10(Math.max(lossUsd, 1));
+  const giveback = turnoverUsd > 0 ? Math.min(1, lossUsd / turnoverUsd) : 1;
+  const raw = 1 + byDollars + 4 * giveback;
+  return Math.min(9, Math.max(1, Math.round(raw)));
+}
+
+function whyForScore(why: string, pnlUsd: number, namedBias: boolean): string {
+  if (pnlUsd < 0 && !namedBias && !why.startsWith("The score reads")) {
+    return `${why} The red close keeps the percent under 100.`;
+  }
+  return why;
 }
 
 function biasFindings(input: {
@@ -369,8 +430,9 @@ function leadLine(input: {
   revengeTrades: RoundTrip[];
   fomoTrades: RoundTrip[];
   reentryTrades: RoundTrip[];
+  pnlUsd: number;
 }): string {
-  const { rational, primary, biases, tendency, usualLabel, counts, revengeTrades, fomoTrades, reentryTrades } = input;
+  const { rational, primary, biases, tendency, usualLabel, counts, revengeTrades, fomoTrades, reentryTrades, pnlUsd } = input;
   if (biases.length > 0) {
     return biases
       .map((bias, index) =>
@@ -386,6 +448,13 @@ function leadLine(input: {
   const behavior = behaviorLead(revengeTrades, fomoTrades, reentryTrades);
   if (primary && behavior) return behavior;
   if (tendency) return asTendency(tendency).sentence;
+  if (pnlUsd < 0) {
+    const detail = rationalDetail(counts, usualLabel);
+    if (counts.n > 0 && counts.small === counts.n) {
+      return detail ? `The tickets stayed small. ${detail}` : "The tickets stayed small.";
+    }
+    if (detail) return detail;
+  }
   return behavior || "The closes do not settle on one bias.";
 }
 
@@ -419,12 +488,12 @@ function behaviorLead(revengeTrades: RoundTrip[], fomoTrades: RoundTrip[], reent
   return capitalize(joinAnd(parts)) + ".";
 }
 
-function whyLine(counts: Counts): string {
+function whyLine(counts: Counts, fomoInScore: boolean): string {
   const primary: string[] = [];
   if (counts.revenge >= 2) primary.push("sizing up after a loss");
   else if (counts.revenge === 1) primary.push("a size-up after a loss");
-  if (counts.fomo >= 2) primary.push("volume and market cap dropping after the entry");
-  else if (counts.fomo === 1) primary.push("volume and market cap dropping after one entry");
+  if (fomoInScore && counts.fomo >= 2) primary.push("volume and market cap dropping after the entry");
+  else if (fomoInScore && counts.fomo === 1) primary.push("volume and market cap dropping after one entry");
   if (counts.reentry >= 2) primary.push("re-entering losers");
   else if (counts.reentry === 1) primary.push("a re-entry after a red close");
   if (primary.length > 0) return `The score reads ${joinAnd(primary)} in this day's closes.`;
@@ -448,9 +517,14 @@ function cleanWhy(counts: Counts): string {
   const details: string[] = [];
   if (counts.n > 0 && counts.small === counts.n) details.push("the tickets stayed small");
   if (counts.revenge === 0) details.push("nothing sized up after a loss");
-  if (counts.athKnown > 0 && counts.under === counts.athKnown) details.push("entries stayed at or under 45% of the high");
-  else if (counts.fomo === 0 && counts.fomoUnknown === 0) details.push("no entry faded after the fill");
+  if (counts.fomo > 0) {
+    details.push(
+      `${counts.fomo} ${counts.fomo === 1 ? "entry faded after the fill" : "entries faded after the fill"}`,
+    );
+  } else if (counts.athKnown > 0 && counts.under === counts.athKnown) details.push("entries stayed at or under 45% of the high");
+  else if (counts.fomoUnknown === 0) details.push("no entry faded after the fill");
   if (details.length === 0) return "The fills did not repeat a costly pattern.";
+  if (counts.fomo > 0) return `${capitalize(joinAnd(details))}.`;
   return `The fills did not repeat a costly pattern: ${joinAnd(details)}.`;
 }
 
