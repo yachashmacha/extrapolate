@@ -37,23 +37,12 @@ export function Desk() {
   return (
     <main className="shell desk">
       <BookBar page="desk" title={title} note={note} search={search} onReread={reread} />
-      <nav className="index" aria-label="Desk sections">
-        <a href="#biases">Biases</a>
-        <a href="#split">Split</a>
-        <a href="#curve">Equity</a>
-        <a href="#patterns">Shared</a>
-        <a href="#fixes">Leaks</a>
-        <a href="#keeps">Edge</a>
-        <a href="#people">KOLs</a>
-        <a href="#tape">Tape</a>
-      </nav>
-
       {loading ? <p className="loading">Reading signatures, rebuilding round trips, and comparing the winners with the losers.</p> : null}
       {error ? <BookError error={error} /> : null}
 
       {book && !loading ? (
         <>
-          <BookNotices book={book} kolScan={kolScan} />
+          <BookNotices book={book} />
           <HabitFeed
             habits={habits}
             bounds={bounds}

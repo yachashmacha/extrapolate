@@ -2,9 +2,8 @@ import Link from "next/link";
 import { fmtUsdPlain } from "@/lib/format";
 import { traderSearch } from "@/lib/trader";
 import type { Book } from "@/lib/types";
-import type { KolScanProgress } from "@/components/use-book";
 
-export function BookNotices({ book, kolScan }: { book: Book; kolScan?: KolScanProgress | null }) {
+export function BookNotices({ book }: { book: Book }) {
   return (
     <>
       {book.source === "sample" ? (
@@ -15,7 +14,6 @@ export function BookNotices({ book, kolScan }: { book: Book; kolScan?: KolScanPr
           {warning}
         </p>
       ))}
-      {kolScan?.pending && kolScan.total > 0 ? <KolScanNotice scan={kolScan} /> : null}
       {book.opens.length > 0 ? (
         <p className="warn">
           Still open, and left out of the win rate:{" "}
@@ -28,18 +26,6 @@ export function BookNotices({ book, kolScan }: { book: Book; kolScan?: KolScanPr
         </p>
       ) : null}
     </>
-  );
-}
-
-function KolScanNotice({ scan }: { scan: KolScanProgress }) {
-  const checked = scan.checked.toLocaleString("en-US");
-  const total = scan.total.toLocaleString("en-US");
-  const found = scan.matches === 1 ? "1 buy is on the tape" : `${scan.matches.toLocaleString("en-US")} buys are on the tape`;
-  return (
-    <p className="warn">
-      Checking tracked wallets against these coins: {checked} of {total}.{" "}
-      {scan.matches > 0 ? `${found}. Each match shows the name.` : "Matches show up here as they are found."}
-    </p>
   );
 }
 
