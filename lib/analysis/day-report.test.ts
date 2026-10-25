@@ -245,7 +245,7 @@ describe("end of day report", () => {
       }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
-    expect(report.score).toBe(91);
+    expect(report.score).toBe(90);
     expect(report.score).toBeLessThan(100);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");

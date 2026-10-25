@@ -6,7 +6,7 @@ import { net, winRate } from "@/lib/analysis/stats";
 import type { KolTag, KolTiming, MetaId, RoundTrip } from "@/lib/types";
 
 export interface NarrativeScore {
-  /** 0–100. The coin's story, separate from the day's rationality percent. */
+  /** Integer 1–10. The coin's story. The day's rationality percent only feels this as a small nudge. */
   score: number;
   /** The one or two factors that set the score. */
   factors: string[];
@@ -31,11 +31,11 @@ const WEIGHT: Record<Piece["id"], number> = {
 };
 
 /**
- * Narrative score, 0–100, for the coin's story. It is not the rationality percent.
- * Ticket size and the percent of the coin are not factors. A graduation is not
- * stored on these fills, so it is not scored.
+ * Narrative score, an integer 1–10, for the coin's story. It is not the day's
+ * rationality percent. Ticket size and the percent of the coin or the pool are
+ * not factors. A graduation is not stored on these fills, so it is not scored.
  *
- * score = callers + catalyst + record + run + timing, clamped to 0–100.
+ * The pieces still add on a 0–100 scale, heaviest first:
  * Callers, max 36: 16 for the first caller in before or with the entry, then 12,
  * then 8, then 6 each. A caller after the entry is 6, then 4, then 3 each.
  * Several independent callers add; none does not zero the rest.
@@ -50,6 +50,7 @@ const WEIGHT: Record<Piece["id"], number> = {
  * Timing, max 10, skipped when the high is missing: entry at or under 35% of the
  * high is 10, the lower half is 6, already up the range is 2, and near the high is 0.
  * That timing is not the FOMO rule.
+ * Shown score = round(1 + 9 × raw / 100), clamped to 1–10.
  * The line is the two factors with the most points. The bare tag is left off only
  * when the record scored at least as much and is already on the line. A long caller
  * list names three and counts the rest.
@@ -63,7 +64,7 @@ export function narrativeScore(trade: RoundTrip, book: RoundTrip[]): NarrativeSc
     timingPiece(trade),
   ];
   const factors = leadingFactors(pieces);
-  const score = clamp(pieces.reduce((sum, piece) => sum + piece.points, 0));
+  const score = toTen(pieces.reduce((sum, piece) => sum + piece.points, 0));
   return { score, factors, line: factors.join(" ") };
 }
 
@@ -281,6 +282,8 @@ function joinAnd(parts: string[]): string {
   return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
 }
 
-function clamp(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
+/** Map the weighted 0–100 pieces onto an integer from 1 to 10. */
+function toTen(raw: number): number {
+  const bounded = Math.max(0, Math.min(100, Math.round(raw)));
+  return Math.max(1, Math.min(10, Math.round(1 + (bounded / 100) * 9)));
 }

@@ -22,7 +22,7 @@ export interface DayFill {
   amountUsd: number;
   /** Set when this close broke an active base rule. */
   note?: string;
-  /** The coin's story, 0–100. Not an input to the rationality percent. */
+  /** The coin's story, an integer 1–10. The day percent uses the average only as a small nudge. */
   narrativeScore: number;
   /** The one or two factors that set the narrative score. */
   narrative: string;
@@ -194,7 +194,11 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string, context?: Da
   const oversized = day.filter((_, index) => breaks[index]?.size);
   const broken = pastStop.length + oversized.filter((trade) => !pastStop.some((stop) => stop.id === trade.id)).length;
   const behaviorScore = toScore({ weight, namedBias, cluster, pnlUsd, turnoverUsd, patternLoss });
-  const score = applyBaseRuleScore(behaviorScore, broken, day.length);
+  const ruled = applyBaseRuleScore(behaviorScore, broken, day.length);
+  const score = applyNarrativeNudge(
+    ruled,
+    day.map((trade) => narrativeScore(trade, trades).score),
+  );
   const rational = pnlUsd >= 0 && !namedBias && score >= 80 && broken === 0;
   let why = whyForScore(whyLine(counts, fomoInScore), pnlUsd, namedBias);
   let lead = leadLine({
@@ -267,6 +271,30 @@ function applyBaseRuleScore(score: number, broken: number, total: number): numbe
 }
 
 /**
+ * Coin narratives are the lightest input to the day percent.
+ * Heavier, and already in `score`: the biases and fallacies on the fills, a broken
+ * base rule, then the end-of-day realized PnL (a red close takes 1–9 points).
+ * This nudge is at most 3 points either way. A plain coin on this scale lands near 4,
+ * so a day of ordinary stories does not move. A day of 10s adds up to 3. A day of 1s
+ * takes 1 off. One strong coin cannot carry the average.
+ * A percent that biases, a red close, or a broken rule already held under 100 stays under 100.
+ */
+export function narrativeNudge(scores: readonly number[]): number {
+  if (scores.length === 0) return 0;
+  const mean = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+  const raw = Math.round((mean - 4) * 0.5);
+  return Math.max(-3, Math.min(3, raw));
+}
+
+function applyNarrativeNudge(score: number, scores: readonly number[]): number {
+  let next = score + narrativeNudge(scores);
+  if (next > 100) next = 100;
+  if (next < 1) next = 1;
+  if (score < 100 && next > 99) next = 99;
+  return next;
+}
+
+/**
  * A full mark is a close that sized up after a loss, faded after the entry, or re-entered a red coin.
  * Averaging down, or a ticket at least 1.5× this trader's own median size, counts half.
  * When revenge sizing, a post-entry fade, or re-entry repeats (the same cluster bar as the habit feed),
@@ -284,7 +312,8 @@ function behaviorWeight(marks: number[], clusters: { active: boolean; share: num
 /**
  * 100% means the day was not negative and every close avoided the costly patterns.
  * The percent is not a 1–10 score times ten. It follows which fills were costly and how many
- * dollars those fills lost.
+ * dollars those fills lost. The coin scores are applied later, in applyNarrativeNudge, and
+ * they move this by at most 3 points.
  * A named bias, or a repeated pattern on a day that still closed green, takes a wide slice:
  * the share of the day, then the dollars those fills lost. That slice is larger than the red-close deduction.
  * On a red day, marks that never cleared the bias bar take only a few points, so a small loss with no

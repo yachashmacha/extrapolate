@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { endOfDayReport } from "@/lib/analysis/day-report";
+import { endOfDayReport, narrativeNudge } from "@/lib/analysis/day-report";
 import { narrativeScore } from "@/lib/analysis/narrative";
 import { kolFromSpec, makeKol, tagsFromHits, TRACKED_KOLS } from "@/lib/kols";
 import type { KolTag, MetaId, RoundTrip } from "@/lib/types";
@@ -52,11 +52,12 @@ describe("narrative score", () => {
     const low = narrativeScore(weak, book);
 
     expect(high.score).toBeGreaterThan(low.score);
-    expect(high.score - low.score).toBeGreaterThanOrEqual(25);
-    expect(high.score).toBeGreaterThan(0);
-    expect(high.score).toBeLessThanOrEqual(100);
-    expect(low.score).toBeGreaterThan(0);
-    expect(low.score).toBeLessThanOrEqual(100);
+    expect(Number.isInteger(high.score)).toBe(true);
+    expect(Number.isInteger(low.score)).toBe(true);
+    expect(high.score).toBeGreaterThanOrEqual(1);
+    expect(high.score).toBeLessThanOrEqual(10);
+    expect(low.score).toBeGreaterThanOrEqual(1);
+    expect(low.score).toBeLessThanOrEqual(10);
     expect(high.factors.length).toBeGreaterThan(0);
     expect(high.factors.length).toBeLessThanOrEqual(2);
     expect(high.line).toMatch(/Orangie/);
@@ -98,8 +99,14 @@ describe("narrative score", () => {
 
     const small = narrativeScore(strong, book);
     const huge = narrativeScore({ ...strong, amountUsd: 25_000 }, book);
+    const thinPool = narrativeScore({ ...strong, liquidityUsd: 400 }, book);
+    const deepPool = narrativeScore({ ...strong, liquidityUsd: 2_000_000 }, book);
     expect(huge.score).toBe(small.score);
     expect(huge.line).toBe(small.line);
+    expect(thinPool.score).toBe(small.score);
+    expect(deepPool.score).toBe(small.score);
+    expect(thinPool.line).toBe(small.line);
+    expect(`${thinPool.line} ${deepPool.line}`).not.toMatch(/percent of the coin|of the pool|% of supply/i);
   });
 
   it("skips the run when the high was not stored, and keeps a fade from being relabeled", () => {
@@ -167,7 +174,7 @@ describe("narrative score", () => {
     expect(line).toMatch(/The narrative is AI/);
   });
 
-  it("shows on the best and worst lines and does not move the rationality percent", () => {
+  it("shows a 1–10 coin score on the best line and leaves an ordinary green day at 100 percent", () => {
     const day = [0, 1, 2, 3].map((minute) =>
       trade(`green-${minute}`, {
         pnl: 8,
@@ -184,12 +191,149 @@ describe("narrative score", () => {
     expect(report.score).toBe(100);
     expect(report.why).not.toMatch(/narrative score/i);
     for (const fill of [...report.best, ...report.worst]) {
-      expect(fill.narrativeScore).toBeGreaterThanOrEqual(0);
-      expect(fill.narrativeScore).toBeLessThanOrEqual(100);
+      expect(Number.isInteger(fill.narrativeScore)).toBe(true);
+      expect(fill.narrativeScore).toBeGreaterThanOrEqual(1);
+      expect(fill.narrativeScore).toBeLessThanOrEqual(10);
       expect(fill.narrative.length).toBeGreaterThan(0);
       expect(fill.narrative).not.toMatch(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
     }
     expect(report.best.length).toBeGreaterThan(0);
+  });
+
+  it("nudges a red day up a few points for stronger narratives and still stays under 100", () => {
+    const priors = [0, 1, 2].map((index) =>
+      trade(`prior-${index}`, {
+        mint: `prior-mint-${index}`,
+        metas: ["animal"],
+        pnl: 80,
+        amount: 20,
+        entryAt: `2026-10-0${index + 1}T12:00:00.000Z`,
+        exitAt: `2026-10-0${index + 1}T13:00:00.000Z`,
+        ath: null,
+      }),
+    );
+    const highDay = [0, 1, 2, 3].map((minute) =>
+      trade(`high-${minute}`, {
+        mint: `high-mint-${minute}`,
+        metas: ["animal"],
+        pnl: -5,
+        amount: 20,
+        mc: 40_000,
+        ath: 400_000,
+        kols: [makeKol("orangie", "before"), makeKol("cented", "before")],
+        entryAt: stamp("2026-10-24", minute),
+        exitAt: stamp("2026-10-24", minute),
+      }),
+    );
+    const lowDay = [0, 1, 2, 3].map((minute) =>
+      trade(`low-${minute}`, {
+        mint: `low-mint-${minute}`,
+        metas: ["political"],
+        pnl: -5,
+        amount: 20,
+        mc: 40_000,
+        ath: null,
+        entryAt: stamp("2026-10-24", minute),
+        exitAt: stamp("2026-10-24", minute),
+      }),
+    );
+    const high = endOfDayReport([...priors, ...highDay], "2026-10-24");
+    const low = endOfDayReport(lowDay, "2026-10-24");
+    expect(high.pnlUsd).toBe(low.pnlUsd);
+    expect(high.pnlUsd).toBeLessThan(0);
+    expect(high.biases.map((bias) => bias.title)).toEqual(low.biases.map((bias) => bias.title));
+    expect(high.score).toBeGreaterThan(low.score!);
+    expect(high.score! - low.score!).toBeLessThanOrEqual(6);
+    expect(high.score! - low.score!).toBeGreaterThanOrEqual(1);
+    expect(high.score).toBeLessThan(100);
+    expect(low.score).toBeLessThan(100);
+    expect(high.worst.every((fill) => fill.narrativeScore >= 1 && fill.narrativeScore <= 10)).toBe(true);
+    expect(Math.min(...high.worst.map((fill) => fill.narrativeScore))).toBeGreaterThan(
+      Math.max(...low.worst.map((fill) => fill.narrativeScore)),
+    );
+  });
+
+  it("keeps a green day under 100 when a bias showed or a base rule broke, even if the coins score high", () => {
+    const faded = [0, 1, 2, 3].map((minute) =>
+      trade(`fade-${minute}`, {
+        mint: `fade-mint-${minute}`,
+        metas: ["animal"],
+        pnl: 20,
+        amount: 20,
+        mc: 40_000,
+        ath: 400_000,
+        kols: [makeKol("orangie", "before"), makeKol("cented", "before")],
+        volumeDroppedAfter: true,
+        mcDroppedAfter: true,
+        entryAt: stamp("2026-10-24", minute),
+        exitAt: stamp("2026-10-24", minute),
+      }),
+    );
+    const chased = endOfDayReport(faded, "2026-10-24");
+    expect(chased.pnlUsd).toBeGreaterThan(0);
+    expect(chased.score).toBeLessThan(100);
+    expect(chased.score).toBeLessThan(70);
+
+    const broken = [0, 1, 2, 3].map((minute) =>
+      trade(`rule-${minute}`, {
+        mint: `rule-mint-${minute}`,
+        metas: ["animal"],
+        pnl: 12,
+        amount: 20,
+        mc: 40_000,
+        exitMc: minute === 0 ? 10_000 : 50_000,
+        ath: 400_000,
+        kols: [makeKol("orangie", "before"), makeKol("cented", "before")],
+        entryAt: stamp("2026-10-24", minute + 10),
+        exitAt: stamp("2026-10-24", minute + 10),
+      }),
+    );
+    const ruled = endOfDayReport(broken, "2026-10-24", { accountUsd: 10_000 });
+    expect(ruled.pnlUsd).toBeGreaterThan(0);
+    expect(ruled.score).toBeLessThan(100);
+    expect(ruled.why).toMatch(/broken base rule/);
+    expect(ruled.best.some((fill) => fill.narrativeScore >= 7)).toBe(true);
+  });
+
+  it("does not let one strong coin, or a day of 10s, lift a biased or red day to 100", () => {
+    expect(narrativeNudge([10, 10, 10, 10])).toBeLessThanOrEqual(3);
+    expect(narrativeNudge([10, 10, 10, 10])).toBeGreaterThan(0);
+    expect(narrativeNudge([1, 1, 1, 1])).toBeGreaterThanOrEqual(-3);
+    expect(narrativeNudge([1, 1, 1, 1])).toBeLessThan(0);
+    expect(narrativeNudge([10, 10, 10, 10]) - narrativeNudge([1, 1, 1, 1])).toBeLessThanOrEqual(6);
+    expect(Math.abs(narrativeNudge([10, 1, 1, 1]) - narrativeNudge([1, 1, 1, 1]))).toBeLessThanOrEqual(1);
+
+    const weak = [0, 1, 2, 3].map((minute) =>
+      trade(`again-${minute}`, {
+        mint: "same-mint",
+        symbol: "AGAIN",
+        metas: ["political"],
+        pnl: -12,
+        amount: 20,
+        ath: null,
+        entryAt: stamp("2026-10-24", minute),
+        exitAt: stamp("2026-10-24", minute),
+      }),
+    );
+    const rescued = weak.map((row, index) =>
+      index === 0
+        ? {
+            ...row,
+            kols: [makeKol("orangie", "before"), makeKol("cented", "before"), makeKol("ansem", "before")],
+            athMarketCapUsd: 400_000,
+            entryMarketCapUsd: 20_000,
+            metas: ["animal"] as MetaId[],
+          }
+        : row,
+    );
+    const plain = endOfDayReport(weak, "2026-10-24");
+    const mixed = endOfDayReport(rescued, "2026-10-24");
+    expect(plain.biases.map((bias) => bias.title)).toContain("Sunk-cost fallacy");
+    expect(mixed.biases.map((bias) => bias.title)).toContain("Sunk-cost fallacy");
+    expect(plain.score).toBeLessThan(50);
+    expect(mixed.score).toBeLessThan(50);
+    expect(mixed.score! - plain.score!).toBeLessThanOrEqual(2);
+    expect(mixed.score).toBeLessThan(100);
   });
 });
 
