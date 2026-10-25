@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { fmtUsdPlain } from "@/lib/format";
-import { namesSharingWalletCount } from "@/lib/kols";
 import { traderSearch } from "@/lib/trader";
 import type { Book } from "@/lib/types";
 import type { KolScanProgress } from "@/components/use-book";
@@ -33,15 +32,13 @@ export function BookNotices({ book, kolScan }: { book: Book; kolScan?: KolScanPr
 }
 
 function KolScanNotice({ scan }: { scan: KolScanProgress }) {
-  const shared = namesSharingWalletCount();
   const checked = scan.checked.toLocaleString("en-US");
   const total = scan.total.toLocaleString("en-US");
   const found = scan.matches === 1 ? "1 buy is on the tape" : `${scan.matches.toLocaleString("en-US")} buys are on the tape`;
   return (
     <p className="warn">
       Checking tracked wallets against these coins: {checked} of {total}.{" "}
-      {scan.matches > 0 ? `${found}, each name with its wallet.` : "Matches show up here as they are found."} {shared} names
-      are used by more than one wallet, so the wallet stays on the label.
+      {scan.matches > 0 ? `${found}. Each match shows the name.` : "Matches show up here as they are found."}
     </p>
   );
 }

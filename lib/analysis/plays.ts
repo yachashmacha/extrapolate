@@ -196,7 +196,7 @@ function callerCandidate(
     evidence: `${portrait(quiet, "Trades with no KOL in before you")}${late} ${portrait(early, "Trades with a KOL already in")}`,
     rule: `A buy needs ${joinOr(names.length > 0 ? names : [who])} already in the coin, and it still has to sit under ${cap} at the base size.`,
     steps: [
-      `The desk checks the tracked wallets on each coin and shows the name with that wallet. Add anyone still missing from a ${desk} fill on the tape, with the timing.`,
+      `The desk checks the tracked wallets on each coin and shows the name. Add anyone still missing from a ${desk} fill on the tape, with the timing.`,
       `If ${joinOr(names.length > 0 ? names : [who])} is absent, pass. A KOL who posts after your fill is a mark on the chart, not a confirmation.`,
       "Re-read the KOL table after two weeks of tags. Keep the names that still sit on the green side.",
     ],

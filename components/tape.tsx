@@ -32,7 +32,7 @@ export function Tape({
       {showHeading ? (
         <div className="section-head">
           <h2>The tape</h2>
-          <p>Open a fill to see how it sits against the winners. A KOL name is shown with the wallet it belongs to.</p>
+          <p>Open a fill to see how it sits against the winners. Callers show up by name.</p>
         </div>
       ) : null}
       <div className="filter-row">
@@ -160,12 +160,12 @@ function KolEditor({
   return (
     <div className="editor">
       <span className="label">KOLs in this coin</span>
-      <p className="note">Each name stays next to its wallet. Search the tracked list, or paste an address.</p>
+      <p className="note">Search the tracked list, or paste an address. The coin shows the name.</p>
       {trade.kols.length === 0 ? <p className="note">No tracked wallet is on this fill yet.</p> : null}
       <div className="kol-list">
         {trade.kols.map((kol) => (
           <div key={kol.id} className="kol-row">
-            <button type="button" className="chip" aria-pressed="true" title={kol.wallet || kol.name} onClick={() => remove(kol.id)}>
+            <button type="button" className="chip" aria-pressed="true" onClick={() => remove(kol.id)}>
               {kolLabel(kol)}
             </button>
             <select
@@ -178,7 +178,6 @@ function KolEditor({
               <option value="with">with you</option>
               <option value="after">after you</option>
             </select>
-            {kol.wallet ? <span className="wallet-line">{kol.wallet}</span> : null}
           </div>
         ))}
       </div>
@@ -204,8 +203,7 @@ function KolEditor({
           {hits.map((kol) => (
             <li key={kol.wallet}>
               <button type="button" aria-pressed={present.has(kol.wallet)} onClick={() => add(kol.wallet)}>
-                <span>{kolLabel(kol)}</span>
-                <span className="wallet-line">{kol.wallet}</span>
+                {kolLabel(kol)}
               </button>
             </li>
           ))}

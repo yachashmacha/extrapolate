@@ -132,7 +132,7 @@ export function Reading({
             <p className="kicker">KOLs</p>
             <h3>Who was in the coin</h3>
             <p className="note">
-              Tracked wallets are checked for a buy of the same coin. The name stays on its wallet. Before and with you count as already in. After does not.
+              Tracked wallets are checked for a buy of the same coin. The table shows the name. Before and with you count as already in. After does not.
               {kolScan?.pending
                 ? ` Checked ${kolScan.checked.toLocaleString("en-US")} of ${kolScan.total.toLocaleString("en-US")}.`
                 : ""}
@@ -146,8 +146,8 @@ export function Reading({
                   <tr>
                     <td colSpan={5}>
                       {kolScan?.pending
-                        ? "Checking tracked wallets. A match shows the name with its wallet."
-                        : "No tracked wallet bought these coins. Add a name from a trade and it stays with its wallet."}
+                        ? "Checking tracked wallets. A match shows the name."
+                        : "No tracked wallet bought these coins. Add a name from a trade."}
                     </td>
                   </tr>
                 ) : (
@@ -214,12 +214,7 @@ function Row({ label, win, loss }: { label: string; win: string; loss: string })
 }
 
 function KolName({ kol }: { kol: KolReport }) {
-  return (
-    <span title={kol.wallet || kol.name}>
-      <span>{kolLabel(kol)}</span>
-      {kol.wallet ? <span className="wallet-line">{kol.wallet}</span> : null}
-    </span>
-  );
+  return <span>{kolLabel(kol)}</span>;
 }
 
 function names(side: SidePortrait): string {

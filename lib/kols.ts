@@ -27,21 +27,13 @@ export const TRACKED_KOLS: KolProfile[] = (tracked as RawKol[]).map((row) => ({
 }));
 
 const byWallet = new Map(TRACKED_KOLS.map((kol) => [kol.wallet, kol]));
-const byName = new Map<string, KolProfile[]>();
-for (const kol of TRACKED_KOLS) {
-  const key = kol.name.toLowerCase();
-  const list = byName.get(key) ?? [];
-  list.push(kol);
-  byName.set(key, list);
-}
 
-/** A name is only useful next to the wallet it belongs to. */
+/** The name on a coin. Emoji comes from the catalog. The wallet stays off the label. */
 export function kolLabel(kol: { name: string; handle?: string; wallet?: string }): string {
   const wallet = kol.wallet || (kol.handle && isWalletAddress(kol.handle) ? kol.handle : "");
   const profile = wallet ? byWallet.get(wallet) : undefined;
   const emoji = profile?.emoji ? `${profile.emoji} ` : "";
-  const who = `${emoji}${kol.name}`;
-  return wallet ? `${who} · ${shortAddress(wallet)}` : who;
+  return `${emoji}${kol.name}`;
 }
 
 export function searchKols(query: string, limit = 8): KolProfile[] {
@@ -121,10 +113,4 @@ export function timingAgainstEntry(boughtAt: string, entryAt: string): KolTiming
 function normalizeTiming(value: string | undefined): KolTiming {
   if (value === "with" || value === "after" || value === "before") return value;
   return "before";
-}
-
-export function namesSharingWalletCount(): number {
-  let shared = 0;
-  for (const list of byName.values()) if (list.length > 1) shared += 1;
-  return shared;
 }
