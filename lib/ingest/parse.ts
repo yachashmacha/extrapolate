@@ -147,16 +147,33 @@ function fill(signature: string, unixSeconds: number, mint: string, side: "buy" 
 function uiAmountOf(row: TokenBalance): number {
   const token = row.uiTokenAmount;
   if (!token) return 0;
-  if (typeof token.uiAmount === "number") return token.uiAmount;
+  const fromRaw = rawUi(token);
+  const printed = printedUi(token);
+  // uiAmount is sometimes the raw integer. The decimals field is the token amount.
+  if (printed != null && fromRaw != null && !sameAmount(printed, fromRaw)) return fromRaw;
+  if (printed != null) return printed;
+  return fromRaw ?? 0;
+}
+
+function printedUi(token: TokenAmount): number | null {
+  if (typeof token.uiAmount === "number" && Number.isFinite(token.uiAmount)) return token.uiAmount;
   if (token.uiAmountString) {
     const parsed = Number(token.uiAmountString);
     if (Number.isFinite(parsed)) return parsed;
   }
-  if (token.amount && typeof token.decimals === "number") {
-    const raw = Number(token.amount);
-    if (Number.isFinite(raw)) return raw / 10 ** token.decimals;
-  }
-  return 0;
+  return null;
+}
+
+function rawUi(token: TokenAmount): number | null {
+  if (!token.amount || typeof token.decimals !== "number") return null;
+  const raw = Number(token.amount);
+  if (!Number.isFinite(raw)) return null;
+  return raw / 10 ** token.decimals;
+}
+
+function sameAmount(left: number, right: number): boolean {
+  const scale = Math.max(1, Math.abs(left), Math.abs(right));
+  return Math.abs(left - right) <= scale * 1e-6 + 1e-9;
 }
 
 function tokenDeltas(pre: TokenBalance[], post: TokenBalance[], wallet: string): Map<string, number> {

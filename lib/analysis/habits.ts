@@ -316,11 +316,19 @@ function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
  */
 function reentryHabits(trades: RoundTrip[]): Draft[] {
   const ordered = chronological(trades);
-  const lost = new Set<string>();
+  const lostExits = new Map<string, number[]>();
   const again: RoundTrip[] = [];
   for (const trade of ordered) {
-    if (lost.has(trade.mint)) again.push(trade);
-    if (trade.pnlUsd < 0) lost.add(trade.mint);
+    const entry = Date.parse(trade.entryAt);
+    const exits = lostExits.get(trade.mint) ?? [];
+    if (Number.isFinite(entry) && exits.some((exit) => exit <= entry)) again.push(trade);
+    if (trade.pnlUsd < 0) {
+      const exit = Date.parse(trade.exitAt);
+      if (Number.isFinite(exit)) {
+        exits.push(exit);
+        lostExits.set(trade.mint, exits);
+      }
+    }
   }
   if (again.length < 2 || net(again) >= 0) return [];
   if (again.length < 3 && again.some((trade) => trade.pnlUsd >= 0)) return [];

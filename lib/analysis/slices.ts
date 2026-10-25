@@ -90,18 +90,47 @@ export function houseMoneyIds(trades: RoundTrip[]): Set<string> {
 }
 
 function reactionIds(trades: RoundTrip[], when: (trade: RoundTrip) => boolean, requireUsualLoss: boolean): Set<string> {
-  const ordered = [...trades].sort((left, right) => left.entryAt.localeCompare(right.entryAt) || left.id.localeCompare(right.id));
-  const usual = median(ordered.map((trade) => trade.amountUsd).filter((value) => value > 0));
+  const usual = median(trades.map((trade) => trade.amountUsd).filter((value) => value > 0));
   const flagged = new Set<string>();
-  for (let index = 1; index < ordered.length; index += 1) {
-    const previous = ordered[index - 1];
-    const current = ordered[index];
-    if (!when(previous) || !reactedSoon(previous, current)) continue;
-    if (requireUsualLoss && !(previous.amountUsd < usual * SIZE_UP)) continue;
-    if (!sizedUpMaterially(current.amountUsd, previous.amountUsd, usual)) continue;
+  for (const current of trades) {
+    const prior = latestCloseBefore(trades, current);
+    if (!prior || !when(prior) || !reactedSoon(prior, current)) continue;
+    if (requireUsualLoss && !(prior.amountUsd < usual * SIZE_UP)) continue;
+    if (!sizedUpMaterially(current.amountUsd, prior.amountUsd, usual)) continue;
+    if (entryBetween(trades, prior.exitAt, current.entryAt, current.id)) continue;
     flagged.add(current.id);
   }
   return flagged;
+}
+
+/** The close this ticket could be answering: the latest fill that was already closed. */
+function latestCloseBefore(trades: RoundTrip[], current: RoundTrip): RoundTrip | null {
+  const entry = Date.parse(current.entryAt);
+  if (!Number.isFinite(entry)) return null;
+  let best: RoundTrip | null = null;
+  let bestExit = Number.NEGATIVE_INFINITY;
+  for (const trade of trades) {
+    if (trade.id === current.id) continue;
+    const exit = Date.parse(trade.exitAt);
+    if (!Number.isFinite(exit) || exit > entry) continue;
+    if (exit > bestExit || (exit === bestExit && best != null && trade.id < best.id)) {
+      best = trade;
+      bestExit = exit;
+    }
+  }
+  return best;
+}
+
+/** Another buy already happened after that close, so this ticket is not the next one. */
+function entryBetween(trades: RoundTrip[], exitAt: string, entryAt: string, skipId: string): boolean {
+  const after = Date.parse(exitAt);
+  const before = Date.parse(entryAt);
+  if (!Number.isFinite(after) || !Number.isFinite(before)) return false;
+  return trades.some((trade) => {
+    if (trade.id === skipId) return false;
+    const entry = Date.parse(trade.entryAt);
+    return Number.isFinite(entry) && entry > after && entry < before;
+  });
 }
 
 export function holdBand(minutes: number): string {

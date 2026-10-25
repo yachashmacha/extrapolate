@@ -5,6 +5,9 @@ describe("eastern calendar", () => {
   it("keeps late evening exits on the eastern date", () => {
     expect(dayKeyEt("2026-10-24T01:14:45.000Z")).toBe("2026-10-23");
     expect(dayKeyEt("2026-10-24T21:59:06.000Z")).toBe("2026-10-24");
+    // 03:59 UTC is 11:59pm Eastern. 04:00 UTC is midnight Eastern in October.
+    expect(dayKeyEt("2026-10-25T03:59:00.000Z")).toBe("2026-10-24");
+    expect(dayKeyEt("2026-10-25T04:00:00.000Z")).toBe("2026-10-25");
   });
 
   it("opens October 2026 on Thursday", () => {

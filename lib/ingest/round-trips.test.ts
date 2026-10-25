@@ -36,6 +36,24 @@ describe("round trips", () => {
     expect(trades[0].averagedDown).toBe(false);
     expect(trades[0].buys).toBe(2);
   });
+
+  it("keeps a winning sell a win after a lower add, and prices the cap from supply", () => {
+    const { trades } = buildRoundTrips(
+      [
+        fill("a", "16:00", "buy", 100, 50),
+        fill("b", "16:01", "buy", 100, 30),
+        fill("c", "16:02", "sell", 200, 120),
+      ],
+      meta,
+      "wallet",
+    );
+    expect(trades[0].averagedDown).toBe(true);
+    expect(trades[0].pnlUsd).toBe(40);
+    expect(trades[0].pnlUsd).toBeGreaterThan(0);
+    // Price 0.40 times supply 1,000,000. Not price times the $10,000 pool.
+    expect(trades[0].entryMarketCapUsd).toBe(400_000);
+    expect(trades[0].entryMarketCapUsd).not.toBe(4_000);
+  });
 });
 
 function fill(signature: string, clock: string, side: "buy" | "sell", tokenAmount: number, usd: number): Fill {

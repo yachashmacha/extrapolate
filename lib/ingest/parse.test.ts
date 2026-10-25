@@ -61,6 +61,23 @@ describe("rpc parser", () => {
     expect(fill?.side).toBe("buy");
   });
 
+  it("does not turn a winning sell into a loss when uiAmount is the raw token count", () => {
+    const buy = parseRpcTransaction(swap(2_000_000_000, 1_000_000_000, "1000000000", 1_000, "buy"), WALLET, 100, "buy");
+    const sell = parseRpcTransaction(swap(1_000_000_000, 2_500_000_000, "1000000000", 1_000_000_000, "sell"), WALLET, 100, "sell");
+    expect(buy?.side).toBe("buy");
+    expect(sell?.side).toBe("sell");
+    expect(sell?.tokenAmount).toBeCloseTo(1_000, 3);
+    expect(sell?.usd).toBeGreaterThan(buy?.usd ?? 0);
+    const built = buildRoundTrips(
+      [buy!, sell!],
+      new Map([[MINT, { symbol: "WIN", name: "Win", supply: 1_000_000, liquidityUsd: 4_000 }]]),
+      "wallet",
+    );
+    expect(built.trades).toHaveLength(1);
+    expect(built.trades[0].pnlUsd).toBeGreaterThan(0);
+    expect(built.trades[0].amountUsd).toBeCloseTo(100, 0);
+  });
+
   it("ignores failed transactions", () => {
     const fill = parseRpcTransaction(
       { blockTime: 1, meta: { err: { InstructionError: [0, "x"] } }, transaction: { message: { accountKeys: [WALLET] } } },
@@ -129,3 +146,24 @@ describe("round trips", () => {
     expect(built.opens[0].costUsd).toBe(80);
   });
 });
+
+function swap(preLamports: number, postLamports: number, raw: string, uiAmount: number, side: "buy" | "sell"): ParsedTransaction {
+  const token = {
+    uiAmount,
+    decimals: 6,
+    amount: raw,
+  };
+  const row = { accountIndex: 1, mint: MINT, owner: WALLET, uiTokenAmount: token };
+  return {
+    blockTime: 1_760_000_000,
+    meta: {
+      err: null,
+      fee: 5_000,
+      preBalances: [preLamports],
+      postBalances: [postLamports],
+      preTokenBalances: side === "sell" ? [row] : [],
+      postTokenBalances: side === "buy" ? [row] : [],
+    },
+    transaction: { message: { accountKeys: [{ pubkey: WALLET, signer: true }] } },
+  };
+}
