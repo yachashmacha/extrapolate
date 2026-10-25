@@ -53,12 +53,18 @@ export function Portfolio() {
             rules,
             accountUsd: book?.accountUsd ?? null,
             cashUsd: book?.cashUsd ?? null,
+            opens: book?.opens,
           })
         : null,
-    [reportTrades, reportDay, rules, book?.accountUsd, book?.cashUsd],
+    [reportTrades, reportDay, rules, book?.accountUsd, book?.cashUsd, book?.opens],
   );
   const ruleNote = (trade: AnnotatedTrade) =>
-    ruleBreak(trade, analysis.trades, { rules, accountUsd: book?.accountUsd ?? null }).note;
+    ruleBreak(trade, analysis.trades, {
+      rules,
+      accountUsd: book?.accountUsd ?? null,
+      cashUsd: book?.cashUsd ?? null,
+      opens: book?.opens,
+    }).note;
 
   useEffect(() => {
     setMonth(null);

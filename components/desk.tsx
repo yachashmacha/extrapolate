@@ -34,7 +34,12 @@ export function Desk() {
   const contextual = useMemo(() => withStoredHigh(analysis.trades, habitTrades), [analysis.trades, habitTrades]);
   const shown = focus ? contextual.filter((trade) => focus.ids.includes(trade.id)) : contextual;
   const ruleNote = (trade: AnnotatedTrade) =>
-    ruleBreak(trade, analysis.trades, { rules, accountUsd: book?.accountUsd ?? null }).note;
+    ruleBreak(trade, analysis.trades, {
+      rules,
+      accountUsd: book?.accountUsd ?? null,
+      cashUsd: book?.cashUsd ?? null,
+      opens: book?.opens,
+    }).note;
 
   return (
     <main className="shell desk">

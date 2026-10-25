@@ -74,6 +74,17 @@ describe("practice tips", () => {
     expect(capped[0].tip).toMatch(/Next buy is \$10/);
     expect(capped[0].tip).not.toMatch(/\$150/);
   });
+
+  it("keeps the next-ticket ceiling on the portfolio now", () => {
+    const trades = [winner("a"), winner("b"), winner("c"), loss("roar")];
+    const bounds = bookBounds({ trades, accountUsd: 9.84, cashUsd: 9.84 });
+    const tips = practiceTips(trades, bounds);
+    expect(bounds.ticketUsd).toBe(0.98);
+    expect(tips[0].tip).toMatch(/\$0\.98/);
+    expect(tips[0].tip).toMatch(/10% of the \$9\.84/);
+    expect(tips[0].tip).toMatch(/10 percent of your portfolio/);
+    expect(tips[0].tip).not.toMatch(/\$500/);
+  });
 });
 
 function winner(id: string): AnnotatedTrade {
