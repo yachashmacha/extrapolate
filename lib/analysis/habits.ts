@@ -1,6 +1,7 @@
 import { ticketWhy } from "@/lib/analysis/tips";
 import type { BookBounds } from "@/lib/analysis/bounds";
-import { kolMode, revengeIds, sessionName } from "@/lib/analysis/slices";
+import { fomoStatus } from "@/lib/analysis/fomo";
+import { houseMoneyIds, revengeIds, sessionName } from "@/lib/analysis/slices";
 import { median, net, winRate } from "@/lib/analysis/stats";
 import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import { kolLabel } from "@/lib/kols";
@@ -22,12 +23,12 @@ interface Draft extends Habit {
   impact: number;
 }
 
-const NEAR_ATH = 0.75;
 const OFF_ATH = 0.45;
 
 export function tradingHabits(trades: RoundTrip[], bounds?: BookBounds): { positive: Habit[]; negative: Habit[] } {
   const drafts: Draft[] = [];
   drafts.push(...sizeHabits(trades, bounds));
+  drafts.push(...fomoHabits(trades));
   drafts.push(...athHabits(trades));
   drafts.push(...capHabits(trades, bounds));
   drafts.push(...holdHabits(trades));
@@ -56,6 +57,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const usual = median(ordered.map((trade) => trade.amountUsd).filter((value) => value > 0));
   if (usual <= 0) return [];
   const revenge = revengeIds(trades);
+  const pressedIds = houseMoneyIds(trades);
   const sizedUp: RoundTrip[] = [];
   const kept: RoundTrip[] = [];
   const pressed: RoundTrip[] = [];
@@ -65,7 +67,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     const current = ordered[index];
     if (previous.pnlUsd < 0 && revenge.has(current.id)) sizedUp.push(current);
     if (previous.pnlUsd < 0 && !revenge.has(current.id) && current.amountUsd <= usual * 1.05) kept.push(current);
-    if (previous.pnlUsd > 0 && current.amountUsd >= usual * 1.35) pressed.push(current);
+    if (previous.pnlUsd > 0 && pressedIds.has(current.id)) pressed.push(current);
     if (previous.pnlUsd > 0 && current.amountUsd <= usual * 1.05) keptWin.push(current);
   }
   const out: Draft[] = [];
@@ -74,7 +76,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
         mark: "Bias",
-        detail: `Loss-chasing. After a red close, ${sizedUp.length} of the next tickets were at least 1.35× the usual ${usualLabel}. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
+        detail: `Loss-chasing. Within 30 minutes of a red close, ${sizedUp.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
       }),
     );
   }
@@ -89,7 +91,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-win", "negative", "House-money effect", pressed, {
         mark: "Bias",
-        detail: `Pressing the last win. After a green close, ${pressed.length} of the next tickets were at least 1.35× the usual ${usualLabel}. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, bounds)}`,
+        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning ticket. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, bounds)}`,
       }),
     );
   }
@@ -113,33 +115,46 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   return out;
 }
 
-function athHabits(trades: RoundTrip[]): Draft[] {
-  const known = trades.filter((trade) => (trade.athMarketCapUsd ?? 0) > 0 && trade.entryMarketCapUsd > 0);
-  if (known.length < 5) return [];
-  const near = known.filter((trade) => trade.entryMarketCapUsd >= (trade.athMarketCapUsd ?? 0) * NEAR_ATH);
-  const off = known.filter((trade) => trade.entryMarketCapUsd <= (trade.athMarketCapUsd ?? 0) * OFF_ATH);
+/**
+ * FOMO is a buy at the bond, or through it, while volume is falling: the hype
+ * is rolling over and the coin is still at a late price. A fill that is merely
+ * close to the day's high is not FOMO. A rising tape is a breakout. If the bond
+ * line or the volume read is missing, the fill is not labeled.
+ */
+function fomoHabits(trades: RoundTrip[]): Draft[] {
+  const chased = trades.filter((trade) => fomoStatus(trade) === "yes");
+  const judged = trades.filter((trade) => fomoStatus(trade) === "no");
+  const rest = judged.length >= 3 ? judged : others(trades, chased);
   const out: Draft[] = [];
-  if (worth("negative", near, off.length >= 3 ? off : others(known, near))) {
+  if (worth("negative", chased, rest)) {
     out.push(
-      draft("ath-near", "negative", "FOMO", near, {
+      draft("fomo", "negative", "FOMO", chased, {
         mark: "Bias",
-        detail: `Chasing the high. ${near.length} entries were at least 75% of that coin's ATH. The median entry sat at ${athPct(near)} of the high. Those dropped ${money(near)}${including(near, true)}.`,
+        detail: `Buying the fade. ${chased.length} entries were at or near the pump.fun graduation price while volume was falling. Those dropped ${money(chased)}${including(chased, true)}.`,
       }),
     );
-  } else if (worth("positive", near, off.length >= 3 ? off : others(known, near))) {
+  } else if (worth("positive", chased, rest)) {
     out.push(
-      draft("ath-near-paid", "positive", "Got paid near the high", near, {
-        detail: `${near.length} entries were at least 75% of that coin's ATH. The median entry sat at ${athPct(near)} of the high. Those made ${gained(near)}${including(near, false)}.`,
+      draft("fomo-paid", "positive", "Got paid on a fading bond", chased, {
+        detail: `${chased.length} entries were at or near the pump.fun graduation price while volume was falling. Those made ${gained(chased)}${including(chased, false)}.`,
       }),
     );
   }
-  if (worth("positive", off, near.length >= 3 ? near : others(known, off))) {
+  return out;
+}
+
+function athHabits(trades: RoundTrip[]): Draft[] {
+  const known = trades.filter((trade) => (trade.athMarketCapUsd ?? 0) > 0 && trade.entryMarketCapUsd > 0);
+  if (known.length < 5) return [];
+  const off = known.filter((trade) => trade.entryMarketCapUsd <= (trade.athMarketCapUsd ?? 0) * OFF_ATH);
+  const out: Draft[] = [];
+  if (worth("positive", off, others(known, off))) {
     out.push(
       draft("ath-off", "positive", "Bought well under the high", off, {
         detail: `${off.length} entries were at or under 45% of that coin's ATH. The median entry sat at ${athPct(off)} of the high. Those made ${gained(off)}${including(off, false)}.`,
       }),
     );
-  } else if (worth("negative", off, near.length >= 3 ? near : others(known, off))) {
+  } else if (worth("negative", off, others(known, off))) {
     out.push(
       draft("ath-off-lost", "negative", "Bought under the high and still lost", off, {
         detail: `${off.length} entries were at or under 45% of that coin's ATH. The median entry sat at ${athPct(off)} of the high. Those dropped ${money(off)}${including(off, true)}.`,
@@ -195,6 +210,11 @@ function capHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   return out;
 }
 
+/**
+ * The disposition effect is selling winners and sitting on losers. Name it only
+ * when the median losing hold is at least twice the median winning hold and at
+ * least five minutes longer. A small gap is not that split.
+ */
 function holdHabits(trades: RoundTrip[]): Draft[] {
   const winners = trades.filter((trade) => trade.pnlUsd > 0);
   const losers = trades.filter((trade) => trade.pnlUsd < 0);
@@ -202,7 +222,7 @@ function holdHabits(trades: RoundTrip[]): Draft[] {
   const winHold = median(winners.map((trade) => trade.holdMinutes));
   const lossHold = median(losers.map((trade) => trade.holdMinutes));
   const out: Draft[] = [];
-  if (lossHold >= winHold * 1.5 && lossHold >= winHold + 3) {
+  if (lossHold >= winHold * 2 && lossHold >= winHold + 5) {
     const group = losers.filter((trade) => trade.holdMinutes > winHold);
     if (group.length >= 3) {
       out.push(
@@ -213,7 +233,7 @@ function holdHabits(trades: RoundTrip[]): Draft[] {
       );
     }
   }
-  if (winHold >= lossHold * 1.5 && winHold >= lossHold + 3) {
+  if (winHold >= lossHold * 2 && winHold >= lossHold + 5) {
     const group = winners.filter((trade) => trade.holdMinutes > lossHold);
     if (group.length >= 3) {
       out.push(
@@ -248,15 +268,22 @@ function sessionHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   return out;
 }
 
+/**
+ * Averaging down is another buy in the same round trip, at least 10% under the
+ * average already held, after the coin had moved against the position. A second
+ * buy that is not lower is not averaging down.
+ */
 function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const multi = trades.filter((trade) => trade.buys > 1);
-  const once = trades.filter((trade) => trade.buys <= 1);
+  const down = trades.filter((trade) => trade.averagedDown === true);
+  const once = trades.filter((trade) => trade.averagedDown !== true);
   const out: Draft[] = [];
-  if (worth("negative", multi, once)) {
+  if (worth("negative", down, once)) {
     const rule = bounds?.onePerCoin ? `Your rule is one ticket per coin (“${bounds.onePerCoin}”).` : "";
     out.push(
-      draft("adds", "negative", "Added to the same coin", multi, {
-        detail: `${multi.length} coins were bought more than once. ${rule} Those tickets dropped ${money(multi)}${including(multi, true)}.`,
+      draft("adds", "negative", "Averaging down", down, {
+        mark: "Bias",
+        detail: `Adding to a loser. ${down.length} tickets bought more after the coin was already down. ${rule} Those dropped ${money(down)}${including(down, true)}.`,
       }),
     );
   }
@@ -282,6 +309,11 @@ function poolHabits(trades: RoundTrip[]): Draft[] {
   ];
 }
 
+/**
+ * Sunk cost is more money in a coin that already lost: a later round trip on
+ * the same mint after a red close. A later ticket in a different coin is not
+ * sunk cost. Adding inside the open position is averaging down, above.
+ */
 function reentryHabits(trades: RoundTrip[]): Draft[] {
   const ordered = chronological(trades);
   const lost = new Set<string>();
@@ -300,27 +332,35 @@ function reentryHabits(trades: RoundTrip[]): Draft[] {
   ];
 }
 
+/**
+ * Confirmation bias here is following a caller: a tracked wallet bought before
+ * this fill, and the entry came after that buy. A caller who bought after the
+ * fill means this wallet led. That is not confirmation, and it is not labeled.
+ */
 function callerHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const tagged = trades.filter((trade) => trade.kols.length > 0);
   if (tagged.length < 6) return [];
-  const late = tagged.filter((trade) => kolMode(trade) === "late");
-  const early = tagged.filter((trade) => kolMode(trade) === "early");
+  const followed = tagged.filter((trade) => trade.kols.some((kol) => kol.timing === "before"));
+  const rest = tagged.filter((trade) => !followed.includes(trade));
   const closer = bounds && bounds.ticketUsd > 0 ? `The ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}` : "";
   const out: Draft[] = [];
-  if (worth("negative", late, early.length >= 3 ? early : others(tagged, late))) {
-    const names = callerNames(late, ["after"]);
+  if (worth("negative", followed, rest.length >= 3 ? rest : others(tagged, followed))) {
+    const names = callerNames(followed, ["before"]);
+    const verb = names.includes(" and ") || names.includes(", ") ? "were" : "was";
     out.push(
-      draft("caller-late", "negative", "Confirmation after the fact", late, {
+      draft("confirmation", "negative", "Confirmation bias", followed, {
         mark: "Bias",
-        detail: `${names} arrived after the entry. Those trades dropped ${money(late)}${including(late, true)}. ${closer}`,
+        detail: `${names} ${verb} already in, and the entry followed that buy. Those trades dropped ${money(followed)}${including(followed, true)}. ${closer}`,
       }),
     );
   }
-  if (worth("positive", early, late.length >= 3 ? late : others(tagged, early))) {
-    const names = callerNames(early, ["before", "with"]);
+  const followedRest = rest.length >= 3 ? rest : others(tagged, followed);
+  if (worth("positive", followed, followedRest)) {
+    const names = callerNames(followed, ["before"]);
+    const verb = names.includes(" and ") || names.includes(", ") ? "were" : "was";
     out.push(
-      draft("caller-early", "positive", "The caller was already in", early, {
-        detail: `${names} ${names.includes(" and ") || names.includes(", ") ? "were" : "was"} already in before the buy. Those trades made ${gained(early)}${including(early, false)}. ${closer}`,
+      draft("caller-early", "positive", "The caller was already in", followed, {
+        detail: `${names} ${verb} already in before the buy. Those trades made ${gained(followed)}${including(followed, false)}. ${closer}`,
       }),
     );
   }

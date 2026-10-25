@@ -25,6 +25,7 @@ interface OpenLot {
   lastAt: string;
   buys: number;
   sells: number;
+  averagedDown: boolean;
 }
 
 export function buildRoundTrips(
@@ -40,6 +41,11 @@ export function buildRoundTrips(
     if (fill.tokenAmount <= 0 || fill.usd < 1) continue;
     const lot = lots.get(fill.mint) ?? emptyLot(fill);
     if (fill.side === "buy") {
+      if (lot.tokens > 0 && lot.costRemaining > 0 && fill.tokenAmount > 0) {
+        const price = fill.usd / fill.tokenAmount;
+        const average = lot.costRemaining / lot.tokens;
+        if (price > 0 && average > 0 && price <= average * 0.9) lot.averagedDown = true;
+      }
       lot.tokens += fill.tokenAmount;
       lot.costRemaining += fill.usd;
       lot.costTotal += fill.usd;
@@ -118,6 +124,7 @@ function toTrip(lot: OpenLot, metas: Map<string, MintMeta>, terminal: TerminalId
     buys: lot.buys,
     sells: lot.sells,
     athMarketCapUsd: info?.athMarketCapUsd,
+    averagedDown: lot.averagedDown,
   };
 }
 
@@ -134,6 +141,7 @@ function emptyLot(fill: Fill): OpenLot {
     lastAt: fill.at,
     buys: 0,
     sells: 0,
+    averagedDown: false,
   };
 }
 

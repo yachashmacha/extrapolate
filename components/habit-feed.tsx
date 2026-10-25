@@ -34,7 +34,7 @@ export function HabitFeed({
         <h2 className="bias-quote">Your biases from YOUR subconscious</h2>
         <p>{intro}</p>
       </div>
-      {pendingHighs ? <p className="note">More coin highs are still loading.</p> : null}
+      {pendingHighs ? <p className="note">Coin highs and the bond volume are still loading.</p> : null}
       <div className="feeds">
         <HabitColumn
           title="Biases"

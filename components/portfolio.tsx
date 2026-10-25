@@ -11,6 +11,7 @@ import { Suggestions } from "@/components/suggestions";
 import { Tape } from "@/components/tape";
 import { TipFeed } from "@/components/tip-feed";
 import { useBook } from "@/components/use-book";
+import { useTradeContext } from "@/components/use-trade-context";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
@@ -38,12 +39,13 @@ export function Portfolio() {
     () => bookBounds({ trades: analysis.trades, rules, accountUsd: book?.accountUsd ?? null }),
     [analysis.trades, rules, book?.accountUsd],
   );
+  const { trades: reportTrades } = useTradeContext(book, analysis.trades);
   const tips = useMemo(() => practiceTips(analysis.trades, bounds), [analysis.trades, bounds]);
   const activeRules = rules.filter((rule) => rule.active).length;
   const reportDay = scope.kind === "day" ? scope.dayKey : latestClosedDay(analysis.trades);
   const dayReport = useMemo(
-    () => (reportDay ? endOfDayReport(analysis.trades, reportDay) : null),
-    [analysis.trades, reportDay],
+    () => (reportDay ? endOfDayReport(reportTrades, reportDay) : null),
+    [reportTrades, reportDay],
   );
 
   useEffect(() => {

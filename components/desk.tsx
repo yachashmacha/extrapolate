@@ -9,20 +9,16 @@ import { BookError, BookNotices } from "@/components/book-notices";
 import { Reading } from "@/components/reading";
 import { Tape } from "@/components/tape";
 import { useBook } from "@/components/use-book";
-import { useHighs } from "@/components/use-highs";
 import { useRules } from "@/components/use-rules";
+import { useTradeContext } from "@/components/use-trade-context";
 
 export function Desk() {
   const { book, analysis, error, loading, bookKey, title, note, search, reread, update, kolScan } = useBook();
   const { rules } = useRules(bookKey);
-  const { highs, pending: pendingHighs } = useHighs(book);
+  const { trades: habitTrades, pending: pendingHighs } = useTradeContext(book, analysis.trades);
   const bounds = useMemo(
     () => bookBounds({ trades: analysis.trades, rules, accountUsd: book?.accountUsd ?? null }),
     [analysis.trades, rules, book?.accountUsd],
-  );
-  const habitTrades = useMemo(
-    () => analysis.trades.map((trade) => ({ ...trade, athMarketCapUsd: highs[trade.mint] || trade.athMarketCapUsd })),
-    [analysis.trades, highs],
   );
   const habits = useMemo(() => tradingHabits(habitTrades, bounds), [habitTrades, bounds]);
   const activeRules = rules.filter((rule) => rule.active).length;

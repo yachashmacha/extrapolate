@@ -111,6 +111,7 @@ describe("end of day report", () => {
         pnl: 2,
         amount: 20,
         buys: minute === 0 ? 2 : 1,
+        averagedDown: minute === 0,
         mc: 30_000,
         ath: 100_000,
       }),
@@ -119,7 +120,7 @@ describe("end of day report", () => {
     expect(report.score).toBe(9);
     expect(report.rational).toBe(true);
     expect(report.biases.map((bias) => bias.title)).not.toContain("Added to the same coin");
-    expect(report.why).toMatch(/bought more than once/);
+    expect(report.why).toMatch(/averaged down/);
   });
 
   it("scores a day of revenge size-ups a 1 and does not borrow that bias onto a clean day", () => {
@@ -129,7 +130,7 @@ describe("end of day report", () => {
     const revengeDay = [
       row("small", "2026-10-24", 0, { pnl: -20, amount: 20, symbol: "SMALL" }),
       ...[1, 2, 3, 4].map((minute) =>
-        row(`up-${minute}`, "2026-10-24", minute, { pnl: -30, amount: 80, symbol: `UP${minute}` }),
+        row(`up-${minute}`, "2026-10-24", minute, { pnl: -30, amount: 20 * 2 ** minute, symbol: `UP${minute}` }),
       ),
     ];
     const trades = [...earlier, ...revengeDay];
@@ -184,34 +185,76 @@ describe("end of day report", () => {
     expect(report.why).toMatch(/sizing up after a loss/);
   });
 
-  it("names FOMO when the day's entries chased the high and lost", () => {
+  it("names FOMO when entries bought the bond while volume was falling", () => {
     const trades = [0, 1, 2, 3].map((minute) =>
-      row(`near-${minute}`, "2026-10-24", minute, { pnl: -20, amount: 20, mc: 80_000, ath: 100_000, symbol: `NEAR${minute}` }),
+      row(`fade-${minute}`, "2026-10-24", minute, {
+        pnl: -20,
+        amount: 20,
+        mc: 80_000,
+        ath: 90_000,
+        graduation: 43_000,
+        volumeFalling: true,
+        symbol: `FADE${minute}`,
+      }),
     );
     const report = endOfDayReport(trades, "2026-10-24");
     expect(report.score).toBe(1);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).toContain("FOMO");
-    expect(report.lead).toMatch(/75% of that coin's high/);
-    expect(report.lead).not.toMatch(/more rationally/);
-    expect(report.why).toMatch(/buying near the high/);
+    expect(report.lead).toMatch(/graduation price while volume was falling/);
+    expect(report.lead).not.toMatch(/75%|more rationally/);
+    expect(report.why).toMatch(/fading bond/);
   });
 
-  it("keeps a paid chase out of the FOMO label and still scores the chase low", () => {
+  it("does not score a near-high entry as FOMO when volume is still rising", () => {
+    const trades = [0, 1, 2, 3].map((minute) =>
+      row(`rise-${minute}`, "2026-10-24", minute, {
+        pnl: -20,
+        amount: 20,
+        mc: 90_000,
+        ath: 100_000,
+        graduation: 43_000,
+        volumeFalling: false,
+        symbol: `RISE${minute}`,
+      }),
+    );
+    const report = endOfDayReport(trades, "2026-10-24");
+    expect(report.score).toBe(10);
+    expect(report.rational).toBe(true);
+    expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
+    expect(report.lead).not.toMatch(/FOMO|75%/);
+    expect(report.why).not.toMatch(/near the high/);
+    expect(report.why).toMatch(/did not repeat a costly pattern/);
+  });
+
+  it("keeps a paid fading-bond entry out of the FOMO label and still scores that chase low", () => {
     const near = [0, 1, 2, 3].map((minute) =>
-      row(`near-${minute}`, "2026-10-24", minute, { pnl: 20, amount: 20, mc: 90_000, ath: 100_000 }),
+      row(`near-${minute}`, "2026-10-24", minute, {
+        pnl: 20,
+        amount: 20,
+        mc: 90_000,
+        ath: 100_000,
+        graduation: 43_000,
+        volumeFalling: true,
+      }),
     );
     const mid = [4, 5, 6, 7].map((minute) =>
-      row(`mid-${minute}`, "2026-10-24", minute, { pnl: -10, amount: 20, mc: 60_000, ath: 100_000 }),
+      row(`mid-${minute}`, "2026-10-24", minute, {
+        pnl: -10,
+        amount: 20,
+        mc: 20_000,
+        ath: 100_000,
+        graduation: 43_000,
+        volumeFalling: false,
+      }),
     );
     const report = endOfDayReport([...near, ...mid], "2026-10-24");
     expect(report.score).toBe(3);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
-    expect(report.tendency?.title).toBe("Got paid near the high");
     expect(report.rational).toBe(false);
-    expect(report.lead).not.toMatch(/more rationally/);
-    expect(report.lead).toMatch(/75% of the high/);
-    expect(report.why).toMatch(/buying near the high/);
+    expect(report.lead).not.toMatch(/more rationally|75%/);
+    expect(report.lead).toMatch(/volume was falling/);
+    expect(report.why).toMatch(/fading bond/);
   });
 
   it("calls a day rational and names the under-high tendency when that is what paid", () => {
@@ -250,12 +293,15 @@ describe("end of day report", () => {
 
   it("names adding to a coin and a heavy pool ticket when those clusters lost", () => {
     const adds = [
-      ...[0, 1, 2].map((minute) => row(`add-${minute}`, "2026-10-24", minute, { pnl: -20, amount: 20, buys: 3, symbol: `ADD${minute}` })),
+      ...[0, 1, 2].map((minute) =>
+        row(`add-${minute}`, "2026-10-24", minute, { pnl: -20, amount: 20, buys: 3, averagedDown: true, symbol: `ADD${minute}` }),
+      ),
       ...[3, 4, 5].map((minute) => row(`once-${minute}`, "2026-10-24", minute, { pnl: 10, amount: 20, buys: 1 })),
     ];
     const added = endOfDayReport(adds, "2026-10-24");
     expect(added.score).toBe(6);
-    expect(added.biases.map((bias) => bias.title)).toContain("Added to the same coin");
+    expect(added.biases.map((bias) => bias.title)).toContain("Averaging down");
+    expect(added.biases.map((bias) => bias.title)).not.toContain("Added to the same coin");
     expect(added.rational).toBe(false);
 
     const heavy = [
@@ -304,6 +350,9 @@ function row(
     mint?: string;
     liquidity?: number;
     at?: string;
+    graduation?: number;
+    volumeFalling?: boolean;
+    averagedDown?: boolean;
   } = {},
 ): RoundTrip {
   const amount = extra.amount ?? 20;
@@ -331,5 +380,8 @@ function row(
     buys: extra.buys ?? 1,
     sells: 1,
     athMarketCapUsd: extra.ath === null ? undefined : (extra.ath ?? 100_000),
+    graduationMarketCapUsd: extra.graduation,
+    volumeFalling: extra.volumeFalling,
+    averagedDown: extra.averagedDown,
   };
 }

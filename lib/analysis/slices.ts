@@ -1,6 +1,6 @@
 import { hourEt, sessionOf } from "@/lib/format";
 import type { RoundTrip } from "@/lib/types";
-import { net, winRate } from "@/lib/analysis/stats";
+import { median, net, winRate } from "@/lib/analysis/stats";
 
 export const MC_CUTS = [25_000, 60_000, 80_000, 120_000, 250_000, 600_000];
 export const SIZE_CUTS = [150, 200, 250, 400, 500, 800];
@@ -46,16 +46,49 @@ export function kolMode(trade: RoundTrip): KolMode {
   return "late";
 }
 
+/** A size change is a reaction to the last close only inside this window. Hours later is a new decision. */
+export const REACTION_MINUTES = 30;
+
+/** The next ticket has to clear both the usual size and the ticket that just closed, by half. */
+export const SIZE_UP = 1.5;
+
+export function reactedSoon(previous: { exitAt: string }, current: { entryAt: string }): boolean {
+  const gap = Date.parse(current.entryAt) - Date.parse(previous.exitAt);
+  return Number.isFinite(gap) && gap >= 0 && gap <= REACTION_MINUTES * 60_000;
+}
+
+export function sizedUpMaterially(amount: number, previousAmount: number, usual: number): boolean {
+  if (!(usual > 0) || !(previousAmount > 0) || !(amount > 0)) return false;
+  return amount >= usual * SIZE_UP && amount >= previousAmount * SIZE_UP;
+}
+
+/**
+ * Revenge trading is a larger ticket placed soon after a red close to get the loss back.
+ * The next entry has to land within 30 minutes, and the ticket has to be at least 1.5×
+ * the usual size and at least 1.5× the losing ticket. A slightly larger ticket, or a
+ * larger ticket hours later, is not loss-chasing.
+ *
+ * House money is the same size-up, soon after a win, because the gain feels spendable.
+ * A bigger ticket the next session is not house money.
+ */
 export function revengeIds(trades: RoundTrip[]): Set<string> {
-  const ordered = [...trades].sort((a, b) => a.entryAt.localeCompare(b.entryAt));
-  const sizes = ordered.map((trade) => trade.amountUsd).sort((a, b) => a - b);
-  const mid = Math.floor(sizes.length / 2);
-  const medianSize = sizes.length === 0 ? 0 : sizes.length % 2 ? sizes[mid] : (sizes[mid - 1] + sizes[mid]) / 2;
+  return reactionIds(trades, (previous) => previous.pnlUsd < 0);
+}
+
+export function houseMoneyIds(trades: RoundTrip[]): Set<string> {
+  return reactionIds(trades, (previous) => previous.pnlUsd > 0);
+}
+
+function reactionIds(trades: RoundTrip[], when: (trade: RoundTrip) => boolean): Set<string> {
+  const ordered = [...trades].sort((left, right) => left.entryAt.localeCompare(right.entryAt) || left.id.localeCompare(right.id));
+  const usual = median(ordered.map((trade) => trade.amountUsd).filter((value) => value > 0));
   const flagged = new Set<string>();
   for (let index = 1; index < ordered.length; index += 1) {
     const previous = ordered[index - 1];
     const current = ordered[index];
-    if (previous.pnlUsd < 0 && current.amountUsd >= medianSize * 1.35) flagged.add(current.id);
+    if (!when(previous) || !reactedSoon(previous, current)) continue;
+    if (!sizedUpMaterially(current.amountUsd, previous.amountUsd, usual)) continue;
+    flagged.add(current.id);
   }
   return flagged;
 }

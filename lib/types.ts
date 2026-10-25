@@ -54,6 +54,19 @@ export interface RoundTrip {
   sells: number;
   /** Daily high on the main pool, times the same supply used for entry market cap. */
   athMarketCapUsd?: number;
+  /**
+   * Pump.fun graduation market cap in dollars at the entry, from that day's SOL price.
+   * Absent when the coin is not on that curve or the SOL price was not read.
+   */
+  graduationMarketCapUsd?: number;
+  /**
+   * True when the five completed minutes before the entry did at most 75% of the
+   * volume of the five minutes before that. False when the tape was flat, rising,
+   * or too quiet to be a fade. Absent when those candles were not read.
+   */
+  volumeFalling?: boolean;
+  /** A later buy in this round trip was at least 10% under the average already held. */
+  averagedDown?: boolean;
 }
 
 export interface OpenPosition {
