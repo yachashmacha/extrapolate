@@ -6,9 +6,12 @@ import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import { kolLabel } from "@/lib/kols";
 import type { KolTiming, RoundTrip } from "@/lib/types";
 
+export type HabitMark = "Bias" | "Fallacy" | "Tendency" | "Repeat";
+
 export interface Habit {
   id: string;
   tone: "positive" | "negative";
+  mark: HabitMark;
   title: string;
   detail: string;
   stat: string;
@@ -69,8 +72,9 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const usualLabel = fmtUsdPlain(usual);
   if (worth("negative", sizedUp, kept.length >= 3 ? kept : others(ordered, sizedUp))) {
     out.push(
-      draft("size-after-loss", "negative", "Sized up after a loss", sizedUp, {
-        detail: `After a red close, ${sizedUp.length} of the next tickets were at least 1.35× the usual ${usualLabel}. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
+      draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
+        mark: "Bias",
+        detail: `Loss-chasing. After a red close, ${sizedUp.length} of the next tickets were at least 1.35× the usual ${usualLabel}. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, bounds)}`,
       }),
     );
   }
@@ -116,8 +120,9 @@ function athHabits(trades: RoundTrip[]): Draft[] {
   const out: Draft[] = [];
   if (worth("negative", near, off.length >= 3 ? off : others(known, near))) {
     out.push(
-      draft("ath-near", "negative", "Bought near the high", near, {
-        detail: `${near.length} entries were at least 75% of that coin's ATH. The median entry sat at ${athPct(near)} of the high. Those dropped ${money(near)}${including(near, true)}.`,
+      draft("ath-near", "negative", "FOMO", near, {
+        mark: "Bias",
+        detail: `Chasing the high. ${near.length} entries were at least 75% of that coin's ATH. The median entry sat at ${athPct(near)} of the high. Those dropped ${money(near)}${including(near, true)}.`,
       }),
     );
   } else if (worth("positive", near, off.length >= 3 ? off : others(known, near))) {
@@ -286,8 +291,9 @@ function reentryHabits(trades: RoundTrip[]): Draft[] {
   if (again.length < 2 || net(again) >= 0) return [];
   if (again.length < 3 && again.some((trade) => trade.pnlUsd >= 0)) return [];
   return [
-    draft("reentry", "negative", "Bought a coin again after it lost", again, {
-      detail: `${again.length} later tickets were the same coin after a red close. Those dropped ${money(again)}${including(again, true)}.`,
+    draft("reentry", "negative", "Sunk-cost fallacy", again, {
+      mark: "Fallacy",
+      detail: `Trying to get back to even. ${again.length} later tickets were the same coin after a red close. Those dropped ${money(again)}${including(again, true)}.`,
     }),
   ];
 }
@@ -302,8 +308,9 @@ function callerHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   if (worth("negative", late, early.length >= 3 ? early : others(tagged, late))) {
     const names = callerNames(late, ["after"]);
     out.push(
-      draft("caller-late", "negative", "Bought after the caller", late, {
-        detail: `${names} showed up after the entry. Those trades dropped ${money(late)}${including(late, true)}. ${closer}`,
+      draft("caller-late", "negative", "Confirmation after the fact", late, {
+        mark: "Bias",
+        detail: `${names} arrived after the entry. Those trades dropped ${money(late)}${including(late, true)}. ${closer}`,
       }),
     );
   }
@@ -362,10 +369,17 @@ function worth(tone: "positive" | "negative", group: RoundTrip[], rest: RoundTri
   return winRate(group) >= winRate(rest) + 0.12 || net(rest) < 0;
 }
 
-function draft(id: string, tone: Habit["tone"], title: string, group: RoundTrip[], copy: { detail: string }): Draft {
+function draft(
+  id: string,
+  tone: Habit["tone"],
+  title: string,
+  group: RoundTrip[],
+  copy: { detail: string; mark?: HabitMark },
+): Draft {
   return {
     id,
     tone,
+    mark: copy.mark ?? (tone === "positive" ? "Tendency" : "Repeat"),
     title,
     detail: copy.detail.replace(/\s+/g, " ").trim(),
     stat: `${group.length} ${group.length === 1 ? "trade" : "trades"} · ${fmtRate(winRate(group))} won · ${fmtUsd(net(group))}`,
@@ -440,6 +454,7 @@ function strip(habit: Draft): Habit {
   return {
     id: habit.id,
     tone: habit.tone,
+    mark: habit.mark,
     title: habit.title,
     detail: habit.detail,
     stat: habit.stat,

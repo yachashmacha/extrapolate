@@ -38,11 +38,11 @@ export function Desk() {
     <main className="shell desk">
       <BookBar page="desk" title={title} note={note} search={search} onReread={reread} />
       <nav className="index" aria-label="Desk sections">
+        <a href="#biases">Biases</a>
         <a href="#split">Split</a>
         <a href="#curve">Equity</a>
         <a href="#patterns">Shared</a>
         <a href="#fixes">Leaks</a>
-        <a href="#habits">Habits</a>
         <a href="#keeps">Edge</a>
         <a href="#people">KOLs</a>
         <a href="#tape">Tape</a>
@@ -54,15 +54,6 @@ export function Desk() {
       {book && !loading ? (
         <>
           <BookNotices book={book} kolScan={kolScan} />
-          <Reading
-            analysis={analysis}
-            ticketUsd={bounds.ticketUsd}
-            kolScan={kolScan}
-            onShowTrades={(ids, label) => {
-              setFocus({ ids, label });
-              document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
-          />
           <HabitFeed
             habits={habits}
             bounds={bounds}
@@ -73,6 +64,15 @@ export function Desk() {
               setFocus((current) =>
                 current?.habitId === habit.id ? null : { ids: habit.tradeIds, label: habit.title, habitId: habit.id },
               );
+              document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+          <Reading
+            analysis={analysis}
+            ticketUsd={bounds.ticketUsd}
+            kolScan={kolScan}
+            onShowTrades={(ids, label) => {
+              setFocus({ ids, label });
               document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
           />

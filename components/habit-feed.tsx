@@ -22,20 +22,34 @@ export function HabitFeed({
 }) {
   const rules =
     activeRules > 0 ? ` Your ${activeRules} active ${activeRules === 1 ? "rule holds" : "rules hold"} that ticket.` : "";
+  const point =
+    "This feed is the point of the desk: the biases and tendencies extrapolated from this book. Each one names the trades it came from.";
   const intro =
     bounds.ticketUsd > 0
-      ? `Repeats across the closed trades. Each one names the trades it came from. Where a habit names a next ticket, that ticket is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A caller leaves that ticket where it is.`
-      : "Repeats across the closed trades. Each one names the trades it came from. A caller leaves the ticket where this wallet and your rules put it.";
+      ? `${point} Where a habit names a next ticket, that ticket is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A caller leaves that ticket where it is.`
+      : `${point} A caller leaves the ticket where this wallet and your rules put it.`;
   return (
-    <section className="section" id="habits">
+    <section className="section" id="biases">
       <div className="section-head">
-        <h2>Habits</h2>
+        <h2>Biases and tendencies</h2>
         <p>{intro}</p>
       </div>
       {pendingHighs ? <p className="note">More coin highs are still loading.</p> : null}
       <div className="feeds">
-        <HabitColumn title="Positive" tone="positive" habits={habits.positive} selectedId={selectedId} onSelect={onSelect} />
-        <HabitColumn title="Negative" tone="negative" habits={habits.negative} selectedId={selectedId} onSelect={onSelect} />
+        <HabitColumn
+          title="Biases"
+          habits={habits.negative}
+          empty="No bias clears the bar in this book yet."
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />
+        <HabitColumn
+          title="Tendencies"
+          habits={habits.positive}
+          empty="No working tendency clears the bar in this book yet."
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />
       </div>
     </section>
   );
@@ -43,25 +57,25 @@ export function HabitFeed({
 
 function HabitColumn({
   title,
-  tone,
   habits,
+  empty,
   selectedId,
   onSelect,
 }: {
   title: string;
-  tone: "positive" | "negative";
   habits: Habit[];
+  empty: string;
   selectedId: string | null;
   onSelect: (habit: Habit) => void;
 }) {
   return (
     <div>
       <h3 className="feed-title">{title}</h3>
-      {habits.length === 0 ? <p className="note">No repeat on this side yet.</p> : null}
+      {habits.length === 0 ? <p className="note">{empty}</p> : null}
       <div className="feed-scroll">
         {habits.map((habit) => (
           <article key={habit.id} className={selectedId === habit.id ? "trade panel picked habit-card" : "trade panel habit-card"}>
-            <p className={tone === "positive" ? "kicker good" : "kicker bad"}>{tone === "positive" ? "Positive" : "Negative"}</p>
+            <p className={habit.mark === "Tendency" ? "kicker good" : "kicker bad"}>{habit.mark}</p>
             <h3>{habit.title}</h3>
             <p className="habit-stat num">{habit.stat}</p>
             <p>{habit.detail}</p>

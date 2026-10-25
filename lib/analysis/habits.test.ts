@@ -5,15 +5,21 @@ import { sampleBook } from "@/lib/ingest/demo";
 import type { KolTag, RoundTrip } from "@/lib/types";
 
 describe("trading habits", () => {
-  it("reads the sample book as repeats, without sizing off a caller", () => {
+  it("reads the sample book as biases and tendencies, without sizing off a caller", () => {
     const { positive, negative } = tradingHabits(sampleBook().trades);
     expect(positive.length).toBeGreaterThan(0);
     expect(negative.length).toBeGreaterThan(0);
     const blob = [...positive, ...negative].map((habit) => `${habit.title} ${habit.detail}`).join("\n");
     expect(blob).not.toMatch(/as much as/i);
     expect(blob).not.toMatch(/caller's size|kol size|match the kol/i);
-    expect(negative.some((habit) => /overnight|higher caps|after a loss|after the caller|pool|long after/i.test(habit.title))).toBe(true);
+    expect(
+      negative.some((habit) =>
+        /revenge trading|fomo|sunk-cost|confirmation after the fact|overnight|higher caps|pool|long after/i.test(habit.title),
+      ),
+    ).toBe(true);
+    expect(negative.some((habit) => habit.mark === "Bias" || habit.mark === "Fallacy")).toBe(true);
     expect(positive.some((habit) => /paid|daytime|smaller|flat|already in|green|young/i.test(habit.title))).toBe(true);
+    expect(positive.every((habit) => habit.mark === "Tendency")).toBe(true);
     for (const habit of [...positive, ...negative]) {
       expect(habit.tradeIds.length).toBeGreaterThan(0);
       expect(habit.stat).toMatch(/trade/);
@@ -28,11 +34,31 @@ describe("trading habits", () => {
     const { positive, negative } = tradingHabits(trades);
     const near = negative.find((habit) => habit.id === "ath-near");
     const off = positive.find((habit) => habit.id === "ath-off");
+    expect(near?.title).toBe("FOMO");
+    expect(near?.mark).toBe("Bias");
+    expect(near?.detail).toMatch(/Chasing the high/);
     expect(near?.detail).toMatch(/75% of that coin's ATH/);
     expect(near?.detail).toMatch(/90% of the high/);
+    expect(near?.tradeIds).toHaveLength(4);
+    expect(off?.title).toBe("Bought well under the high");
+    expect(off?.mark).toBe("Tendency");
     expect(off?.detail).toMatch(/45% of that coin's ATH/);
     expect(off?.detail).toMatch(/30% of the high/);
+    expect(off?.detail).not.toMatch(/FOMO/i);
     expect(`${near?.detail} ${off?.detail}`).not.toMatch(/as much as/i);
+  });
+
+  it("keeps a paid entry near the high as a tendency", () => {
+    const trades = [
+      ...Array.from({ length: 4 }, (_, index) => row(`near-${index}`, index, { mc: 90_000, ath: 100_000, pnl: 40, symbol: `NEAR${index}` })),
+      ...Array.from({ length: 4 }, (_, index) => row(`off-${index}`, index + 4, { mc: 30_000, ath: 100_000, pnl: -25, symbol: `OFF${index}` })),
+    ];
+    const { positive, negative } = tradingHabits(trades);
+    const paid = positive.find((habit) => habit.id === "ath-near-paid");
+    expect(paid?.title).toBe("Got paid near the high");
+    expect(paid?.mark).toBe("Tendency");
+    expect(`${paid?.title} ${paid?.detail}`).not.toMatch(/FOMO/i);
+    expect(negative.some((habit) => habit.title === "FOMO")).toBe(false);
   });
 
   it("skips the high when the book has no ATH", () => {
@@ -63,12 +89,16 @@ describe("trading habits", () => {
       ],
     });
     const sized = tradingHabits(trades, bounds).negative.find((habit) => habit.id === "size-after-loss");
+    expect(sized?.title).toBe("Revenge trading");
+    expect(sized?.mark).toBe("Bias");
+    expect(sized?.detail).toMatch(/Loss-chasing/);
     expect(sized?.detail).toMatch(/stays at \$10/);
     expect(sized?.detail).toMatch(/Next buy is \$10/);
     expect(sized?.detail).not.toMatch(/\$200/);
     expect(sized?.detail).not.toMatch(/Cented/);
     expect(sized?.detail).not.toMatch(/stays at \$80/);
     expect(sized?.detail).not.toMatch(/as much as/i);
+    expect(sized?.tradeIds.length).toBeGreaterThanOrEqual(3);
   });
 
   it("quotes a market-cap rule and ignores an inactive one", () => {
@@ -99,8 +129,55 @@ describe("trading habits", () => {
       rules: [{ id: "one", text: "One ticket per coin", active: true }],
     });
     const habit = tradingHabits(trades, bounds).negative.find((habit) => habit.id === "adds");
+    expect(habit?.title).toBe("Added to the same coin");
+    expect(habit?.mark).toBe("Repeat");
+    expect(habit?.title).not.toMatch(/sunk/i);
     expect(habit?.detail).toMatch(/One ticket per coin/);
     expect(habit?.tradeIds).toHaveLength(4);
+  });
+
+  it("names the sunk-cost fallacy only on a re-entry after a red close", () => {
+    const trades = [
+      row("a1", 1, { pnl: -20, symbol: "AGAIN", mint: "mint-again" }),
+      row("a2", 2, { pnl: -15, symbol: "AGAIN", mint: "mint-again" }),
+      row("a3", 3, { pnl: -12, symbol: "AGAIN", mint: "mint-again" }),
+      row("a4", 4, { pnl: -10, symbol: "AGAIN", mint: "mint-again" }),
+      row("b1", 5, { pnl: 20, symbol: "ONCE1" }),
+      row("b2", 6, { pnl: 18, symbol: "ONCE2" }),
+      row("b3", 7, { pnl: 16, symbol: "ONCE3" }),
+    ];
+    const habit = tradingHabits(trades).negative.find((item) => item.id === "reentry");
+    expect(habit?.title).toBe("Sunk-cost fallacy");
+    expect(habit?.mark).toBe("Fallacy");
+    expect(habit?.detail).toMatch(/Trying to get back to even/);
+    expect(habit?.detail).toMatch(/after a red close/);
+    expect(habit?.detail).toMatch(/AGAIN/);
+    expect(habit?.tradeIds).toEqual(["a2", "a3", "a4"]);
+    expect(habit?.stat).toMatch(/3 trades/);
+  });
+
+  it("names confirmation after the fact when the caller arrives after the entry and keeps the ticket bounded", () => {
+    const late = Array.from({ length: 4 }, (_, index) =>
+      row(`late-${index}`, index, { pnl: -30, amount: 80, kol: kol("Cented", "after"), symbol: `LATE${index}` }),
+    );
+    const early = Array.from({ length: 4 }, (_, index) =>
+      row(`early-${index}`, index + 4, { pnl: 20, amount: 20, kol: kol("Orangie", "before"), symbol: `EARLY${index}` }),
+    );
+    const trades = [...late, ...early];
+    const bounds = bookBounds({ trades, accountUsd: 9.9, rules: [] });
+    const habits = tradingHabits(trades, bounds);
+    const lateHabit = habits.negative.find((item) => item.id === "caller-late");
+    const earlyHabit = habits.positive.find((item) => item.id === "caller-early");
+    expect(lateHabit?.title).toBe("Confirmation after the fact");
+    expect(lateHabit?.mark).toBe("Bias");
+    expect(lateHabit?.detail).toMatch(/arrived after the entry/);
+    expect(lateHabit?.detail).toMatch(/stays at \$0\.50/);
+    expect(lateHabit?.detail).toMatch(/5% of the \$9\.90/);
+    expect(lateHabit?.detail).not.toMatch(/as much as|caller's size|match the kol/i);
+    expect(lateHabit?.tradeIds).toHaveLength(4);
+    expect(earlyHabit?.title).toBe("The caller was already in");
+    expect(earlyHabit?.mark).toBe("Tendency");
+    expect(earlyHabit?.detail).toMatch(/stays at \$0\.50/);
   });
 });
 
@@ -119,6 +196,7 @@ function row(
     symbol?: string;
     buys?: number;
     kol?: KolTag;
+    mint?: string;
   } = {},
 ): RoundTrip {
   const amount = extra.amount ?? 20;
@@ -126,7 +204,7 @@ function row(
   const mc = extra.mc ?? 40_000;
   return {
     id,
-    mint: id,
+    mint: extra.mint ?? id,
     symbol: extra.symbol ?? id.toUpperCase(),
     name: extra.symbol ?? id,
     metas: ["other"],
