@@ -23,7 +23,7 @@ export function HabitFeed({
   const rules =
     activeRules > 0 ? ` Your ${activeRules} active ${activeRules === 1 ? "rule holds" : "rules hold"} that ticket.` : "";
   const point =
-    "This feed is the point of the desk: the biases and tendencies extrapolated from this book. A bias or fallacy is named when a cluster of those fills supports it. Each one names the trades it came from.";
+    "This feed is the point of the desk: the cognitive biases and logical fallacies this wallet's own fills repeat, and the tendencies that paid. A bias or fallacy is named when a cluster of those fills supports it. Each card names the trades it came from.";
   const intro =
     bounds.ticketUsd > 0
       ? `${point} Where a habit names a next ticket, that ticket is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A caller leaves that ticket where it is.`
