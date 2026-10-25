@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { tradingHabits } from "@/lib/analysis/habits";
+import { withStoredHigh } from "@/lib/analysis/narrative";
 import { BookBar } from "@/components/book-bar";
 import { HabitFeed } from "@/components/habit-feed";
 import { BookError, BookNotices } from "@/components/book-notices";
@@ -30,7 +31,8 @@ export function Desk() {
     setFocusSearch(search);
     setFocus(null);
   }
-  const shown = focus ? analysis.trades.filter((trade) => focus.ids.includes(trade.id)) : analysis.trades;
+  const contextual = useMemo(() => withStoredHigh(analysis.trades, habitTrades), [analysis.trades, habitTrades]);
+  const shown = focus ? contextual.filter((trade) => focus.ids.includes(trade.id)) : contextual;
   const ruleNote = (trade: AnnotatedTrade) =>
     ruleBreak(trade, analysis.trades, { rules, accountUsd: book?.accountUsd ?? null }).note;
 
@@ -65,7 +67,7 @@ export function Desk() {
               document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
           />
-          <Tape trades={shown} activeLabel={focus?.label ?? null} onClear={() => setFocus(null)} onChange={update} ruleNote={ruleNote} />
+          <Tape trades={shown} allTrades={contextual} activeLabel={focus?.label ?? null} onClear={() => setFocus(null)} onChange={update} ruleNote={ruleNote} />
         </>
       ) : null}
     </main>

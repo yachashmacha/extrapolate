@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { NarrativeLine } from "@/components/narrative-line";
+import { narrativeScore } from "@/lib/analysis/narrative";
 import { kolBoughtLine } from "@/lib/analysis/tips";
 import { fmtMc, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
-import type { AnnotatedTrade } from "@/lib/types";
+import type { AnnotatedTrade, RoundTrip } from "@/lib/types";
 
 const PREVIEW = 12;
 
@@ -12,11 +14,14 @@ export function RecentFeed({
   selectedId,
   onSelect,
   ruleNote,
+  allTrades,
 }: {
   trades: AnnotatedTrade[];
   selectedId: string | null;
   onSelect: (trade: AnnotatedTrade) => void;
   ruleNote?: (trade: AnnotatedTrade) => string;
+  /** Full book, so the narrative can use earlier coins in the same tag. */
+  allTrades?: RoundTrip[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const recent = [...trades].sort((left, right) => right.exitAt.localeCompare(left.exitAt));
@@ -26,12 +31,13 @@ export function RecentFeed({
     <div>
       <div className="section-head">
         <h2>Recent trades</h2>
-        <p>Newest close first. Each row has the market cap bought, the size, the result, and the name of each KOL in that coin.</p>
+        <p>Newest close first. Each row has the market cap bought, the size, the result, the name of each KOL in that coin, and the narrative score.</p>
       </div>
       {recent.length === 0 ? <p className="note">No closed trades yet.</p> : null}
       <div className="feed-scroll">
         {shown.map((trade) => {
           const win = trade.result === "win";
+          const narrative = narrativeScore(trade, allTrades ?? trades);
           return (
             <article key={trade.id} id={`recent-${trade.id}`} className={selectedId === trade.id ? "trade panel picked" : "trade panel"}>
               <button type="button" className="recent-open" onClick={() => onSelect(trade)} aria-pressed={selectedId === trade.id}>
@@ -54,6 +60,12 @@ export function RecentFeed({
                   <div className="fact">
                     <dt>KOL</dt>
                     <dd>{kolBoughtLine(trade.kols)}</dd>
+                  </div>
+                  <div className="fact">
+                    <dt>Narrative</dt>
+                    <dd>
+                      <NarrativeLine score={narrative.score} line={narrative.line} />
+                    </dd>
                   </div>
                 </dl>
                 <span className="note">{fmtWhen(trade.exitAt)} ET</span>

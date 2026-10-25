@@ -1,4 +1,5 @@
 import { RATIONALITY_NOTE, type DayFill, type DayReport } from "@/lib/analysis/day-report";
+import { NarrativeLine } from "@/components/narrative-line";
 import { fmtUsd, fmtUsdPlain } from "@/lib/format";
 
 export function DayReportPanel({ report }: { report: DayReport }) {
@@ -53,6 +54,7 @@ function Fill({ fill }: { fill: DayFill }) {
       <div>
         <div className="symbol">{fill.symbol}</div>
         <div className="note">{fmtUsdPlain(fill.amountUsd)}</div>
+        <NarrativeLine score={fill.narrativeScore} line={fill.narrative} />
         {fill.note ? <div className="note">{fill.note}</div> : null}
       </div>
       <div className={fill.pnlUsd > 0 ? "eod-amt good num" : "eod-amt bad num"}>{fmtUsd(fill.pnlUsd)}</div>

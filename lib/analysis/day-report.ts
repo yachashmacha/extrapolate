@@ -1,5 +1,6 @@
 import { bookBounds } from "@/lib/analysis/bounds";
 import { fomoStatus } from "@/lib/analysis/fomo";
+import { narrativeScore } from "@/lib/analysis/narrative";
 import { revengeIds, SIZE_UP, sizeMultiple } from "@/lib/analysis/slices";
 import { median, net, winRate } from "@/lib/analysis/stats";
 import { baseTicketSentence } from "@/lib/analysis/tips";
@@ -21,6 +22,10 @@ export interface DayFill {
   amountUsd: number;
   /** Set when this close broke an active base rule. */
   note?: string;
+  /** The coin's story, 0–100. Not an input to the rationality percent. */
+  narrativeScore: number;
+  /** The one or two factors that set the narrative score. */
+  narrative: string;
 }
 
 export interface DayFinding {
@@ -233,10 +238,10 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string, context?: Da
     label,
     tradeCount: day.length,
     pnlUsd,
-    best: wins.slice(0, 3).map((trade) => fillOf(trade, notes.get(trade.id))),
-    worst: losses.slice(0, 3).map((trade) => fillOf(trade, notes.get(trade.id))),
+    best: wins.slice(0, 3).map((trade) => fillOf(trade, trades, notes.get(trade.id))),
+    worst: losses.slice(0, 3).map((trade) => fillOf(trade, trades, notes.get(trade.id))),
     noWinningTrade: wins.length === 0,
-    leastBad: wins.length === 0 ? leastBadClose(losses, notes) : null,
+    leastBad: wins.length === 0 ? leastBadClose(losses, trades, notes) : null,
     biases: biases.map(publish),
     rational,
     tendency: tendency ? asTendency(tendency) : null,
@@ -586,13 +591,13 @@ function cleanWhy(counts: Counts): string {
   return `The fills did not repeat a costly pattern: ${joinAnd(details)}.`;
 }
 
-function leastBadClose(losses: RoundTrip[], notes?: Map<string, string>): DayFill | null {
+function leastBadClose(losses: RoundTrip[], book: RoundTrip[], notes?: Map<string, string>): DayFill | null {
   if (losses.length < 2) return null;
   const worst = losses[0];
   const least = losses[losses.length - 1];
   if (!(least.pnlUsd < 0) || !(worst.pnlUsd < 0)) return null;
   if (Math.abs(worst.pnlUsd) + 1e-9 < Math.abs(least.pnlUsd) * 2) return null;
-  return fillOf(least, notes?.get(least.id));
+  return fillOf(least, book, notes?.get(least.id));
 }
 
 function flatAfterLoss(ordered: RoundTrip[], dayKey: string, revenge: Set<string>, usual: number): RoundTrip[] {
@@ -681,8 +686,16 @@ function topSymbols(group: RoundTrip[], worst: boolean, limit: number): string[]
   return names;
 }
 
-function fillOf(trade: RoundTrip, note?: string): DayFill {
-  const fill: DayFill = { id: trade.id, symbol: trade.symbol, pnlUsd: trade.pnlUsd, amountUsd: trade.amountUsd };
+function fillOf(trade: RoundTrip, book: RoundTrip[], note?: string): DayFill {
+  const narrative = narrativeScore(trade, book);
+  const fill: DayFill = {
+    id: trade.id,
+    symbol: trade.symbol,
+    pnlUsd: trade.pnlUsd,
+    amountUsd: trade.amountUsd,
+    narrativeScore: narrative.score,
+    narrative: narrative.line,
+  };
   if (note) fill.note = note;
   return fill;
 }

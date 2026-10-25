@@ -26,7 +26,7 @@ describe("end of day report", () => {
     expect(friday.worst.map((fill) => fill.symbol)).toEqual(["ELON"]);
     expect(saturday.label).toBe("Saturday, October 24, 2026");
     expect(saturday.pnlUsd).toBe(12);
-    expect(saturday.best).toEqual([{ id: "day", symbol: "VAN", pnlUsd: 12, amountUsd: 10 }]);
+    expect(saturday.best[0]).toMatchObject({ id: "day", symbol: "VAN", pnlUsd: 12, amountUsd: 10 });
     expect(saturday.worst).toEqual([]);
     expect(latestClosedDay(trades)).toBe("2026-10-24");
     expect(latestClosedDay([])).toBeNull();

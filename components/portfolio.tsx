@@ -13,6 +13,7 @@ import { TipFeed } from "@/components/tip-feed";
 import { useBook } from "@/components/use-book";
 import { useTradeContext } from "@/components/use-trade-context";
 import { bookBounds } from "@/lib/analysis/bounds";
+import { withStoredHigh } from "@/lib/analysis/narrative";
 import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
 import { endOfDayReport, latestClosedDay } from "@/lib/analysis/day-report";
@@ -74,7 +75,8 @@ export function Portfolio() {
     document.getElementById("feeds")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const scoped = analysis.trades.filter((trade) => {
+  const contextual = useMemo(() => withStoredHigh(analysis.trades, reportTrades), [analysis.trades, reportTrades]);
+  const scoped = contextual.filter((trade) => {
     const day = dayKeyEt(trade.exitAt);
     if (scope.kind === "book") return true;
     if (scope.kind === "day") return day === scope.dayKey;
@@ -105,7 +107,8 @@ export function Portfolio() {
           <section className="section" id="recent">
             <div className="feeds">
               <RecentFeed
-                trades={analysis.trades}
+                trades={contextual}
+                allTrades={contextual}
                 selectedId={scope.kind === "trade" ? scope.id : null}
                 onSelect={(trade) => {
                   setScope((current) =>
@@ -159,11 +162,11 @@ export function Portfolio() {
             <div className="feeds">
               <div>
                 <h3 className="feed-title">Winners</h3>
-                <Tape trades={scoped} sideLock="win" showHeading={false} anchor="winners" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} ruleNote={ruleNote} />
+                <Tape trades={scoped} allTrades={contextual} sideLock="win" showHeading={false} anchor="winners" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} ruleNote={ruleNote} />
               </div>
               <div>
                 <h3 className="feed-title">Losers</h3>
-                <Tape trades={scoped} sideLock="loss" showHeading={false} anchor="losers" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} ruleNote={ruleNote} />
+                <Tape trades={scoped} allTrades={contextual} sideLock="loss" showHeading={false} anchor="losers" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} ruleNote={ruleNote} />
               </div>
             </div>
           </section>

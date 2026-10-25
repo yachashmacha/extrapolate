@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { NarrativeLine } from "@/components/narrative-line";
+import { narrativeScore } from "@/lib/analysis/narrative";
 import { fmtHold, fmtMc, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
 import { kolLabel, makeKol, searchKols } from "@/lib/kols";
 import { META_LABEL, META_ORDER } from "@/lib/metas";
-import type { AnnotatedTrade, KolTag, KolTiming, MetaId } from "@/lib/types";
+import type { AnnotatedTrade, KolTag, KolTiming, MetaId, RoundTrip } from "@/lib/types";
 
 export function Tape({
   trades,
@@ -15,6 +17,7 @@ export function Tape({
   showHeading = true,
   anchor = "tape",
   ruleNote,
+  allTrades,
 }: {
   trades: AnnotatedTrade[];
   activeLabel: string | null;
@@ -24,6 +27,8 @@ export function Tape({
   showHeading?: boolean;
   anchor?: string;
   ruleNote?: (trade: AnnotatedTrade) => string;
+  /** Full book, so a filtered tape still scores earlier coins in the same narrative. */
+  allTrades?: RoundTrip[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [side, setSide] = useState<"all" | "win" | "loss">(sideLock ?? "all");
@@ -53,8 +58,10 @@ export function Tape({
         <span className="note">{visible.length} shown</span>
       </div>
       {visible.length === 0 ? <p className="note">Nothing in this slice.</p> : null}
-      {visible.map((trade) => (
-        <article key={trade.id} className="trade panel">
+      {visible.map((trade) => {
+        const narrative = narrativeScore(trade, allTrades ?? trades);
+        return (
+        <article key={trade.id} className="trade panel" data-narrative-score={narrative.score}>
           <button
             type="button"
             className="trade-main"
@@ -73,6 +80,7 @@ export function Tape({
                     .map((kol) => kolLabel(kol))
                     .join(", ")}${trade.kols.length > 2 ? ` +${trade.kols.length - 2}` : ""}`
                 : ""}
+              <NarrativeLine score={narrative.score} line={narrative.line} />
             </span>
             <span className={trade.pnlUsd >= 0 ? "pnl good" : "pnl bad"}>
               {fmtPct(trade.pnlPct)}
@@ -110,7 +118,8 @@ export function Tape({
             </div>
           ) : null}
         </article>
-      ))}
+        );
+      })}
     </section>
   );
 }

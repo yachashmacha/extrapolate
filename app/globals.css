@@ -92,7 +92,8 @@ p { margin: 0; }
 .good { color: var(--sage); }
 .bad { color: var(--clay); }
 .num, .pnl, .amt, .stat b, .trade-meta, .habit-stat, .fact dd, .compare td, .data td,
-.month-stats b, .equity-tick, .equity-call, .equity-time, .score, .day .amt, .eod-score b, .eod-pnl, .eod-amt {
+.month-stats b, .equity-tick, .equity-call, .equity-time, .score, .day .amt, .eod-score b, .eod-pnl, .eod-amt,
+.narrative-score {
   font-variant-numeric: tabular-nums;
 }
 
@@ -582,6 +583,17 @@ dl.facts { display: grid; gap: 4px; margin: 0; }
 }
 .eod-amt { font-size: 17px; font-weight: 700; }
 .eod-note { max-width: 40rem; }
+.narrative-line {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.narrative-score { color: var(--brass); font-weight: 700; }
+.fact .narrative-line { margin-top: 0; }
 
 @media (max-width: 980px) {
   .hero, .preview-grid, .split, .play-grid, .table-grid, .patterns, .stat-row, .feeds, .eod-top, .eod-lists {
