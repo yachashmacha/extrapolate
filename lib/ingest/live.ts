@@ -26,7 +26,7 @@ export async function fetchWalletBook(
   const terminal: TerminalId = isTerminalId(terminalInput) ? terminalInput : "wallet";
   const warnings = [
     `Fills are reconstructed from the wallet ${terminal === "wallet" ? "itself" : `${terminalName(terminal)} settles to`}. Entry market cap is fill price times current supply.`,
-    "KOLs are not on the transaction. Tag who was in each coin and the desk will fold them into the reading.",
+    "Tracked wallets are checked for a buy of each coin. A repeated name is shown with its wallet.",
     "Liquidity is the pool right now, not the pool at the fill.",
   ];
 

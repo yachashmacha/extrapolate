@@ -3,6 +3,7 @@ import type { BookBounds } from "@/lib/analysis/bounds";
 import { kolMode, revengeIds, sessionName } from "@/lib/analysis/slices";
 import { median, net, winRate } from "@/lib/analysis/stats";
 import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
+import { kolLabel } from "@/lib/kols";
 import type { KolTiming, RoundTrip } from "@/lib/types";
 
 export interface Habit {
@@ -411,7 +412,8 @@ function callerNames(group: RoundTrip[], timings: KolTiming[]): string {
   for (const trade of group) {
     for (const kol of trade.kols) {
       if (!allowed.has(kol.timing)) continue;
-      counts.set(kol.name, (counts.get(kol.name) ?? 0) + 1);
+      const label = kolLabel(kol);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
     }
   }
   const names = [...counts.entries()]

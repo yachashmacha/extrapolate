@@ -27,7 +27,7 @@ type FeedScope =
   | { kind: "trade"; id: string; symbol: string };
 
 export function Portfolio() {
-  const { book, analysis, error, loading, bookKey, title, note, search, reread, update } = useBook();
+  const { book, analysis, error, loading, bookKey, title, note, search, reread, update, kolScan } = useBook();
   const { rules } = useRules(bookKey);
   const { highs, pending: pendingHighs } = useHighs(book);
   const latestMonth = useMemo(() => {
@@ -80,7 +80,7 @@ export function Portfolio() {
       {error ? <BookError error={error} /> : null}
       {book && !loading ? (
         <>
-          <BookNotices book={book} />
+          <BookNotices book={book} kolScan={kolScan} />
           <PnlCalendar
             trades={analysis.trades}
             month={shownMonth}

@@ -3,7 +3,9 @@
 import { clampTicketAmounts } from "@/lib/analysis/bounds";
 import { EquityChart } from "@/components/equity-chart";
 import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
-import type { Analysis, Pattern, PlayCard, SidePortrait } from "@/lib/types";
+import { kolLabel } from "@/lib/kols";
+import type { Analysis, KolReport, Pattern, PlayCard, SidePortrait } from "@/lib/types";
+import type { KolScanProgress } from "@/components/use-book";
 
 const CATEGORY: Record<PlayCard["category"], string> = {
   entry: "Entry",
@@ -16,10 +18,12 @@ const CATEGORY: Record<PlayCard["category"], string> = {
 export function Reading({
   analysis,
   ticketUsd,
+  kolScan,
   onShowTrades,
 }: {
   analysis: Analysis;
   ticketUsd?: number;
+  kolScan?: KolScanProgress | null;
   onShowTrades: (ids: string[], label: string) => void;
 }) {
   const { summary } = analysis;
@@ -127,18 +131,31 @@ export function Reading({
           <div className="panel">
             <p className="kicker">KOLs</p>
             <h3>Who was in the coin</h3>
-            <p className="note">Chain fills do not name the caller. Tags are yours. Before and with you count as already in. After does not.</p>
+            <p className="note">
+              Tracked wallets are checked for a buy of the same coin. The name stays on its wallet. Before and with you count as already in. After does not.
+              {kolScan?.pending
+                ? ` Checked ${kolScan.checked.toLocaleString("en-US")} of ${kolScan.total.toLocaleString("en-US")}.`
+                : ""}
+            </p>
             <table className="data">
               <thead>
                 <tr><th>KOL</th><th>Trades</th><th>Win rate</th><th>Net</th><th>Timing</th></tr>
               </thead>
               <tbody>
                 {analysis.kols.length === 0 ? (
-                  <tr><td colSpan={5}>No KOL tags on this book yet. Open a trade and mark who was in it.</td></tr>
+                  <tr>
+                    <td colSpan={5}>
+                      {kolScan?.pending
+                        ? "Checking tracked wallets. A match shows the name with its wallet."
+                        : "No tracked wallet bought these coins. Add a name from a trade and it stays with its wallet."}
+                    </td>
+                  </tr>
                 ) : (
                   analysis.kols.map((kol) => (
-                    <tr key={kol.id} onClick={() => onShowTrades(kol.tradeIds, kol.name)}>
-                      <td>{kol.handle ? `${kol.name}` : kol.name}</td>
+                    <tr key={kol.id} onClick={() => onShowTrades(kol.tradeIds, kolLabel(kol))}>
+                      <td>
+                        <KolName kol={kol} />
+                      </td>
                       <td className="num">{kol.trades}</td>
                       <td className="num">{fmtRate(kol.winRate)}</td>
                       <td className={kol.netPnlUsd >= 0 ? "good num" : "bad num"}>{fmtUsd(kol.netPnlUsd)}</td>
@@ -193,6 +210,15 @@ function Row({ label, win, loss }: { label: string; win: string; loss: string })
       <td className="good">{win}</td>
       <td className="bad">{loss}</td>
     </tr>
+  );
+}
+
+function KolName({ kol }: { kol: KolReport }) {
+  return (
+    <span title={kol.wallet || kol.name}>
+      <span>{kolLabel(kol)}</span>
+      {kol.wallet ? <span className="wallet-line">{kol.wallet}</span> : null}
+    </span>
   );
 }
 

@@ -2,6 +2,7 @@ import { bookBounds, type BookBounds } from "@/lib/analysis/bounds";
 import { median } from "@/lib/analysis/stats";
 import { kolMode } from "@/lib/analysis/slices";
 import { fmtHold, fmtMc, fmtUsdPlain } from "@/lib/format";
+import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
 import type { AnnotatedTrade, KolTag, KolTiming } from "@/lib/types";
 
@@ -40,7 +41,9 @@ export function practiceTips(trades: AnnotatedTrade[], bounds?: BookBounds): Pra
 
 export function kolBoughtLine(kols: KolTag[]): string {
   if (kols.length === 0) return "No KOL tagged";
-  return kols.map((kol) => `${kol.name}, ${timingLabel(kol.timing)}`).join(" · ");
+  const shown = kols.slice(0, 4).map((kol) => `${kolLabel(kol)}, ${timingLabel(kol.timing)}`);
+  const more = kols.length > 4 ? ` · +${kols.length - 4} more` : "";
+  return `${shown.join(" · ")}${more}`;
 }
 
 function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: BookBounds): string {
@@ -62,7 +65,7 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
   const winMc = median(pool.map((row) => row.entryMarketCapUsd));
   const winHold = median(pool.map((row) => row.holdMinutes));
   const earlyNames = topNames(
-    pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kol.name)),
+    pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kolLabel(kol))),
     2,
   );
   const ticket = bounds.ticketUsd;
@@ -131,7 +134,9 @@ export function ticketWhy(bounds: BookBounds): string {
 
 function kolSentence(trade: AnnotatedTrade): string {
   if (trade.kols.length === 0) return "No KOL was tagged on it.";
-  const bits = trade.kols.map((kol) => `${kol.name} (${timingLabel(kol.timing)})`);
+  const bits = trade.kols.slice(0, 3).map((kol) => `${kolLabel(kol)} (${timingLabel(kol.timing)})`);
+  const rest = trade.kols.length - bits.length;
+  if (rest > 0) bits.push(`${rest} more tracked ${rest === 1 ? "wallet" : "wallets"}`);
   return `${joinAnd(bits)} ${trade.kols.length === 1 ? "was" : "were"} in the coin.`;
 }
 

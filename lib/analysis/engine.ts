@@ -1,4 +1,5 @@
 import { fmtHold, fmtMc, fmtUsd, fmtUsdPlain } from "@/lib/format";
+import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
 import type {
   Analysis,
@@ -76,7 +77,7 @@ function summarize(trades: RoundTrip[]): Summary {
 function portrait(trades: RoundTrip[]): SidePortrait {
   const launch = trades.map((trade) => trade.minutesFromLaunch).filter((value) => value >= 0);
   const meta = mode(trades.flatMap((trade) => trade.metas.map((id) => META_LABEL[id])));
-  const kols = trades.flatMap((trade) => trade.kols.map((kol) => kol.name));
+  const kols = trades.flatMap((trade) => trade.kols.map((kol) => kolLabel(kol)));
   return {
     trades: trades.length,
     medianEntryMc: median(trades.map((trade) => trade.entryMarketCapUsd).filter((value) => value > 0)),
@@ -110,8 +111,8 @@ function patterns(winners: RoundTrip[], losers: RoundTrip[]): Pattern[] {
     add(trade, `kol:${kolMode(trade)}`, kolModeLabel(kolMode(trade)));
     for (const meta of trade.metas) add(trade, `meta:${meta}`, META_LABEL[meta]);
     for (const kol of trade.kols) {
-      if (kol.timing === "after") add(trade, `kol-after:${kol.id}`, `${kol.name} showed up after`);
-      else add(trade, `kol-early:${kol.id}`, `${kol.name} was already in`);
+      if (kol.timing === "after") add(trade, `kol-after:${kol.id}`, `${kolLabel(kol)} showed up after`);
+      else add(trade, `kol-early:${kol.id}`, `${kolLabel(kol)} was already in`);
     }
   }
 
@@ -145,7 +146,7 @@ function patterns(winners: RoundTrip[], losers: RoundTrip[]): Pattern[] {
 }
 
 function kolReports(trades: RoundTrip[]): KolReport[] {
-  const groups = new Map<string, { name: string; handle: string; trades: RoundTrip[]; timings: string[] }>();
+  const groups = new Map<string, { name: string; handle: string; wallet?: string; trades: RoundTrip[]; timings: string[] }>();
   for (const trade of trades) {
     if (trade.kols.length === 0) {
       const row = groups.get("none") ?? { name: "No KOL", handle: "", trades: [], timings: [] };
@@ -154,7 +155,7 @@ function kolReports(trades: RoundTrip[]): KolReport[] {
       continue;
     }
     for (const kol of trade.kols) {
-      const row = groups.get(kol.id) ?? { name: kol.name, handle: kol.handle, trades: [], timings: [] };
+      const row = groups.get(kol.id) ?? { name: kol.name, handle: kol.handle, wallet: kol.wallet, trades: [], timings: [] };
       row.trades.push(trade);
       row.timings.push(kol.timing);
       groups.set(kol.id, row);
@@ -166,6 +167,7 @@ function kolReports(trades: RoundTrip[]): KolReport[] {
       id,
       name: group.name,
       handle: group.handle,
+      wallet: group.wallet,
       trades: group.trades.length,
       winRate: winRate(group.trades),
       netPnlUsd: money(net(group.trades)),
@@ -198,14 +200,14 @@ function polishNames(
   comparison: { winners: SidePortrait; losers: SidePortrait },
   kols: KolReport[],
 ): void {
-  const green = new Set(kols.filter((kol) => kol.netPnlUsd > 0 && kol.winRate >= 0.55).map((kol) => kol.name));
-  const red = new Set(kols.filter((kol) => kol.netPnlUsd < 0 && kol.winRate <= 0.4).map((kol) => kol.name));
+  const green = new Set(kols.filter((kol) => kol.netPnlUsd > 0 && kol.winRate >= 0.55).map((kol) => kolLabel(kol)));
+  const red = new Set(kols.filter((kol) => kol.netPnlUsd < 0 && kol.winRate <= 0.4).map((kol) => kolLabel(kol)));
   comparison.winners.topKols = comparison.winners.topKols.filter((name) => !red.has(name));
   comparison.losers.topKols = comparison.losers.topKols.filter((name) => !green.has(name));
   if (comparison.losers.topKols.length === 0) {
     comparison.losers.topKols = kols
       .filter((kol) => kol.usualTiming === "after" && kol.netPnlUsd < 0)
-      .map((kol) => kol.name)
+      .map((kol) => kolLabel(kol))
       .slice(0, 3);
   }
 }
@@ -244,9 +246,9 @@ function lossNote(trade: RoundTrip, winners: RoundTrip[]): string {
   if (pool.length === 0) return "There are no winning trades in this book to set beside this one yet.";
   const meta = META_LABEL[trade.metas[0] ?? "other"].toLowerCase();
   const scope = peers.length >= 3 ? `Winners in ${meta}` : "Winners";
-  const kols = topNames(pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kol.name)), 2);
+  const kols = topNames(pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kolLabel(kol))), 2);
   const kolBit = kols.length > 0 ? `, with ${kols.join(" or ")} already in` : "";
-  const yours = trade.kols.length === 0 ? "no tagged KOL" : trade.kols.map((kol) => `${kol.name} ${kol.timing}`).join(", ");
+  const yours = trade.kols.length === 0 ? "no tagged KOL" : trade.kols.map((kol) => `${kolLabel(kol)} ${kol.timing}`).join(", ");
   return `${scope} entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtMc(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}.`;
 }
 

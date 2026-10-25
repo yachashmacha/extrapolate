@@ -27,6 +27,8 @@ export interface KolTag {
   handle: string;
   name: string;
   timing: KolTiming;
+  /** Set when the tag is one of the tracked wallets. */
+  wallet?: string;
 }
 
 export interface RoundTrip {
@@ -127,6 +129,7 @@ export interface KolReport {
   id: string;
   name: string;
   handle: string;
+  wallet?: string;
   trades: number;
   winRate: number;
   netPnlUsd: number;

@@ -1,4 +1,5 @@
 import { fmtHold, fmtMc, fmtPct, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
+import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
 import { terminalName } from "@/lib/terminals";
 import type { MetaId, PlayCard, RoundTrip, TerminalId } from "@/lib/types";
@@ -195,7 +196,7 @@ function callerCandidate(
     evidence: `${portrait(quiet, "Trades with no KOL in before you")}${late} ${portrait(early, "Trades with a KOL already in")}`,
     rule: `A buy needs ${joinOr(names.length > 0 ? names : [who])} already in the coin, and it still has to sit under ${cap} at the base size.`,
     steps: [
-      `On the tape, tag who was in the coin and whether they were before you, with you, or after you. ${desk} will not do this for you.`,
+      `The desk checks the tracked wallets on each coin and shows the name with that wallet. Add anyone still missing from a ${desk} fill on the tape, with the timing.`,
       `If ${joinOr(names.length > 0 ? names : [who])} is absent, pass. A KOL who posts after your fill is a mark on the chart, not a confirmation.`,
       "Re-read the KOL table after two weeks of tags. Keep the names that still sit on the green side.",
     ],
@@ -391,7 +392,7 @@ function topEarlyNames(trades: RoundTrip[]): string[] {
   for (const trade of trades) {
     for (const kol of trade.kols) {
       if (kol.timing === "after") continue;
-      const row = scores.get(kol.id) ?? { name: kol.name, trades: [] };
+      const row = scores.get(kol.id) ?? { name: kolLabel(kol), trades: [] };
       row.trades.push(trade);
       scores.set(kol.id, row);
     }
@@ -408,7 +409,7 @@ function lateNamesFrom(trades: RoundTrip[]): string[] {
   for (const trade of trades) {
     for (const kol of trade.kols) {
       if (kol.timing !== "after") continue;
-      const row = scores.get(kol.id) ?? { name: kol.name, trades: [] };
+      const row = scores.get(kol.id) ?? { name: kolLabel(kol), trades: [] };
       row.trades.push(trade);
       scores.set(kol.id, row);
     }

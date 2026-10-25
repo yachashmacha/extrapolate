@@ -24,7 +24,7 @@ export function RecentFeed({
     <div>
       <div className="section-head">
         <h2>Recent trades</h2>
-        <p>Newest close first. Each row has the market cap bought, the size, the result, and which KOL was in the coin.</p>
+        <p>Newest close first. Each row has the market cap bought, the size, the result, and the tracked wallets in that coin. The name sits next to the wallet.</p>
       </div>
       {recent.length === 0 ? <p className="note">No closed trades yet.</p> : null}
       <div className="feed-scroll">

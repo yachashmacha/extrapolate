@@ -5,10 +5,25 @@ import { useEffect, useMemo, useState } from "react";
 import { analyze } from "@/lib/analysis/engine";
 import { isWalletAddress } from "@/lib/address";
 import { bookSearch } from "@/lib/book-query";
+import { tagsFromHits } from "@/lib/kols";
 import { isTerminalId, terminalName } from "@/lib/terminals";
 import { TRADER_DEPTH, TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import type { Analysis, Book, KolTag, MetaId, TerminalId } from "@/lib/types";
 import { shortAddress } from "@/lib/format";
+
+export interface KolScanProgress {
+  checked: number;
+  total: number;
+  pending: boolean;
+  matches: number;
+}
+
+interface KolHit {
+  mint: string;
+  wallet: string;
+  name: string;
+  boughtAt: string;
+}
 
 export interface Overrides {
   kols: Record<string, KolTag[]>;
@@ -33,6 +48,8 @@ export function useBook() {
   const [loading, setLoading] = useState(source !== "csv");
   const [overrides, setOverrides] = useState<Overrides>(EMPTY);
   const [reloadKey, setReloadKey] = useState(0);
+  const [detected, setDetected] = useState<KolHit[]>([]);
+  const [kolScan, setKolScan] = useState<KolScanProgress | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem(`extrapolate:overrides:${bookKey}`);
@@ -85,14 +102,80 @@ export function useBook() {
     return () => controller.abort();
   }, [source, address, terminal, depth, reloadKey]);
 
+  useEffect(() => {
+    if (!book || book.source !== "wallet" || book.trades.length === 0) {
+      setDetected([]);
+      setKolScan(null);
+      return;
+    }
+    const byMint = new Map<string, string>();
+    for (const trade of book.trades) {
+      const prev = byMint.get(trade.mint);
+      if (!prev || trade.entryAt > prev) byMint.set(trade.mint, trade.entryAt);
+    }
+    const mints = [...byMint.entries()].map(([mint, entryAt]) => ({ mint, entryAt }));
+    let stopped = false;
+    let timer = 0;
+    const controller = new AbortController();
+    const pull = () => {
+      fetch("/api/kols", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mints }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const body = (await response.json()) as {
+            checked?: number;
+            total?: number;
+            pending?: boolean;
+            matches?: KolHit[];
+          };
+          if (!response.ok) throw new Error("kols");
+          if (stopped) return;
+          const matches = body.matches ?? [];
+          setDetected(matches);
+          setKolScan({
+            checked: body.checked ?? 0,
+            total: body.total ?? 0,
+            pending: Boolean(body.pending),
+            matches: matches.length,
+          });
+          if (body.pending) timer = window.setTimeout(pull, 2500);
+        })
+        .catch((caught: unknown) => {
+          if (caught instanceof DOMException && caught.name === "AbortError") return;
+          if (!stopped) timer = window.setTimeout(pull, 5000);
+        });
+    };
+    pull();
+    return () => {
+      stopped = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [book]);
+
+  const detectedByMint = useMemo(() => {
+    const map = new Map<string, KolHit[]>();
+    for (const hit of detected) {
+      const list = map.get(hit.mint) ?? [];
+      list.push(hit);
+      map.set(hit.mint, list);
+    }
+    return map;
+  }, [detected]);
+
   const trades = useMemo(() => {
     if (!book) return [];
     return book.trades.map((trade) => ({
       ...trade,
-      kols: overrides.kols[trade.id] ?? trade.kols,
+      kols:
+        overrides.kols[trade.id] ??
+        (book.source === "wallet" ? tagsFromHits(detectedByMint.get(trade.mint) ?? [], trade.entryAt) : trade.kols),
       metas: overrides.metas[trade.id] ?? trade.metas,
     }));
-  }, [book, overrides]);
+  }, [book, overrides, detectedByMint]);
 
   const analysis: Analysis = useMemo(() => analyze(trades, terminal), [trades, terminal]);
 
@@ -122,6 +205,7 @@ export function useBook() {
     search,
     address,
     update,
+    kolScan,
     reread: book?.source === "wallet" ? () => setReloadKey((value) => value + 1) : null,
   };
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { fmtHold, fmtMc, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
-import { KOL_CATALOG, makeKol } from "@/lib/kols";
+import { kolLabel, makeKol, searchKols } from "@/lib/kols";
 import { META_LABEL, META_ORDER } from "@/lib/metas";
 import type { AnnotatedTrade, KolTag, KolTiming, MetaId } from "@/lib/types";
 
@@ -32,7 +32,7 @@ export function Tape({
       {showHeading ? (
         <div className="section-head">
           <h2>The tape</h2>
-          <p>Open a fill to see how it sits against the winners, and to tag the KOL or the narrative the chain could not know.</p>
+          <p>Open a fill to see how it sits against the winners. A KOL name is shown with the wallet it belongs to.</p>
         </div>
       ) : null}
       <div className="filter-row">
@@ -65,7 +65,12 @@ export function Tape({
             </span>
             <span className="trade-meta">
               {fmtWhen(trade.entryAt)} ET · {fmtMc(trade.entryMarketCapUsd)} → {fmtMc(trade.exitMarketCapUsd)} · {fmtHold(trade.holdMinutes)} · {fmtUsdPlain(trade.amountUsd)}
-              {trade.kols.length > 0 ? ` · ${trade.kols.map((kol) => kol.name).join(", ")}` : ""}
+              {trade.kols.length > 0
+                ? ` · ${trade.kols
+                    .slice(0, 2)
+                    .map((kol) => kolLabel(kol))
+                    .join(", ")}${trade.kols.length > 2 ? ` +${trade.kols.length - 2}` : ""}`
+                : ""}
             </span>
             <span className={trade.pnlUsd >= 0 ? "pnl good" : "pnl bad"}>
               {fmtPct(trade.pnlPct)}
@@ -114,9 +119,9 @@ function KolEditor({
   trade: AnnotatedTrade;
   onChange: (id: string, patch: { kols?: KolTag[]; metas?: MetaId[] }) => void;
 }) {
-  const [custom, setCustom] = useState("");
-  const knownIds = new Set(KOL_CATALOG.map((kol) => kol.id));
-  const extras = trade.kols.filter((kol) => !knownIds.has(kol.id));
+  const [query, setQuery] = useState("");
+  const hits = searchKols(query, 8);
+  const present = new Set(trade.kols.map((kol) => kol.id));
 
   function setTiming(kol: KolTag, timing: KolTiming) {
     onChange(trade.id, {
@@ -124,69 +129,88 @@ function KolEditor({
     });
   }
 
-  function toggle(id: string) {
-    const existing = trade.kols.find((kol) => kol.id === id);
-    onChange(trade.id, {
-      kols: existing ? trade.kols.filter((kol) => kol.id !== id) : [...trade.kols, makeKol(id, "before")],
-    });
+  function remove(id: string) {
+    onChange(trade.id, { kols: trade.kols.filter((kol) => kol.id !== id) });
   }
 
-  function addCustom() {
-    const handle = custom.trim().replace(/^@/, "");
-    if (!handle) return;
-    if (!trade.kols.some((kol) => kol.id === handle.toLowerCase())) {
-      onChange(trade.id, { kols: [...trade.kols, makeKol(handle, "before")] });
+  function add(id: string) {
+    const next = makeKol(id, "before");
+    if (trade.kols.some((kol) => kol.id === next.id)) return;
+    onChange(trade.id, { kols: [...trade.kols, next] });
+    setQuery("");
+  }
+
+  function addQuery() {
+    const handle = query.trim().replace(/^@/, "");
+    if (handle.length < 2) return;
+    const named = hits.filter((kol) => kol.name.toLowerCase() === handle.toLowerCase());
+    const wallet = hits.find((kol) => kol.wallet === handle);
+    if (wallet) {
+      add(wallet.wallet);
+      return;
     }
-    setCustom("");
+    if (named.length === 1) {
+      add(named[0].wallet);
+      return;
+    }
+    if (hits.length > 0) return;
+    add(handle);
   }
 
   return (
     <div className="editor">
       <span className="label">KOLs in this coin</span>
-      <div className="chip-row">
-        {KOL_CATALOG.map((kol) => {
-          const on = trade.kols.find((item) => item.id === kol.id);
-          return (
-            <span key={kol.id} className="chip-row">
-              <button type="button" className="chip" aria-pressed={Boolean(on)} onClick={() => toggle(kol.id)}>
-                {kol.name}
-              </button>
-              {on ? (
-                <select className="timing" aria-label={`${kol.name} timing`} value={on.timing} onChange={(event) => setTiming(on, event.target.value as KolTiming)}>
-                  <option value="before">before you</option>
-                  <option value="with">with you</option>
-                  <option value="after">after you</option>
-                </select>
-              ) : null}
-            </span>
-          );
-        })}
-        {extras.map((kol) => (
-          <span key={kol.id} className="chip-row">
-            <button type="button" className="chip" aria-pressed="true" onClick={() => toggle(kol.id)}>{kol.name}</button>
-            <select className="timing" aria-label={`${kol.name} timing`} value={kol.timing} onChange={(event) => setTiming(kol, event.target.value as KolTiming)}>
+      <p className="note">Each name stays next to its wallet. Search the tracked list, or paste an address.</p>
+      {trade.kols.length === 0 ? <p className="note">No tracked wallet is on this fill yet.</p> : null}
+      <div className="kol-list">
+        {trade.kols.map((kol) => (
+          <div key={kol.id} className="kol-row">
+            <button type="button" className="chip" aria-pressed="true" title={kol.wallet || kol.name} onClick={() => remove(kol.id)}>
+              {kolLabel(kol)}
+            </button>
+            <select
+              className="timing"
+              aria-label={`${kolLabel(kol)} timing`}
+              value={kol.timing}
+              onChange={(event) => setTiming(kol, event.target.value as KolTiming)}
+            >
               <option value="before">before you</option>
               <option value="with">with you</option>
               <option value="after">after you</option>
             </select>
-          </span>
+            {kol.wallet ? <span className="wallet-line">{kol.wallet}</span> : null}
+          </div>
         ))}
       </div>
       <div className="actions">
         <input
-          value={custom}
-          onChange={(event) => setCustom(event.target.value)}
-          placeholder="@handle"
-          aria-label="Add a KOL handle"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Name or wallet"
+          aria-label="Find a tracked KOL"
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              addCustom();
+              addQuery();
             }
           }}
         />
-        <button type="button" className="ghost" onClick={addCustom}>Add KOL</button>
+        <button type="button" className="ghost" onClick={addQuery}>
+          Add KOL
+        </button>
       </div>
+      {hits.length > 0 ? (
+        <ul className="kol-search">
+          {hits.map((kol) => (
+            <li key={kol.wallet}>
+              <button type="button" aria-pressed={present.has(kol.wallet)} onClick={() => add(kol.wallet)}>
+                <span>{kolLabel(kol)}</span>
+                <span className="wallet-line">{kol.wallet}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

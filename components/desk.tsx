@@ -13,7 +13,7 @@ import { useHighs } from "@/components/use-highs";
 import { useRules } from "@/components/use-rules";
 
 export function Desk() {
-  const { book, analysis, error, loading, bookKey, title, note, search, reread, update } = useBook();
+  const { book, analysis, error, loading, bookKey, title, note, search, reread, update, kolScan } = useBook();
   const { rules } = useRules(bookKey);
   const { highs, pending: pendingHighs } = useHighs(book);
   const bounds = useMemo(
@@ -53,10 +53,11 @@ export function Desk() {
 
       {book && !loading ? (
         <>
-          <BookNotices book={book} />
+          <BookNotices book={book} kolScan={kolScan} />
           <Reading
             analysis={analysis}
             ticketUsd={bounds.ticketUsd}
+            kolScan={kolScan}
             onShowTrades={(ids, label) => {
               setFocus({ ids, label });
               document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
