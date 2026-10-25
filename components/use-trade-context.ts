@@ -14,8 +14,8 @@ export function useTradeContext(book: Book | null, trades: RoundTrip[]): { trade
         const read = reads[trade.id];
         const next: RoundTrip = { ...trade, athMarketCapUsd: highs[trade.mint] || trade.athMarketCapUsd };
         if (!read) return next;
-        if ((read.graduationMarketCapUsd ?? 0) > 0) next.graduationMarketCapUsd = read.graduationMarketCapUsd;
-        if (typeof read.volumeFalling === "boolean") next.volumeFalling = read.volumeFalling;
+        if (typeof read.volumeDroppedAfter === "boolean") next.volumeDroppedAfter = read.volumeDroppedAfter;
+        if (typeof read.mcDroppedAfter === "boolean") next.mcDroppedAfter = read.mcDroppedAfter;
         return next;
       }),
     [trades, highs, reads],
@@ -27,19 +27,17 @@ function useBiasContext(book: Book | null, trades: RoundTrip[]): { reads: Record
   const [reads, setReads] = useState<Record<string, BiasRead>>({});
   const [pending, setPending] = useState(false);
   const payload = JSON.stringify(
-    trades
-      .filter((trade) => trade.mint.endsWith("pump"))
-      .map((trade) => ({
-        id: trade.id,
-        mint: trade.mint,
-        entryAt: trade.entryAt,
-        entryMarketCapUsd: trade.entryMarketCapUsd,
-      })),
+    trades.map((trade) => ({
+      id: trade.id,
+      mint: trade.mint,
+      entryAt: trade.entryAt,
+      entryMarketCapUsd: trade.entryMarketCapUsd,
+    })),
   );
 
   useEffect(() => {
-    const pump = JSON.parse(payload) as BiasTrade[];
-    if (!book || pump.length === 0) {
+    const rows = JSON.parse(payload) as BiasTrade[];
+    if (!book || rows.length === 0) {
       setReads({});
       setPending(false);
       return;
@@ -49,7 +47,7 @@ function useBiasContext(book: Book | null, trades: RoundTrip[]): { reads: Record
     fetch("/api/bias-context", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ trades: pump }),
+      body: JSON.stringify({ trades: rows }),
       signal: controller.signal,
     })
       .then(async (response) => {

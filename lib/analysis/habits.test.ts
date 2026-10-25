@@ -24,7 +24,7 @@ describe("trading habits", () => {
     }
   });
 
-  it("keeps a buy near the high out of FOMO when the bond and the volume are missing", () => {
+  it("keeps a buy near the high out of FOMO when the post-entry tape was not read", () => {
     const trades = [
       ...Array.from({ length: 4 }, (_, index) => row(`near-${index}`, index, { mc: 90_000, ath: 100_000, pnl: -40, symbol: `NEAR${index}` })),
       ...Array.from({ length: 4 }, (_, index) => row(`off-${index}`, index + 4, { mc: 30_000, ath: 100_000, pnl: 25, symbol: `OFF${index}` })),
@@ -39,48 +39,51 @@ describe("trading habits", () => {
     expect(off?.detail).not.toMatch(/FOMO/i);
   });
 
-  it("names FOMO only for a bond entry while volume is falling", () => {
+  it("names FOMO at any market cap when volume and market cap both dropped after the entry", () => {
     const trades = [
       ...Array.from({ length: 4 }, (_, index) =>
         row(`fade-${index}`, index, {
-          mc: 80_000,
+          mc: 12_000,
           ath: 90_000,
           pnl: -40,
-          graduation: 43_000,
-          volumeFalling: true,
+          volumeDroppedAfter: true,
+          mcDroppedAfter: true,
           symbol: `FADE${index}`,
         }),
       ),
       ...Array.from({ length: 4 }, (_, index) =>
-        row(`early-${index}`, index + 4, {
-          mc: 12_000,
+        row(`rise-${index}`, index + 4, {
+          mc: 80_000,
           ath: 90_000,
           pnl: 25,
-          graduation: 43_000,
-          volumeFalling: true,
-          symbol: `EARLY${index}`,
+          volumeDroppedAfter: false,
+          mcDroppedAfter: true,
+          symbol: `RISE${index}`,
         }),
       ),
     ];
     const fomo = tradingHabits(trades).negative.find((habit) => habit.id === "fomo");
     expect(fomo?.title).toBe("FOMO");
     expect(fomo?.mark).toBe("Bias");
-    expect(fomo?.detail).toMatch(/graduation price while volume was falling/);
-    expect(fomo?.detail).not.toMatch(/75%/);
-    expect(fomo?.tradeIds).toHaveLength(4);
+    expect(fomo?.detail).toMatch(/volume started dropping and market cap dropped/);
+    expect(fomo?.detail).not.toMatch(/graduation|bond|75%/i);
+    expect(fomo?.tradeIds).toEqual(["fade-0", "fade-1", "fade-2", "fade-3"]);
   });
 
-  it("does not name FOMO when the same late price still has rising volume", () => {
-    const trades = [
-      ...Array.from({ length: 4 }, (_, index) =>
-        row(`rise-${index}`, index, { mc: 90_000, ath: 100_000, pnl: -40, graduation: 43_000, volumeFalling: false }),
-      ),
-      ...Array.from({ length: 4 }, (_, index) =>
-        row(`off-${index}`, index + 4, { mc: 20_000, ath: 100_000, pnl: 25, graduation: 43_000, volumeFalling: false }),
-      ),
-    ];
-    const habits = tradingHabits(trades);
-    expect([...habits.positive, ...habits.negative].some((habit) => habit.title === "FOMO" || habit.id === "fomo-paid")).toBe(false);
+  it("does not name FOMO when volume kept rising, market cap kept climbing, or either read is missing", () => {
+    const rising = Array.from({ length: 4 }, (_, index) =>
+      row(`rise-${index}`, index, { mc: 12_000, pnl: -40, volumeDroppedAfter: false, mcDroppedAfter: true }),
+    );
+    const climbing = Array.from({ length: 4 }, (_, index) =>
+      row(`climb-${index}`, index, { mc: 90_000, pnl: -40, volumeDroppedAfter: true, mcDroppedAfter: false }),
+    );
+    const unread = Array.from({ length: 4 }, (_, index) =>
+      row(`miss-${index}`, index, { mc: 12_000, pnl: -40, volumeDroppedAfter: true }),
+    );
+    for (const trades of [rising, climbing, unread]) {
+      const habits = tradingHabits(trades);
+      expect([...habits.positive, ...habits.negative].some((habit) => habit.id === "fomo" || habit.id === "fomo-paid")).toBe(false);
+    }
   });
 
   it("skips the high when the book has no ATH", () => {
@@ -286,8 +289,8 @@ function row(
     hold?: number;
     at?: string;
     exitAt?: string;
-    graduation?: number;
-    volumeFalling?: boolean;
+    volumeDroppedAfter?: boolean;
+    mcDroppedAfter?: boolean;
     averagedDown?: boolean;
   } = {},
 ): RoundTrip {
@@ -316,8 +319,8 @@ function row(
     buys: extra.buys ?? 1,
     sells: 1,
     athMarketCapUsd: extra.ath,
-    graduationMarketCapUsd: extra.graduation,
-    volumeFalling: extra.volumeFalling,
+    volumeDroppedAfter: extra.volumeDroppedAfter,
+    mcDroppedAfter: extra.mcDroppedAfter,
     averagedDown: extra.averagedDown,
   };
 }

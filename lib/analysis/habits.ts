@@ -116,10 +116,10 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
 }
 
 /**
- * FOMO is a buy at the bond, or through it, while volume is falling: the hype
- * is rolling over and the coin is still at a late price. A fill that is merely
- * close to the day's high is not FOMO. A rising tape is a breakout. If the bond
- * line or the volume read is missing, the fill is not labeled.
+ * FOMO is a buy after which volume started dropping and market cap also dropped.
+ * Any market cap. The bond is not the test, and neither is the tape before the
+ * fill. If either post-entry read is missing, the fill is not labeled. A buy
+ * where volume kept rising, or market cap kept climbing, is not FOMO.
  */
 function fomoHabits(trades: RoundTrip[]): Draft[] {
   const chased = trades.filter((trade) => fomoStatus(trade) === "yes");
@@ -130,13 +130,13 @@ function fomoHabits(trades: RoundTrip[]): Draft[] {
     out.push(
       draft("fomo", "negative", "FOMO", chased, {
         mark: "Bias",
-        detail: `Buying the fade. ${chased.length} entries were at or near the pump.fun graduation price while volume was falling. Those dropped ${money(chased)}${including(chased, true)}.`,
+        detail: `Buying the fade. After the entry, volume started dropping and market cap dropped on ${chased.length} fills. Those dropped ${money(chased)}${including(chased, true)}.`,
       }),
     );
   } else if (worth("positive", chased, rest)) {
     out.push(
-      draft("fomo-paid", "positive", "Got paid on a fading bond", chased, {
-        detail: `${chased.length} entries were at or near the pump.fun graduation price while volume was falling. Those made ${gained(chased)}${including(chased, false)}.`,
+      draft("fomo-paid", "positive", "Got paid after the tape faded", chased, {
+        detail: `After the entry, volume started dropping and market cap dropped on ${chased.length} fills. Those made ${gained(chased)}${including(chased, false)}.`,
       }),
     );
   }

@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { bondZone, graduationMarketCapUsd, isPumpMint, volumeFallingAt, type VolumeCandle } from "@/lib/analysis/fomo";
+import { fadeAfterEntry, type TapeCandle } from "@/lib/analysis/fomo";
 
 export interface BiasTrade {
   id: string;
@@ -9,8 +9,8 @@ export interface BiasTrade {
 }
 
 export interface BiasRead {
-  graduationMarketCapUsd?: number;
-  volumeFalling?: boolean;
+  volumeDroppedAfter?: boolean;
+  mcDroppedAfter?: boolean;
 }
 
 interface PairHit {
@@ -19,31 +19,28 @@ interface PairHit {
   createdAt: number;
 }
 
-const CACHE_PATH = "/tmp/extrapolate-volume.json";
-const memory = new Map<string, VolumeCandle[]>();
-let diskLoaded = false;
-let solPrices: [number, number][] | null = null;
-let solLoadedAt = 0;
+interface PairCache {
+  candles: TapeCandle[];
+  /** The post-entry window is covered through this millisecond. */
+  throughMs: number;
+}
 
+const CACHE_PATH = "/tmp/extrapolate-fade.json";
+const memory = new Map<string, PairCache>();
+let diskLoaded = false;
+
+/**
+ * Reads the minutes after each fill. Market cap is not a gate: a pool is enough.
+ * A fill whose volume or close cannot be read is left out, and that fill is not FOMO.
+ */
 export async function biasContextFor(trades: BiasTrade[]): Promise<Record<string, BiasRead>> {
   const reads: Record<string, BiasRead> = {};
-  const prices = await loadSolPrices();
-  const needsVolume: BiasTrade[] = [];
-  for (const trade of trades) {
-    if (!isPumpMint(trade.mint)) continue;
-    const sol = priceAt(prices, trade.entryAt);
-    const graduation = graduationMarketCapUsd(sol);
-    if (!(graduation > 0)) continue;
-    const read: BiasRead = { graduationMarketCapUsd: graduation };
-    reads[trade.id] = read;
-    const zone = bondZone({ entryMarketCapUsd: trade.entryMarketCapUsd, graduationMarketCapUsd: graduation });
-    if (zone === "post" || zone === "close") needsVolume.push(trade);
-  }
-  if (needsVolume.length === 0) return reads;
+  const wanted = trades.filter((trade) => trade.mint && trade.entryAt);
+  if (wanted.length === 0) return reads;
 
-  const pairs = await loadPairs([...new Set(needsVolume.map((trade) => trade.mint))]);
+  const pairs = await loadPairs([...new Set(wanted.map((trade) => trade.mint))]);
   const byPair = new Map<string, BiasTrade[]>();
-  for (const trade of needsVolume) {
+  for (const trade of wanted) {
     const pair = pickPair(pairs.get(trade.mint) ?? [], Date.parse(trade.entryAt));
     if (!pair) continue;
     const list = byPair.get(pair) ?? [];
@@ -55,9 +52,12 @@ export async function biasContextFor(trades: BiasTrade[]): Promise<Record<string
       paced(async () => {
         const candles = await candlesFor(pair, group);
         for (const trade of group) {
-          const read = reads[trade.id];
-          const falling = volumeFallingAt(candles, Date.parse(trade.entryAt));
-          if (read && typeof falling === "boolean") read.volumeFalling = falling;
+          const fade = fadeAfterEntry(candles, Date.parse(trade.entryAt));
+          if (typeof fade.volumeDroppedAfter !== "boolean" || typeof fade.mcDroppedAfter !== "boolean") continue;
+          reads[trade.id] = {
+            volumeDroppedAfter: fade.volumeDroppedAfter,
+            mcDroppedAfter: fade.mcDroppedAfter,
+          };
         }
       }),
     ),
@@ -104,35 +104,40 @@ async function loadPairs(mints: string[]): Promise<Map<string, PairHit[]>> {
   return map;
 }
 
-async function candlesFor(pair: string, trades: BiasTrade[]): Promise<VolumeCandle[]> {
+async function candlesFor(pair: string, trades: BiasTrade[]): Promise<TapeCandle[]> {
   loadDisk();
   const times = trades.map((trade) => Date.parse(trade.entryAt)).filter((time) => Number.isFinite(time));
-  if (times.length === 0) return memory.get(pair) ?? [];
-  const newest = Math.max(...times);
-  const oldest = Math.min(...times) - 20 * 60_000;
-  let have = memory.get(pair) ?? [];
-  if (covers(have, oldest, newest)) return have;
-  let before = Math.ceil(newest / 1000) + 120;
+  if (times.length === 0) return memory.get(pair)?.candles ?? [];
+  const oldest = Math.min(...times) - 60_000;
+  const newest = Math.max(...times) + 10 * 60_000;
+  const cached = memory.get(pair);
+  if (cached && cached.throughMs >= newest && (cached.candles.length === 0 || Math.min(...cached.candles.map((candle) => candle.t)) <= oldest)) {
+    return cached.candles;
+  }
+  let have = cached?.candles ?? [];
+  let before = Math.ceil(newest / 1000) + 60;
+  let complete = false;
   for (let page = 0; page < 4; page += 1) {
     const batch = await fetchCandles(pair, before);
-    if (!batch || batch.length === 0) break;
+    if (!batch) break;
     have = mergeCandles(have, batch);
+    if (batch.length < 1000) {
+      complete = true;
+      break;
+    }
     const earliest = Math.min(...batch.map((candle) => candle.t));
-    if (earliest <= oldest) break;
+    if (earliest <= oldest) {
+      complete = true;
+      break;
+    }
     before = Math.floor(earliest / 1000);
   }
-  memory.set(pair, have);
+  memory.set(pair, { candles: have, throughMs: complete ? newest : cached?.throughMs ?? 0 });
   scheduleDisk();
   return have;
 }
 
-function covers(candles: VolumeCandle[], oldest: number, newest: number): boolean {
-  if (candles.length === 0) return false;
-  const times = candles.map((candle) => candle.t);
-  return Math.min(...times) <= oldest && Math.max(...times) >= newest - 15 * 60_000;
-}
-
-async function fetchCandles(pair: string, beforeSec: number): Promise<VolumeCandle[] | null> {
+async function fetchCandles(pair: string, beforeSec: number): Promise<TapeCandle[] | null> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const response = await fetch(
@@ -151,11 +156,14 @@ async function fetchCandles(pair: string, beforeSec: number): Promise<VolumeCand
       const body = (await response.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
       const rows = body.data?.attributes?.ohlcv_list;
       if (!Array.isArray(rows)) return null;
-      const candles: VolumeCandle[] = [];
+      const candles: TapeCandle[] = [];
       for (const row of rows) {
         const t = Number(row?.[0]) * 1000;
+        const c = Number(row?.[4]);
         const v = Number(row?.[5]);
-        if (Number.isFinite(t) && t > 0 && Number.isFinite(v) && v >= 0) candles.push({ t, v });
+        if (Number.isFinite(t) && t > 0 && Number.isFinite(v) && v >= 0 && Number.isFinite(c) && c > 0) {
+          candles.push({ t, v, c });
+        }
       }
       return candles;
     } catch {
@@ -165,50 +173,13 @@ async function fetchCandles(pair: string, beforeSec: number): Promise<VolumeCand
   return null;
 }
 
-function mergeCandles(left: VolumeCandle[], right: VolumeCandle[]): VolumeCandle[] {
-  const byOpen = new Map<number, number>();
-  for (const candle of [...left, ...right]) byOpen.set(candle.t, Math.max(byOpen.get(candle.t) ?? 0, candle.v));
-  return [...byOpen.entries()]
-    .map(([t, v]) => ({ t, v }))
-    .sort((a, b) => a.t - b.t);
-}
-
-async function loadSolPrices(): Promise<[number, number][]> {
-  if (solPrices && Date.now() - solLoadedAt < 10 * 60_000) return solPrices;
-  try {
-    const response = await fetch("https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=90", {
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-      headers: { accept: "application/json" },
-    });
-    if (response.ok) {
-      const body = (await response.json()) as { prices?: [number, number][] };
-      const prices = (body.prices ?? []).filter((row) => row.length === 2 && row[1] > 0);
-      if (prices.length > 0) {
-        solPrices = prices;
-        solLoadedAt = Date.now();
-        return prices;
-      }
-    }
-  } catch {
-    // A missed chart leaves the graduation line unread.
+function mergeCandles(left: TapeCandle[], right: TapeCandle[]): TapeCandle[] {
+  const byOpen = new Map<number, TapeCandle>();
+  for (const candle of [...left, ...right]) {
+    const prev = byOpen.get(candle.t);
+    if (!prev || candle.v >= prev.v) byOpen.set(candle.t, candle);
   }
-  return solPrices ?? [];
-}
-
-function priceAt(prices: [number, number][], iso: string): number {
-  const time = Date.parse(iso);
-  if (!Number.isFinite(time) || prices.length === 0) return 0;
-  let nearest = prices[0];
-  let best = Infinity;
-  for (const row of prices) {
-    const gap = Math.abs(row[0] - time);
-    if (gap < best) {
-      best = gap;
-      nearest = row;
-    }
-  }
-  return nearest[1] || 0;
+  return [...byOpen.values()].sort((a, b) => a.t - b.t);
 }
 
 function createdMs(value: number): number {
@@ -248,12 +219,14 @@ function loadDisk(): void {
   if (diskLoaded) return;
   diskLoaded = true;
   try {
-    const parsed = JSON.parse(readFileSync(CACHE_PATH, "utf8")) as Record<string, VolumeCandle[]>;
-    for (const [pair, candles] of Object.entries(parsed)) {
-      if (Array.isArray(candles)) memory.set(pair, candles.filter((candle) => candle && candle.t > 0 && candle.v >= 0));
+    const parsed = JSON.parse(readFileSync(CACHE_PATH, "utf8")) as Record<string, PairCache>;
+    for (const [pair, cache] of Object.entries(parsed)) {
+      if (!cache || !Array.isArray(cache.candles)) continue;
+      const candles = cache.candles.filter((candle) => candle && candle.t > 0 && candle.v >= 0 && candle.c > 0);
+      memory.set(pair, { candles, throughMs: Number(cache.throughMs) || 0 });
     }
   } catch {
-    // The first volume read fills this file.
+    // The first fade read fills this file.
   }
 }
 

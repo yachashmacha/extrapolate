@@ -185,15 +185,15 @@ describe("end of day report", () => {
     expect(report.why).toMatch(/sizing up after a loss/);
   });
 
-  it("names FOMO when entries bought the bond while volume was falling", () => {
+  it("names FOMO when volume and market cap both dropped after the entry, at any market cap", () => {
     const trades = [0, 1, 2, 3].map((minute) =>
       row(`fade-${minute}`, "2026-10-24", minute, {
         pnl: -20,
         amount: 20,
-        mc: 80_000,
+        mc: 12_000,
         ath: 90_000,
-        graduation: 43_000,
-        volumeFalling: true,
+        volumeDroppedAfter: true,
+        mcDroppedAfter: true,
         symbol: `FADE${minute}`,
       }),
     );
@@ -201,20 +201,20 @@ describe("end of day report", () => {
     expect(report.score).toBe(1);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).toContain("FOMO");
-    expect(report.lead).toMatch(/graduation price while volume was falling/);
-    expect(report.lead).not.toMatch(/75%|more rationally/);
-    expect(report.why).toMatch(/fading bond/);
+    expect(report.lead).toMatch(/volume started dropping and market cap dropped/);
+    expect(report.lead).not.toMatch(/graduation|bond|75%|more rationally/i);
+    expect(report.why).toMatch(/volume and market cap dropping after the entry/);
   });
 
-  it("does not score a near-high entry as FOMO when volume is still rising", () => {
+  it("does not score an entry as FOMO when volume kept rising after it", () => {
     const trades = [0, 1, 2, 3].map((minute) =>
       row(`rise-${minute}`, "2026-10-24", minute, {
         pnl: -20,
         amount: 20,
         mc: 90_000,
         ath: 100_000,
-        graduation: 43_000,
-        volumeFalling: false,
+        volumeDroppedAfter: false,
+        mcDroppedAfter: true,
         symbol: `RISE${minute}`,
       }),
     );
@@ -223,19 +223,36 @@ describe("end of day report", () => {
     expect(report.rational).toBe(true);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
     expect(report.lead).not.toMatch(/FOMO|75%/);
-    expect(report.why).not.toMatch(/near the high/);
+    expect(report.why).not.toMatch(/near the high|graduation|bond/i);
     expect(report.why).toMatch(/did not repeat a costly pattern/);
+    expect(report.why).toMatch(/no entry faded after the fill/);
   });
 
-  it("keeps a paid fading-bond entry out of the FOMO label and still scores that chase low", () => {
-    const near = [0, 1, 2, 3].map((minute) =>
-      row(`near-${minute}`, "2026-10-24", minute, {
+  it("does not call a missing post-entry read a fade", () => {
+    const trades = [0, 1, 2, 3].map((minute) =>
+      row(`miss-${minute}`, "2026-10-24", minute, {
+        pnl: -20,
+        amount: 20,
+        mc: 12_000,
+        volumeDroppedAfter: true,
+      }),
+    );
+    const report = endOfDayReport(trades, "2026-10-24");
+    expect(report.score).toBe(10);
+    expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
+    expect(report.lead).not.toMatch(/FOMO|faded after/);
+    expect(report.why).not.toMatch(/faded after/);
+  });
+
+  it("keeps a paid post-entry fade out of the FOMO label and still scores that chase low", () => {
+    const faded = [0, 1, 2, 3].map((minute) =>
+      row(`fade-${minute}`, "2026-10-24", minute, {
         pnl: 20,
         amount: 20,
-        mc: 90_000,
+        mc: 12_000,
         ath: 100_000,
-        graduation: 43_000,
-        volumeFalling: true,
+        volumeDroppedAfter: true,
+        mcDroppedAfter: true,
       }),
     );
     const mid = [4, 5, 6, 7].map((minute) =>
@@ -244,17 +261,17 @@ describe("end of day report", () => {
         amount: 20,
         mc: 20_000,
         ath: 100_000,
-        graduation: 43_000,
-        volumeFalling: false,
+        volumeDroppedAfter: false,
+        mcDroppedAfter: false,
       }),
     );
-    const report = endOfDayReport([...near, ...mid], "2026-10-24");
+    const report = endOfDayReport([...faded, ...mid], "2026-10-24");
     expect(report.score).toBe(3);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
     expect(report.rational).toBe(false);
-    expect(report.lead).not.toMatch(/more rationally|75%/);
-    expect(report.lead).toMatch(/volume was falling/);
-    expect(report.why).toMatch(/fading bond/);
+    expect(report.lead).not.toMatch(/more rationally|75%|bond|graduation/i);
+    expect(report.lead).toMatch(/volume started dropping and market cap dropped/);
+    expect(report.why).toMatch(/volume and market cap dropping after the entry/);
   });
 
   it("calls a day rational and names the under-high tendency when that is what paid", () => {
@@ -350,8 +367,8 @@ function row(
     mint?: string;
     liquidity?: number;
     at?: string;
-    graduation?: number;
-    volumeFalling?: boolean;
+    volumeDroppedAfter?: boolean;
+    mcDroppedAfter?: boolean;
     averagedDown?: boolean;
   } = {},
 ): RoundTrip {
@@ -380,8 +397,8 @@ function row(
     buys: extra.buys ?? 1,
     sells: 1,
     athMarketCapUsd: extra.ath === null ? undefined : (extra.ath ?? 100_000),
-    graduationMarketCapUsd: extra.graduation,
-    volumeFalling: extra.volumeFalling,
+    volumeDroppedAfter: extra.volumeDroppedAfter,
+    mcDroppedAfter: extra.mcDroppedAfter,
     averagedDown: extra.averagedDown,
   };
 }

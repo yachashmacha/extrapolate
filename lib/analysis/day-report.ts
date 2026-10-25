@@ -196,9 +196,9 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
 
 /**
  * 10 means every close avoided the costly patterns.
- * A close that sized up after a loss, bought into a fading bond, or re-entered a red coin counts fully.
+ * A close that sized up after a loss, faded after the entry, or re-entered a red coin counts fully.
  * Averaging down, or a ticket that is large for the pool, counts half.
- * When revenge sizing, a fading-bond chase, or re-entry repeats (the same cluster bar as the habit feed),
+ * When revenge sizing, a post-entry fade, or re-entry repeats (the same cluster bar as the habit feed),
  * that pattern's share is lifted so a run of them cannot hide behind a pile of small tickets.
  * A named bias cannot score as a clean day. One costly fill cannot round back up to 10.
  */
@@ -248,14 +248,14 @@ function biasFindings(input: {
       ),
     );
   }
-  // FOMO only when the fill is post-bond or close to the bond and volume was falling. Near the high is not enough.
+  // FOMO only when volume started dropping after the fill and market cap dropped too. Any market cap. A missing read is not FOMO.
   if (worth("negative", fomoTrades, others(day, fomoTrades))) {
     out.push(
       built(
         "fomo",
         "FOMO",
         "FOMO",
-        `${noun(fomoTrades.length, "entry", "entries")} bought at or near the pump.fun graduation price while volume was falling, and those dropped ${money(fomoTrades)}${including(fomoTrades, true)}`,
+        `${noun(fomoTrades.length, "entry", "entries")} bought in as volume started dropping and market cap dropped, and those dropped ${money(fomoTrades)}${including(fomoTrades, true)}`,
         fomoTrades,
       ),
     );
@@ -326,9 +326,9 @@ function paidTendency(input: {
     out.push(
       built(
         "fomo-paid",
-        "Got paid on a fading bond",
-        "getting paid on a fading bond",
-        `${noun(fomoTrades.length, "entry", "entries")} bought at or near the pump.fun graduation price while volume was falling, and those made ${gained(fomoTrades)}${including(fomoTrades, false)}`,
+        "Got paid after the tape faded",
+        "getting paid after the tape faded",
+        `${noun(fomoTrades.length, "entry", "entries")} bought in as volume started dropping and market cap dropped, and those made ${gained(fomoTrades)}${including(fomoTrades, false)}`,
         fomoTrades,
       ),
     );
@@ -393,7 +393,7 @@ function rationalDetail(counts: Counts, usualLabel: string): string {
   const parts: string[] = [];
   if (counts.n > 0 && counts.small === counts.n && usualLabel) parts.push(`every close stayed at or under your usual ${usualLabel}`);
   if (counts.revenge === 0) parts.push("nothing sized up after a loss");
-  if (counts.fomo === 0 && counts.fomoUnknown === 0) parts.push("no close bought into a fading bond");
+  if (counts.fomo === 0 && counts.fomoUnknown === 0) parts.push("no close faded after the entry");
   if (parts.length === 0) return "";
   return capitalize(joinAnd(parts)) + ".";
 }
@@ -407,7 +407,7 @@ function behaviorLead(revengeTrades: RoundTrip[], fomoTrades: RoundTrip[], reent
   }
   if (fomoTrades.length > 0) {
     parts.push(
-      `${noun(fomoTrades.length, "entry", "entries")} bought at or near graduation while volume was falling, and those ${resultWord(fomoTrades)} ${money(fomoTrades)}`,
+      `${noun(fomoTrades.length, "entry", "entries")} bought in as volume started dropping and market cap dropped, and those ${resultWord(fomoTrades)} ${money(fomoTrades)}`,
     );
   }
   if (reentryTrades.length > 0) {
@@ -423,8 +423,8 @@ function whyLine(counts: Counts): string {
   const primary: string[] = [];
   if (counts.revenge >= 2) primary.push("sizing up after a loss");
   else if (counts.revenge === 1) primary.push("a size-up after a loss");
-  if (counts.fomo >= 2) primary.push("buying into a fading bond");
-  else if (counts.fomo === 1) primary.push("a buy into a fading bond");
+  if (counts.fomo >= 2) primary.push("volume and market cap dropping after the entry");
+  else if (counts.fomo === 1) primary.push("volume and market cap dropping after one entry");
   if (counts.reentry >= 2) primary.push("re-entering losers");
   else if (counts.reentry === 1) primary.push("a re-entry after a red close");
   if (primary.length > 0) return `The score reads ${joinAnd(primary)} in this day's closes.`;
@@ -439,7 +439,7 @@ function whyLine(counts: Counts): string {
   const rest: string[] = [];
   if (counts.n > 0 && counts.small === counts.n) rest.push("the other closes stayed small");
   if (counts.revenge === 0) rest.push("nothing sized up after a loss");
-  if (counts.fomo === 0 && counts.fomoUnknown === 0) rest.push("nothing bought into a fading bond");
+  if (counts.fomo === 0 && counts.fomoUnknown === 0) rest.push("nothing faded after the entry");
   if (rest.length === 0) return `${capitalize(joinAnd(slips))}.`;
   return `${capitalize(joinAnd(slips))}, while ${joinAnd(rest)}.`;
 }
@@ -449,7 +449,7 @@ function cleanWhy(counts: Counts): string {
   if (counts.n > 0 && counts.small === counts.n) details.push("the tickets stayed small");
   if (counts.revenge === 0) details.push("nothing sized up after a loss");
   if (counts.athKnown > 0 && counts.under === counts.athKnown) details.push("entries stayed at or under 45% of the high");
-  else if (counts.fomo === 0 && counts.fomoUnknown === 0) details.push("no entry bought into a fading bond");
+  else if (counts.fomo === 0 && counts.fomoUnknown === 0) details.push("no entry faded after the fill");
   if (details.length === 0) return "The fills did not repeat a costly pattern.";
   return `The fills did not repeat a costly pattern: ${joinAnd(details)}.`;
 }
