@@ -97,7 +97,7 @@ export function Reading({
       <section className="section" id="fixes">
         <div className="section-head">
           <h2>Where it goes wrong</h2>
-          <p>Suggestions from the losing trades: entry, size, KOLs, narrative, and the session. Each one names the trades it came from. Your own rules live on Portfolio, and that list starts empty.</p>
+          <p>Suggestions from the losing trades: entry, size, KOLs, narrative, and the session. Each one names the trades it came from. Your rules live on Portfolio. Two start on, and you can add, edit, or turn them off.</p>
         </div>
         {analysis.fixes.length === 0 ? (
           <p className="note">{analysis.thin ? "Suggestions wait for 8 closed trades." : "No leak cleared the sample bar."}</p>

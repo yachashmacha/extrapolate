@@ -52,6 +52,14 @@ export const REACTION_MINUTES = 30;
 /** The next ticket has to clear both the usual size and the ticket that just closed, by half. */
 export const SIZE_UP = 1.5;
 
+/** Writes 4× or 1.5× for how far an amount sits above the usual ticket. */
+export function sizeMultiple(amount: number, usual: number): string {
+  if (!(usual > 0) || !(amount > 0)) return "1.5×";
+  const tenths = Math.round((amount / usual) * 10) / 10;
+  if (Math.abs(tenths - Math.round(tenths)) < 0.05) return `${Math.round(tenths)}×`;
+  return `${tenths.toFixed(1)}×`;
+}
+
 export function reactedSoon(previous: { exitAt: string }, current: { entryAt: string }): boolean {
   const gap = Date.parse(current.entryAt) - Date.parse(previous.exitAt);
   return Number.isFinite(gap) && gap >= 0 && gap <= REACTION_MINUTES * 60_000;

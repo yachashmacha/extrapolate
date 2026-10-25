@@ -1,7 +1,7 @@
 import { ticketWhy } from "@/lib/analysis/tips";
 import type { BookBounds } from "@/lib/analysis/bounds";
 import { fomoStatus } from "@/lib/analysis/fomo";
-import { houseMoneyIds, revengeIds, sessionName } from "@/lib/analysis/slices";
+import { houseMoneyIds, revengeIds, sessionName, SIZE_UP, sizeMultiple } from "@/lib/analysis/slices";
 import { median, net, winRate } from "@/lib/analysis/stats";
 import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import { kolLabel } from "@/lib/kols";
@@ -34,7 +34,6 @@ export function tradingHabits(trades: RoundTrip[], bounds?: BookBounds): { posit
   drafts.push(...holdHabits(trades));
   drafts.push(...sessionHabits(trades, bounds));
   drafts.push(...addHabits(trades, bounds));
-  drafts.push(...poolHabits(trades));
   drafts.push(...reentryHabits(trades));
   drafts.push(...callerHabits(trades, bounds));
   drafts.push(...launchHabits(trades));
@@ -92,6 +91,17 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
       draft("size-after-win", "negative", "House-money effect", pressed, {
         mark: "Bias",
         detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning ticket. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, bounds)}`,
+      }),
+    );
+  }
+  const above = ordered.filter((trade) => trade.amountUsd >= usual * SIZE_UP);
+  const ordinary = ordered.filter((trade) => trade.amountUsd < usual * SIZE_UP);
+  if (worth("negative", above, ordinary.length >= 3 ? ordinary : others(ordered, above))) {
+    const multiple = sizeMultiple(median(above.map((trade) => trade.amountUsd)), usual);
+    out.push(
+      draft("size-above-usual", "negative", "The ticket was well above your usual size", above, {
+        mark: "Bias",
+        detail: `Considerably bigger than your own usual ticket. ${above.length} tickets were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, bounds)}`,
       }),
     );
   }
@@ -296,17 +306,6 @@ function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     );
   }
   return out;
-}
-
-function poolHabits(trades: RoundTrip[]): Draft[] {
-  const heavy = trades.filter((trade) => trade.liquidityUsd > 0 && trade.amountUsd >= trade.liquidityUsd * 0.02);
-  const light = trades.filter((trade) => trade.liquidityUsd > 0 && trade.amountUsd < trade.liquidityUsd * 0.01);
-  if (!worth("negative", heavy, light.length >= 3 ? light : others(trades, heavy))) return [];
-  return [
-    draft("heavy-pool", "negative", "The ticket was large for the pool", heavy, {
-      detail: `${heavy.length} tickets were at least 2% of the pool as it stands now. Those dropped ${money(heavy)}${including(heavy, true)}.`,
-    }),
-  ];
 }
 
 /**

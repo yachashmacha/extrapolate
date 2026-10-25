@@ -194,14 +194,15 @@ describe("trading habits", () => {
       row(`led-${index}`, index + 4, { pnl: 20, amount: 20, kol: kol("Orangie", "after"), symbol: `LED${index}` }),
     );
     const trades = [...followed, ...led];
-    const bounds = bookBounds({ trades, accountUsd: 9.9, rules: [] });
+    const bounds = bookBounds({ trades, accountUsd: 9.9 });
     const habits = tradingHabits(trades, bounds);
     const confirmation = habits.negative.find((item) => item.id === "confirmation");
     expect(confirmation?.title).toBe("Confirmation bias");
     expect(confirmation?.mark).toBe("Bias");
     expect(confirmation?.detail).toMatch(/followed that buy/);
-    expect(confirmation?.detail).toMatch(/stays at \$0\.50/);
-    expect(confirmation?.detail).toMatch(/5% of the \$9\.90/);
+    expect(confirmation?.detail).toMatch(/stays at \$0\.99/);
+    expect(confirmation?.detail).toMatch(/10% of the \$9\.90/);
+    expect(confirmation?.detail).toMatch(/10 percent of your portfolio/);
     expect(confirmation?.detail).not.toMatch(/arrived after|as much as|caller's size|match the kol/i);
     expect(confirmation?.tradeIds).toHaveLength(4);
     expect(habits.negative.some((item) => /after the fact/i.test(item.title))).toBe(false);
@@ -268,6 +269,68 @@ describe("trading habits", () => {
     ];
     expect(tradingHabits(mild).negative.some((item) => item.title === "Disposition effect")).toBe(false);
   });
+
+  it("does not treat a normal share of the coin as a bias", () => {
+    const trades = [
+      ...Array.from({ length: 4 }, (_, index) =>
+        row(`heavy-${index}`, index, { pnl: -15, amount: 20, liquidity: 500, symbol: `HEAVY${index}` }),
+      ),
+      ...Array.from({ length: 4 }, (_, index) =>
+        row(`light-${index}`, index + 4, { pnl: 12, amount: 20, liquidity: 10_000, symbol: `LIGHT${index}` }),
+      ),
+    ];
+    const habits = [...tradingHabits(trades).positive, ...tradingHabits(trades).negative];
+    const blob = habits.map((habit) => `${habit.title} ${habit.detail}`).join("\n");
+    expect(habits.some((habit) => habit.id === "heavy-pool" || habit.id === "size-above-usual")).toBe(false);
+    expect(blob).not.toMatch(/large for the pool|% of the pool|% of the coin|% of supply|percent of the pool/i);
+  });
+
+  it("names a ticket well above this trader's usual size and states the multiple", () => {
+    const trades = [
+      ...Array.from({ length: 6 }, (_, index) =>
+        row(`usual-${index}`, index, {
+          pnl: 8,
+          amount: 20,
+          at: new Date(Date.UTC(2026, 9, 10, 8 + index, 0, 0)).toISOString(),
+        }),
+      ),
+      ...Array.from({ length: 4 }, (_, index) =>
+        row(`big-${index}`, index, {
+          pnl: -20,
+          amount: 80,
+          liquidity: 100_000,
+          symbol: `BIG${index}`,
+          at: new Date(Date.UTC(2026, 9, 11, 8 + index * 2, 0, 0)).toISOString(),
+        }),
+      ),
+    ];
+    const habit = tradingHabits(trades).negative.find((item) => item.id === "size-above-usual");
+    expect(habit?.title).toBe("The ticket was well above your usual size");
+    expect(habit?.mark).toBe("Bias");
+    expect(habit?.detail).toMatch(/at least 1\.5× your usual \$20/);
+    expect(habit?.detail).toMatch(/4×/);
+    expect(habit?.detail).not.toMatch(/pool|supply|% of the coin/i);
+    expect(habit?.tradeIds).toEqual(["big-0", "big-1", "big-2", "big-3"]);
+  });
+
+  it("does not call a modest ticket after a loss revenge or oversized", () => {
+    const trades = [0, 1, 2, 3].flatMap((index) => {
+      const lossAt = Date.UTC(2026, 9, 10, 12 + index, 0, 0);
+      return [
+        row(`loss-${index}`, index, { pnl: -8, amount: 20, at: new Date(lossAt).toISOString() }),
+        row(`next-${index}`, index, {
+          pnl: -8,
+          amount: 25,
+          at: new Date(lossAt + 5 * 60_000).toISOString(),
+          symbol: `NEXT${index}`,
+        }),
+      ];
+    });
+    const negative = tradingHabits(trades).negative;
+    expect(negative.some((habit) => habit.id === "size-after-loss" || habit.id === "size-above-usual" || habit.id === "heavy-pool")).toBe(
+      false,
+    );
+  });
 });
 
 function kol(name: string, timing: KolTag["timing"]): KolTag {
@@ -292,6 +355,7 @@ function row(
     volumeDroppedAfter?: boolean;
     mcDroppedAfter?: boolean;
     averagedDown?: boolean;
+    liquidity?: number;
   } = {},
 ): RoundTrip {
   const amount = extra.amount ?? 20;
@@ -309,7 +373,7 @@ function row(
     exitAt: extra.exitAt ?? new Date(entryMs + 30_000).toISOString(),
     entryMarketCapUsd: mc,
     exitMarketCapUsd: mc,
-    liquidityUsd: 100_000,
+    liquidityUsd: extra.liquidity ?? 100_000,
     amountUsd: amount,
     pnlUsd: pnl,
     pnlPct: amount > 0 ? (pnl / amount) * 100 : 0,

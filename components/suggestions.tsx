@@ -26,7 +26,7 @@ export function Suggestions({
     <section className="section" id="suggestions">
       <div className="section-head">
         <h2>From the losers</h2>
-        <p>Practical changes read off the red trades. They stay as a reading. Your rule list below stays blank until you write it.</p>
+        <p>Practical changes read off the red trades. They stay as a reading. The rule list below starts with the two base rules. Add to it, or turn one off.</p>
       </div>
       {analysis.fixes.length === 0 ? (
         <p className="note">{analysis.thin ? "Suggestions wait for 8 closed trades." : "No leak cleared the sample bar."}</p>

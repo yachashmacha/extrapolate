@@ -58,7 +58,7 @@ export async function fetchWalletBook(
     warnings.push("No SOL or USDC memecoin swaps showed up in the recent transactions. A CSV export from the terminal still works.");
   }
 
-  const accountUsd = await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, solPrice.priceAt(new Date().toISOString()), built.opens);
+  const balances = await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, solPrice.priceAt(new Date().toISOString()), built.opens);
 
   return {
     source: "wallet",
@@ -70,7 +70,8 @@ export async function fetchWalletBook(
     warnings,
     fetchedAt: new Date().toISOString(),
     scannedTransactions: scanned,
-    accountUsd,
+    accountUsd: balances?.portfolioUsd,
+    cashUsd: balances?.cashUsd,
   };
 }
 
@@ -86,7 +87,7 @@ async function loadAccountUsd(
   wallet: string,
   solPrice: number,
   opens: { costUsd: number }[],
-): Promise<number | undefined> {
+): Promise<{ portfolioUsd?: number; cashUsd?: number } | undefined> {
   try {
     const balance = await rpcCall<number | { value?: number }>(rpc, "getBalance", [wallet]);
     const lamports = typeof balance === "number" ? balance : Number(balance?.value ?? 0);
@@ -113,7 +114,11 @@ async function loadAccountUsd(
     const liquid = sol * solPrice + wrapped * solPrice + stables;
     const openCost = opens.reduce((sum, open) => sum + (open.costUsd > 0 ? open.costUsd : 0), 0);
     const total = liquid + openCost;
-    return total > 0 ? Math.round(total * 100) / 100 : undefined;
+    const round = (value: number) => Math.round(value * 100) / 100;
+    return {
+      portfolioUsd: total > 0 ? round(total) : undefined,
+      cashUsd: Number.isFinite(liquid) ? round(Math.max(0, liquid)) : undefined,
+    };
   } catch {
     return undefined;
   }

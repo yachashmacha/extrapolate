@@ -21,6 +21,7 @@ export function DayReportPanel({ report }: { report: DayReport }) {
       </div>
       {report.score != null ? <p className="eod-why">{report.why}</p> : null}
       <p className="eod-read">{report.lead}</p>
+      {report.sizeNote ? <p className="eod-read">{report.sizeNote}</p> : null}
       {report.tradeCount > 0 ? (
         <div className="eod-lists">
           <div>
@@ -52,6 +53,7 @@ function Fill({ fill }: { fill: DayFill }) {
       <div>
         <div className="symbol">{fill.symbol}</div>
         <div className="note">{fmtUsdPlain(fill.amountUsd)}</div>
+        {fill.note ? <div className="note">{fill.note}</div> : null}
       </div>
       <div className={fill.pnlUsd > 0 ? "eod-amt good num" : "eod-amt bad num"}>{fmtUsd(fill.pnlUsd)}</div>
     </div>

@@ -14,6 +14,7 @@ export function Tape({
   sideLock,
   showHeading = true,
   anchor = "tape",
+  ruleNote,
 }: {
   trades: AnnotatedTrade[];
   activeLabel: string | null;
@@ -22,6 +23,7 @@ export function Tape({
   sideLock?: "win" | "loss";
   showHeading?: boolean;
   anchor?: string;
+  ruleNote?: (trade: AnnotatedTrade) => string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [side, setSide] = useState<"all" | "win" | "loss">(sideLock ?? "all");
@@ -77,6 +79,7 @@ export function Tape({
               <span className="trade-meta"> {fmtUsd(trade.pnlUsd)}</span>
             </span>
           </button>
+          {ruleNote?.(trade) ? <p className="note">{ruleNote(trade)}</p> : null}
           {openId === trade.id ? (
             <div className="detail">
               <p>{trade.note}</p>

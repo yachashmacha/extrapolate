@@ -119,17 +119,44 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
 }
 
 export function ticketWhy(bounds: BookBounds): string {
+  if (bounds.ticketReason === "account" && bounds.accountUsd && bounds.portfolioShare != null) {
+    const pct = `${Math.round(bounds.portfolioShare * 100)}%`;
+    const quote = bounds.portfolioRule ? ` Your rule says “${bounds.portfolioRule}”.` : "";
+    return `That is ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} in this wallet.${quote}`;
+  }
   if (bounds.ticketReason === "account" && bounds.accountUsd) {
-    return `That is 5% of the ${fmtUsdPlain(bounds.accountUsd)} in this wallet.`;
+    return `That is the ${fmtUsdPlain(bounds.accountUsd)} cash in this wallet.`;
   }
   if (bounds.ticketReason === "account-rule") {
-    const cash = bounds.accountUsd ? `the ${fmtUsdPlain(bounds.accountUsd)} in this wallet` : "the cash in this wallet";
-    return bounds.sizeRule ? `Your rule “${bounds.sizeRule}” and ${cash} both hold it there.` : `The cash in this wallet holds it there.`;
+    if (bounds.cashBinds && bounds.portfolioRule) {
+      const cash = bounds.cashUsd ?? bounds.accountUsd;
+      const cashBit = cash != null ? `the ${fmtUsdPlain(cash)} cash on hand` : "the cash on hand";
+      return `Your rule “${bounds.portfolioRule}” and ${cashBit} both hold it there.`;
+    }
+    const held = bounds.cashBinds && bounds.cashUsd != null ? bounds.cashUsd : bounds.accountUsd;
+    const cash = held != null ? `the ${fmtUsdPlain(held)} in this wallet` : "the cash in this wallet";
+    const quoted = bounds.sizeRule ?? bounds.portfolioRule;
+    return quoted ? `Your rule “${quoted}” and ${cash} both hold it there.` : `The cash in this wallet holds it there.`;
   }
   if (bounds.ticketReason === "rule" && bounds.sizeRule) {
     return `Your rule sets it: “${bounds.sizeRule}”.`;
   }
   return "That is the winning ticket in this book.";
+}
+
+/** The day report quotes this whenever the portfolio and the size rule are both known. */
+export function baseTicketSentence(bounds: BookBounds): string {
+  if (!(bounds.ticketUsd > 0) || !bounds.portfolioRule || bounds.portfolioShare == null || !bounds.accountUsd) return "";
+  const pct = `${Math.round(bounds.portfolioShare * 100)}%`;
+  const cap = fmtUsdPlain(bounds.accountUsd * bounds.portfolioShare);
+  if (bounds.cashBinds) {
+    const cash = bounds.cashUsd ?? bounds.accountUsd;
+    return `The base ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}, the cash on hand. Your rule “${bounds.portfolioRule}” is ${pct} of the portfolio (${cap}), and that is more than the ${fmtUsdPlain(cash)} you can spend.`;
+  }
+  if (bounds.ticketReason === "account" || bounds.ticketReason === "account-rule") {
+    return `The base ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}, ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} portfolio. Your rule says “${bounds.portfolioRule}”.`;
+  }
+  return `The base ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}, inside the ${cap} ceiling, ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} portfolio. Your rule says “${bounds.portfolioRule}”.`;
 }
 
 function kolSentence(trade: AnnotatedTrade): string {

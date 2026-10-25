@@ -91,8 +91,10 @@ export interface Book {
   warnings: string[];
   fetchedAt: string;
   scannedTransactions?: number;
-  /** SOL plus stables in the wallet, in dollars, plus the cost of coins still open. */
+  /** SOL plus stables in the wallet, in dollars, plus the cost of coins still open. Meme bags are not marked to market. */
   accountUsd?: number;
+  /** Liquid cash only: SOL, wrapped SOL, USDC, and USDT. Open positions are not included. */
+  cashUsd?: number;
 }
 
 export type PlayCategory = "entry" | "size" | "callers" | "narrative" | "behavior";

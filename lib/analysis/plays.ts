@@ -38,7 +38,7 @@ export function buildFixes(trades: RoundTrip[], terminal: TerminalId): PlayCard[
   const day = trades.filter((trade) => sessionName(trade) !== "Overnight");
 
   if (mc) candidates.push(entryCandidate(mc, desk, size));
-  if (size) candidates.push(sizeCandidate(size, desk, trades));
+  if (size) candidates.push(sizeCandidate(size, desk));
   const callers = callerCandidate(trades, early, quiet, desk, mc);
   if (callers) candidates.push(callers);
   candidates.push(...narrativeCandidates(trades, desk, mc));
@@ -144,25 +144,18 @@ function entryCandidate(mc: Split, desk: string, size: Split | null): Candidate 
   };
 }
 
-function sizeCandidate(size: Split, desk: string, trades: RoundTrip[]): Candidate {
+function sizeCandidate(size: Split, desk: string): Candidate {
   const base = median(size.good.map((trade) => trade.amountUsd));
-  const heavy = trades.filter((trade) => trade.liquidityUsd > 0 && trade.amountUsd / trade.liquidityUsd >= 0.015);
-  const poolNote =
-    heavy.length >= 3 && net(heavy) < 0
-      ? ` ${heavy.length} tickets were also at least 1.5% of the pool, and those came to ${fmtUsd(net(heavy))}.`
-      : "";
   return {
     id: "fix-size",
     category: "size",
     title: `Preset the ticket at ${fmtUsdPlain(base)}`,
     shortLabel: `Ticket over ${fmtUsdPlain(size.cut)}`,
-    evidence: `${portrait(size.bad, `Tickets of ${fmtUsdPlain(size.cut)} and up`)} ${portrait(size.good, `Tickets under ${fmtUsdPlain(size.cut)}`)}${poolNote}`,
+    evidence: `${portrait(size.bad, `Tickets of ${fmtUsdPlain(size.cut)} and up`)} ${portrait(size.good, `Tickets under ${fmtUsdPlain(size.cut)}`)}`,
     rule: `The working ticket is ${fmtUsdPlain(base)}. Anything at ${fmtUsdPlain(size.cut)} or above is retired until the next review.`,
     steps: [
       `On ${desk}, set one buy preset to ${fmtUsdPlain(base)} and delete the larger keys for the next ten sessions.`,
-      heavy.length >= 3
-        ? "If the ticket would be more than 1.5% of the pool, cut it until it is under that. On a $20k pool that is a $300 cap."
-        : "Use the same preset on the next trade after a win. A good read keeps the size, it does not raise it.",
+      "Use the same preset on the next trade after a win. A good read keeps the size, it does not raise it.",
       "After ten sessions, compare the preset with the new median winner. Move it only if the winners moved.",
     ],
     trades: size.bad,

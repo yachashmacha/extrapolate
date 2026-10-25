@@ -1,17 +1,24 @@
 import { median } from "@/lib/analysis/stats";
-import type { TradingRule } from "@/lib/rules";
+import { activeSizeRule, baseRules, type TradingRule } from "@/lib/rules";
 
-/** Share of the wallet a single tip may assign when the trader has not set a size. */
-export const ACCOUNT_TICKET_SHARE = 0.05;
+/** Share of the portfolio the base size rule allows. The rule text is the source of the number. */
+export const ACCOUNT_TICKET_SHARE = 0.1;
 
 export interface BookBounds {
   accountUsd: number | null;
+  /** Liquid cash the tip is allowed to spend. Open positions are not cash. */
+  cashUsd: number | null;
   /** The ticket a tip is allowed to name. */
   ticketUsd: number;
   ticketReason: "winners" | "rule" | "account" | "account-rule";
   /** Market-cap line from an active rule, when the trader wrote one. */
   maxMcUsd: number | null;
   sizeRule: string | null;
+  /** Active rule that caps the base ticket at a percent of the portfolio. */
+  portfolioRule: string | null;
+  portfolioShare: number | null;
+  /** True when cash on hand is below the percent cap and the ticket stopped at the cash. */
+  cashBinds: boolean;
   mcRule: string | null;
   onePerCoin: string | null;
   overnightRule: string | null;
@@ -19,8 +26,9 @@ export interface BookBounds {
 
 export function bookBounds(input: {
   trades: { amountUsd: number; pnlUsd: number }[];
-  rules?: TradingRule[];
+  rules?: TradingRule[] | null;
   accountUsd?: number | null;
+  cashUsd?: number | null;
 }): BookBounds {
   const active = (input.rules ?? []).filter((rule) => rule.active && rule.text.trim());
   const own = ownTicket(input.trades);
@@ -58,31 +66,51 @@ export function bookBounds(input: {
   }
 
   const accountUsd = input.accountUsd != null && input.accountUsd > 0 ? input.accountUsd : null;
+  const cashUsd = input.cashUsd != null && Number.isFinite(input.cashUsd) && input.cashUsd >= 0 ? input.cashUsd : null;
   let ticket = exact ?? own;
   if (maxTicket != null) ticket = Math.min(ticket, maxTicket);
   let reason: BookBounds["ticketReason"] = exact != null || maxTicket != null ? "rule" : "winners";
 
   if (!Number.isFinite(ticket) || ticket <= 0) ticket = exact ?? maxTicket ?? own;
 
+  const sizeCap = portfolioCap(input.rules);
+  let cashBinds = false;
   if (accountUsd != null) {
-    const slice = accountUsd * ACCOUNT_TICKET_SHARE;
-    const accountCap = exact != null ? accountUsd : Math.min(accountUsd, slice);
-    if (ticket > accountCap) {
-      ticket = accountCap;
-      reason = reason === "rule" ? "account-rule" : "account";
+    const spendable = cashUsd != null ? Math.min(accountUsd, Math.max(0, cashUsd)) : accountUsd;
+    const slice = sizeCap ? accountUsd * sizeCap.share : null;
+    let cap = spendable;
+    if (slice != null) cap = Math.min(cap, slice);
+    if (ticket > cap) {
+      const hitCash = slice != null && spendable + 0.001 < slice && Math.abs(cap - spendable) < 0.001;
+      ticket = cap;
+      cashBinds = hitCash;
+      if (hitCash || reason === "rule") reason = "account-rule";
+      else reason = "account";
     }
   }
 
   return {
     accountUsd,
+    cashUsd,
     ticketUsd: roundMoney(ticket),
     ticketReason: reason,
     maxMcUsd: maxMc,
     sizeRule,
+    portfolioRule: sizeCap?.text ?? null,
+    portfolioShare: sizeCap?.share ?? null,
+    cashBinds,
     mcRule,
     onePerCoin,
     overnightRule,
   };
+}
+
+/** No rule list means the base size rule. An explicit list uses that rule only while it is active. */
+function portfolioCap(rules: TradingRule[] | null | undefined): { share: number; text: string } | null {
+  const list = rules == null ? baseRules() : rules;
+  const hit = activeSizeRule(list);
+  if (!hit) return null;
+  return { share: hit.fraction, text: hit.text };
 }
 
 export function clampTicketAmounts(text: string, maxUsd: number): string {
@@ -110,6 +138,8 @@ function findAmounts(text: string): { value: number; kind: "ticket" | "mc"; mode
     const value = parseAmount(raw);
     if (!Number.isFinite(value) || value <= 0) continue;
     const index = match.index ?? 0;
+    const tail = text.slice(index + raw.length, index + raw.length + 12);
+    if (/^\s*(%|percent\b)/i.test(tail)) continue;
     const before = text.slice(Math.max(0, index - 48), index).toLowerCase();
     const after = text.slice(index, index + raw.length + 24).toLowerCase();
     const around = `${before} ${after}`;

@@ -320,7 +320,7 @@ describe("end of day report", () => {
     expect(report.why).toMatch(/re-entering losers/);
   });
 
-  it("names adding to a coin and a heavy pool ticket when those clusters lost", () => {
+  it("names averaging down, and does not treat a normal share of the pool as a bias", () => {
     const adds = [
       ...[0, 1, 2].map((minute) =>
         row(`add-${minute}`, "2026-10-24", minute, { pnl: -20, amount: 20, buys: 3, averagedDown: true, symbol: `ADD${minute}` }),
@@ -342,9 +342,32 @@ describe("end of day report", () => {
       ),
     ];
     const pool = endOfDayReport(heavy, "2026-10-24");
-    expect(pool.score).toBe(44);
-    expect(pool.biases.map((bias) => bias.title)).toContain("The ticket was large for the pool");
-    expect(pool.lead).toMatch(/2% of the pool/);
+    const copy = `${pool.lead} ${pool.why} ${pool.biases.map((bias) => bias.sentence).join(" ")}`;
+    expect(pool.score).toBe(95);
+    expect(pool.biases.map((bias) => bias.title)).not.toContain("The ticket was large for the pool");
+    expect(copy).not.toMatch(/large for the pool|% of the pool|% of the coin|% of supply|percent of the pool/i);
+  });
+
+  it("scores a cluster well above this trader's own median and states the multiple", () => {
+    const earlier = [0, 1, 2, 3, 4, 5, 6, 7].map((minute) =>
+      row(`usual-${minute}`, "2026-10-23", minute, { pnl: 5, amount: 20 }),
+    );
+    const day = [
+      ...[0, 1, 2].map((minute) =>
+        row(`big-${minute}`, "2026-10-24", minute, { pnl: -15, amount: 80, liquidity: 100_000, symbol: `BIG${minute}` }),
+      ),
+      ...[3, 4, 5].map((minute) =>
+        row(`flat-${minute}`, "2026-10-24", minute, { pnl: 8, amount: 20, liquidity: 500 }),
+      ),
+    ];
+    const report = endOfDayReport([...earlier, ...day], "2026-10-24");
+    const copy = `${report.lead} ${report.why} ${report.biases.map((bias) => bias.sentence).join(" ")}`;
+    expect(report.score).toBe(45);
+    expect(report.biases.map((bias) => bias.title)).toContain("The ticket was well above your usual size");
+    expect(report.lead).toMatch(/1\.5×/);
+    expect(report.lead).toMatch(/4×/);
+    expect(report.lead).toMatch(/\$20/);
+    expect(copy).not.toMatch(/large for the pool|% of the pool|% of the coin|% of supply/i);
   });
 
   it("uses the size of the loss, and weighs a named pattern more than the red close", () => {
@@ -394,6 +417,78 @@ describe("end of day report", () => {
     expect(report.lead).toMatch(/No closed trades/);
     expect(report.label).toBe("Saturday, October 24, 2026");
   });
+
+  it("lowers a green day when a close exited below half the entry", () => {
+    const held = row("held", "2026-10-24", 1, { pnl: -30, amount: 10, mc: 40_000, exitMc: 10_000, symbol: "HELD" });
+    const kept = [2, 3, 4].map((minute) =>
+      row(`ok-${minute}`, "2026-10-24", minute, { pnl: 20, amount: 10, mc: 40_000, exitMc: 50_000, symbol: `OK${minute}` }),
+    );
+    const report = endOfDayReport([held, ...kept], "2026-10-24");
+    expect(report.pnlUsd).toBeGreaterThan(0);
+    expect(report.score).toBeLessThan(100);
+    expect(report.rational).toBe(false);
+    expect(report.lead).toMatch(/below 50% of the entry/);
+    expect(report.lead).toMatch(/Exit the position if the chart goes below 50% of your position/);
+    expect(report.why).toMatch(/broken base rule/);
+    const named = [...report.best, ...report.worst].find((fill) => fill.symbol === "HELD");
+    expect(named?.note).toMatch(/below 50%/);
+    const clean = endOfDayReport(kept, "2026-10-24");
+    expect(clean.score).toBe(100);
+    expect(clean.lead).not.toMatch(/below 50%/);
+  });
+
+  it("does not call an exit above half, or exactly at half, a broken stop", () => {
+    const above = [0, 1, 2, 3].map((minute) =>
+      row(`above-${minute}`, "2026-10-24", minute, { pnl: 8, amount: 10, mc: 40_000, exitMc: 30_000 }),
+    );
+    const aboveReport = endOfDayReport(above, "2026-10-24");
+    expect(aboveReport.score).toBe(100);
+    expect(aboveReport.lead).not.toMatch(/below 50%/);
+    expect(aboveReport.best.every((fill) => fill.note == null)).toBe(true);
+
+    const atHalf = [0, 1, 2, 3].map((minute) =>
+      row(`half-${minute}`, "2026-10-24", minute, { pnl: 4, amount: 10, mc: 40_000, exitMc: 20_000 }),
+    );
+    expect(endOfDayReport(atHalf, "2026-10-24").lead).not.toMatch(/below 50%/);
+  });
+
+  it("uses the close percent when the book has no price between entry and exit", () => {
+    const trades = [
+      row("deep", "2026-10-24", 1, { pnl: -12, amount: 20, mc: 0, symbol: "DEEP" }),
+      ...[2, 3, 4].map((minute) => row(`up-${minute}`, "2026-10-24", minute, { pnl: 10, amount: 10, mc: 20_000, exitMc: 24_000 })),
+    ];
+    const report = endOfDayReport(trades, "2026-10-24");
+    expect(report.pnlUsd).toBeGreaterThan(0);
+    expect(report.score).toBeLessThan(100);
+    expect(report.lead).toMatch(/below 50% of the entry/);
+    expect([...report.best, ...report.worst].find((fill) => fill.symbol === "DEEP")?.note).toMatch(/below 50%/);
+  });
+
+  it("lowers a green day when a winning ticket was more than 10% of the portfolio", () => {
+    const trades = [0, 1, 2, 3].map((minute) =>
+      row(`win-${minute}`, "2026-10-24", minute, { pnl: 8, amount: 20, mc: 30_000, exitMc: 40_000, symbol: `WIN${minute}` }),
+    );
+    const report = endOfDayReport(trades, "2026-10-24", { accountUsd: 9.9 });
+    expect(report.pnlUsd).toBeGreaterThan(0);
+    expect(report.score).toBeLessThan(100);
+    expect(report.rational).toBe(false);
+    expect(report.lead).toMatch(/more than 10% of the portfolio/);
+    expect(report.lead).toMatch(/including a winner/);
+    expect(report.lead).toMatch(/10 percent of your portfolio/);
+    expect(report.sizeNote).toMatch(/\$0\.99/);
+    expect(report.sizeNote).toMatch(/10 percent of your portfolio/);
+    expect(report.best.some((fill) => /more than 10%/.test(fill.note ?? ""))).toBe(true);
+
+    const off = endOfDayReport(trades, "2026-10-24", {
+      accountUsd: 9.9,
+      rules: [
+        { id: "base-exit-half", text: "Exit the position if the chart goes below 50% of your position.", active: true },
+        { id: "base-size-tenth", text: "Trade with no more than 10 percent of your portfolio for your base trade.", active: false },
+      ],
+    });
+    expect(off.lead).not.toMatch(/more than 10%/);
+    expect(off.score).toBe(100);
+  });
 });
 
 function stamp(day: string, minute: number): string {
@@ -409,6 +504,7 @@ function row(
     pnl?: number;
     amount?: number;
     mc?: number;
+    exitMc?: number;
     ath?: number | null;
     symbol?: string;
     buys?: number;
@@ -434,7 +530,7 @@ function row(
     entryAt: at,
     exitAt: at,
     entryMarketCapUsd: mc,
-    exitMarketCapUsd: mc,
+    exitMarketCapUsd: extra.exitMc ?? mc,
     liquidityUsd: extra.liquidity ?? 100_000,
     amountUsd: amount,
     pnlUsd: pnl,

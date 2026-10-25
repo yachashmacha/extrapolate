@@ -30,7 +30,7 @@ export default function HomePage() {
           <p className="kicker">Memecoin trading desk</p>
           <h1>See the trade you keep repeating.</h1>
           <p className="lede">
-            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin round trip. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Losing trades get specific suggestions. Portfolio keeps the daily PnL, and your rules stay blank until you write them.
+            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin round trip. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Losing trades get specific suggestions. Portfolio keeps the daily PnL. Two rules start on: exit if price falls below half the position, and keep the base trade to 10% of the portfolio.
           </p>
           <ul className="facts">
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
@@ -44,7 +44,7 @@ export default function HomePage() {
       </Suspense>
       <footer className="footer">
         <span>Extrapolate mirrors this wallet’s fills. It is not a signal service.</span>
-        <span>Your rules stay empty until you write them.</span>
+        <span>Two base rules start on. Add your own, or turn those off.</span>
       </footer>
     </main>
   );
@@ -54,7 +54,7 @@ async function LiveHome() {
   try {
     const book = await fetchWalletBook(TRADER_WALLET, TRADER_TERMINAL, Number(TRADER_DEPTH));
     const analysis = analyze(book.trades, book.terminal);
-    const bounds = bookBounds({ trades: book.trades, accountUsd: book.accountUsd ?? null });
+    const bounds = bookBounds({ trades: book.trades, accountUsd: book.accountUsd ?? null, cashUsd: book.cashUsd ?? null });
     const cash = book.accountUsd ? ` About ${fmtUsdPlain(book.accountUsd)} is in the wallet, and a tip sizes from that.` : "";
     return (
       <HomePreview

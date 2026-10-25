@@ -1,8 +1,11 @@
+import { bookBounds } from "@/lib/analysis/bounds";
 import { fomoStatus } from "@/lib/analysis/fomo";
-import { revengeIds } from "@/lib/analysis/slices";
+import { revengeIds, SIZE_UP, sizeMultiple } from "@/lib/analysis/slices";
 import { median, net, winRate } from "@/lib/analysis/stats";
+import { baseTicketSentence } from "@/lib/analysis/tips";
 import { dayKeyEt } from "@/lib/calendar";
 import { fmtUsdPlain } from "@/lib/format";
+import { dayBreachSentence, ruleBreak, type TradingRule } from "@/lib/rules";
 import type { RoundTrip } from "@/lib/types";
 
 /** Same line the habit feed uses for a buy well under the high. */
@@ -16,6 +19,8 @@ export interface DayFill {
   symbol: string;
   pnlUsd: number;
   amountUsd: number;
+  /** Set when this close broke an active base rule. */
+  note?: string;
 }
 
 export interface DayFinding {
@@ -44,6 +49,14 @@ export interface DayReport {
   /** Rationality as a percent from 1 to 100, or null when the day has no closed trades. */
   score: number | null;
   why: string;
+  /** The base-ticket ceiling, when the portfolio is known. */
+  sizeNote: string;
+}
+
+export interface DayScoreContext {
+  rules?: TradingRule[] | null;
+  accountUsd?: number | null;
+  cashUsd?: number | null;
 }
 
 interface Built {
@@ -61,7 +74,7 @@ interface Counts {
   fomoUnknown: number;
   reentry: number;
   adds: number;
-  heavy: number;
+  aboveUsual: number;
   small: number;
   under: number;
   athKnown: number;
@@ -76,7 +89,7 @@ export function latestClosedDay(trades: { exitAt: string }[]): string | null {
   return latest;
 }
 
-export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
+export function endOfDayReport(trades: RoundTrip[], dayKey: string, context?: DayScoreContext): DayReport {
   const label = dayHeading(dayKey);
   const day = chronological(trades).filter((trade) => dayKeyEt(trade.exitAt) === dayKey);
   const empty: DayReport = {
@@ -94,6 +107,7 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     lead: "No closed trades on this day.",
     score: null,
     why: "No closed trades to score.",
+    sizeNote: "",
   };
   if (day.length === 0) return empty;
 
@@ -112,16 +126,15 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
   const down = day.filter((trade) => trade.averagedDown === true);
   const multi = day.filter((trade) => trade.buys > 1);
   const once = day.filter((trade) => trade.buys <= 1);
-  const heavy = day.filter((trade) => trade.liquidityUsd > 0 && trade.amountUsd >= trade.liquidityUsd * 0.02);
-  const light = day.filter((trade) => trade.liquidityUsd > 0 && trade.amountUsd < trade.liquidityUsd * 0.01);
+  const aboveUsual = day.filter((trade) => usual > 0 && trade.amountUsd >= usual * SIZE_UP);
   const small = day.filter((trade) => usual <= 0 || trade.amountUsd <= usual * 1.05);
 
   const fomoIds = new Set(fomoTrades.map((trade) => trade.id));
-  const heavyIds = new Set(heavy.map((trade) => trade.id));
+  const aboveIds = new Set(aboveUsual.map((trade) => trade.id));
   const downIds = new Set(down.map((trade) => trade.id));
   const marks = day.map((trade) => {
     if (revenge.has(trade.id) || fomoIds.has(trade.id) || again.has(trade.id)) return 1;
-    if (heavyIds.has(trade.id) || downIds.has(trade.id)) return 0.5;
+    if (aboveIds.has(trade.id) || downIds.has(trade.id)) return 0.5;
     return 0;
   });
   const counts: Counts = {
@@ -131,7 +144,7 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     fomoUnknown,
     reentry: reentryTrades.length,
     adds: down.length,
-    heavy: heavy.length,
+    aboveUsual: aboveUsual.length,
     small: small.length,
     under: under.length,
     athKnown: known.length,
@@ -152,8 +165,8 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     reentryTrades,
     down,
     once,
-    heavy,
-    light,
+    aboveUsual,
+    usual,
     usualLabel,
   });
   const tendency = biases.length === 0 ? paidTendency({ flat, revengeTrades, day, fomoTrades, under, known, once, multi, usualLabel }) : null;
@@ -171,10 +184,15 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
   // On a small red day the unnamed marks are only a few points, so the lead stays with the tickets.
   const primary = namedBias || pnlUsd >= 0 ? cluster : false;
   const fomoInScore = biases.some((bias) => bias.id === "fomo") || (pnlUsd >= 0 && fomoCluster);
-  const score = toScore({ weight, namedBias, cluster, pnlUsd, turnoverUsd, patternLoss });
-  const rational = pnlUsd >= 0 && !namedBias && score >= 80;
-  const why = whyForScore(whyLine(counts, fomoInScore), pnlUsd, namedBias);
-  const lead = leadLine({
+  const breaks = day.map((trade) => ruleBreak(trade, trades, { rules: context?.rules, accountUsd: context?.accountUsd ?? null }));
+  const pastStop = day.filter((_, index) => breaks[index]?.stop);
+  const oversized = day.filter((_, index) => breaks[index]?.size);
+  const broken = pastStop.length + oversized.filter((trade) => !pastStop.some((stop) => stop.id === trade.id)).length;
+  const behaviorScore = toScore({ weight, namedBias, cluster, pnlUsd, turnoverUsd, patternLoss });
+  const score = applyBaseRuleScore(behaviorScore, broken, day.length);
+  const rational = pnlUsd >= 0 && !namedBias && score >= 80 && broken === 0;
+  let why = whyForScore(whyLine(counts, fomoInScore), pnlUsd, namedBias);
+  let lead = leadLine({
     rational,
     primary,
     biases,
@@ -186,6 +204,27 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     reentryTrades,
     pnlUsd,
   });
+  const breach = dayBreachSentence(pastStop, oversized, context?.rules);
+  if (breach) {
+    lead = `${lead} ${breach}`;
+    why = `${why} A broken base rule lowers the percent.`;
+  }
+  const sizeNote =
+    context?.accountUsd != null && context.accountUsd > 0
+      ? baseTicketSentence(
+          bookBounds({
+            trades,
+            rules: context.rules,
+            accountUsd: context.accountUsd,
+            cashUsd: context.cashUsd,
+          }),
+        )
+      : "";
+  const notes = new Map<string, string>();
+  day.forEach((trade, index) => {
+    const note = breaks[index]?.note;
+    if (note) notes.set(trade.id, note);
+  });
 
   const wins = [...day].filter((trade) => trade.pnlUsd > 0).sort(byBest);
   const losses = [...day].filter((trade) => trade.pnlUsd < 0).sort(byWorst);
@@ -194,22 +233,37 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string): DayReport {
     label,
     tradeCount: day.length,
     pnlUsd,
-    best: wins.slice(0, 3).map(fillOf),
-    worst: losses.slice(0, 3).map(fillOf),
+    best: wins.slice(0, 3).map((trade) => fillOf(trade, notes.get(trade.id))),
+    worst: losses.slice(0, 3).map((trade) => fillOf(trade, notes.get(trade.id))),
     noWinningTrade: wins.length === 0,
-    leastBad: wins.length === 0 ? leastBadClose(losses) : null,
+    leastBad: wins.length === 0 ? leastBadClose(losses, notes) : null,
     biases: biases.map(publish),
     rational,
     tendency: tendency ? asTendency(tendency) : null,
     lead,
     score,
     why,
+    sizeNote,
   };
 }
 
 /**
+ * The percent above is unchanged when no base rule broke.
+ * A broken stop or an oversized ticket then comes off that percent, including on a green day.
+ * This only lowers the score. A red day is already under 100 before this runs.
+ */
+function applyBaseRuleScore(score: number, broken: number, total: number): number {
+  if (broken <= 0 || total <= 0) return score;
+  const share = broken / total;
+  let next = score - Math.round(8 + 40 * share);
+  if (next >= 100) next = 99;
+  if (next < 1) next = 1;
+  return next;
+}
+
+/**
  * A full mark is a close that sized up after a loss, faded after the entry, or re-entered a red coin.
- * Averaging down, or a ticket that is large for the pool, counts half.
+ * Averaging down, or a ticket at least 1.5× this trader's own median size, counts half.
  * When revenge sizing, a post-entry fade, or re-entry repeats (the same cluster bar as the habit feed),
  * that pattern's share is lifted so a run of them cannot hide behind a pile of small tickets.
  */
@@ -291,12 +345,12 @@ function biasFindings(input: {
   reentryTrades: RoundTrip[];
   down: RoundTrip[];
   once: RoundTrip[];
-  heavy: RoundTrip[];
-  light: RoundTrip[];
+  aboveUsual: RoundTrip[];
+  usual: number;
   usualLabel: string;
 }): Built[] {
   const out: Built[] = [];
-  const { revengeTrades, flat, day, fomoTrades, reentryTrades, down, once, heavy, light, usualLabel } = input;
+  const { revengeTrades, flat, day, fomoTrades, reentryTrades, down, once, aboveUsual, usual, usualLabel } = input;
   if (worth("negative", revengeTrades, flat.length >= 3 ? flat : others(day, revengeTrades))) {
     const usualBit = usualLabel ? `, within 30 minutes, to at least 1.5× your usual ${usualLabel} and at least 1.5× the losing ticket` : " within 30 minutes";
     out.push(
@@ -343,14 +397,16 @@ function biasFindings(input: {
       ),
     );
   }
-  if (worth("negative", heavy, light.length >= 3 ? light : others(day, heavy))) {
+  if (usual > 0 && worth("negative", aboveUsual, others(day, aboveUsual))) {
+    const multiple = sizeMultiple(median(aboveUsual.map((trade) => trade.amountUsd)), usual);
+    const usualBit = usualLabel ? `your usual ${usualLabel}` : "your usual ticket";
     out.push(
       built(
-        "heavy-pool",
-        "The ticket was large for the pool",
-        "a ticket large for the pool",
-        `${noun(heavy.length, "ticket", "tickets")} were at least 2% of the pool, and those dropped ${money(heavy)}${including(heavy, true)}`,
-        heavy,
+        "size-above-usual",
+        "The ticket was well above your usual size",
+        "a ticket well above your usual size",
+        `${noun(aboveUsual.length, "ticket", "tickets")} were at least 1.5× ${usualBit}. The median of those was ${multiple} that size, and those dropped ${money(aboveUsual)}${including(aboveUsual, true)}`,
+        aboveUsual,
       ),
     );
   }
@@ -498,13 +554,13 @@ function whyLine(counts: Counts, fomoInScore: boolean): string {
   else if (counts.reentry === 1) primary.push("a re-entry after a red close");
   if (primary.length > 0) return `The score reads ${joinAnd(primary)} in this day's closes.`;
 
-  if (counts.adds === 0 && counts.heavy === 0) return cleanWhy(counts);
+  if (counts.adds === 0 && counts.aboveUsual === 0) return cleanWhy(counts);
 
   const slips: string[] = [];
   if (counts.adds === 1) slips.push("one coin was averaged down");
   else if (counts.adds > 1) slips.push(`${counts.adds} coins were averaged down`);
-  if (counts.heavy === 1) slips.push("one ticket was large for the pool");
-  else if (counts.heavy > 1) slips.push(`${counts.heavy} tickets were large for the pool`);
+  if (counts.aboveUsual === 1) slips.push("one ticket was at least 1.5× your usual size");
+  else if (counts.aboveUsual > 1) slips.push(`${counts.aboveUsual} tickets were at least 1.5× your usual size`);
   const rest: string[] = [];
   if (counts.n > 0 && counts.small === counts.n) rest.push("the other closes stayed small");
   if (counts.revenge === 0) rest.push("nothing sized up after a loss");
@@ -528,13 +584,13 @@ function cleanWhy(counts: Counts): string {
   return `The fills did not repeat a costly pattern: ${joinAnd(details)}.`;
 }
 
-function leastBadClose(losses: RoundTrip[]): DayFill | null {
+function leastBadClose(losses: RoundTrip[], notes?: Map<string, string>): DayFill | null {
   if (losses.length < 2) return null;
   const worst = losses[0];
   const least = losses[losses.length - 1];
   if (!(least.pnlUsd < 0) || !(worst.pnlUsd < 0)) return null;
   if (Math.abs(worst.pnlUsd) + 1e-9 < Math.abs(least.pnlUsd) * 2) return null;
-  return fillOf(least);
+  return fillOf(least, notes?.get(least.id));
 }
 
 function flatAfterLoss(ordered: RoundTrip[], dayKey: string, revenge: Set<string>, usual: number): RoundTrip[] {
@@ -623,8 +679,10 @@ function topSymbols(group: RoundTrip[], worst: boolean, limit: number): string[]
   return names;
 }
 
-function fillOf(trade: RoundTrip): DayFill {
-  return { id: trade.id, symbol: trade.symbol, pnlUsd: trade.pnlUsd, amountUsd: trade.amountUsd };
+function fillOf(trade: RoundTrip, note?: string): DayFill {
+  const fill: DayFill = { id: trade.id, symbol: trade.symbol, pnlUsd: trade.pnlUsd, amountUsd: trade.amountUsd };
+  if (note) fill.note = note;
+  return fill;
 }
 
 function byBest(left: RoundTrip, right: RoundTrip): number {

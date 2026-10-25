@@ -17,6 +17,8 @@ import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
 import { endOfDayReport, latestClosedDay } from "@/lib/analysis/day-report";
 import { currentMonthEt, dayKeyEt, dayLabel, monthOf } from "@/lib/calendar";
+import { ruleBreak } from "@/lib/rules";
+import type { AnnotatedTrade } from "@/lib/types";
 
 type FeedScope =
   | { kind: "month" }
@@ -36,17 +38,26 @@ export function Portfolio() {
   const [scope, setScope] = useState<FeedScope>({ kind: "month" });
   const shownMonth = month ?? latestMonth;
   const bounds = useMemo(
-    () => bookBounds({ trades: analysis.trades, rules, accountUsd: book?.accountUsd ?? null }),
-    [analysis.trades, rules, book?.accountUsd],
+    () => bookBounds({ trades: analysis.trades, rules, accountUsd: book?.accountUsd ?? null, cashUsd: book?.cashUsd ?? null }),
+    [analysis.trades, rules, book?.accountUsd, book?.cashUsd],
   );
   const { trades: reportTrades } = useTradeContext(book, analysis.trades);
   const tips = useMemo(() => practiceTips(analysis.trades, bounds), [analysis.trades, bounds]);
   const activeRules = rules.filter((rule) => rule.active).length;
   const reportDay = scope.kind === "day" ? scope.dayKey : latestClosedDay(analysis.trades);
   const dayReport = useMemo(
-    () => (reportDay ? endOfDayReport(reportTrades, reportDay) : null),
-    [reportTrades, reportDay],
+    () =>
+      reportDay
+        ? endOfDayReport(reportTrades, reportDay, {
+            rules,
+            accountUsd: book?.accountUsd ?? null,
+            cashUsd: book?.cashUsd ?? null,
+          })
+        : null,
+    [reportTrades, reportDay, rules, book?.accountUsd, book?.cashUsd],
   );
+  const ruleNote = (trade: AnnotatedTrade) =>
+    ruleBreak(trade, analysis.trades, { rules, accountUsd: book?.accountUsd ?? null }).note;
 
   useEffect(() => {
     setMonth(null);
@@ -101,6 +112,7 @@ export function Portfolio() {
                     current.kind === "trade" && current.id === trade.id ? { kind: "month" } : { kind: "trade", id: trade.id, symbol: trade.symbol },
                   );
                 }}
+                ruleNote={ruleNote}
               />
               <TipFeed
                 tips={tips}
@@ -147,11 +159,11 @@ export function Portfolio() {
             <div className="feeds">
               <div>
                 <h3 className="feed-title">Winners</h3>
-                <Tape trades={scoped} sideLock="win" showHeading={false} anchor="winners" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} />
+                <Tape trades={scoped} sideLock="win" showHeading={false} anchor="winners" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} ruleNote={ruleNote} />
               </div>
               <div>
                 <h3 className="feed-title">Losers</h3>
-                <Tape trades={scoped} sideLock="loss" showHeading={false} anchor="losers" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} />
+                <Tape trades={scoped} sideLock="loss" showHeading={false} anchor="losers" activeLabel={null} onClear={() => setScope({ kind: "month" })} onChange={update} ruleNote={ruleNote} />
               </div>
             </div>
           </section>

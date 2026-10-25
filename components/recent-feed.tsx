@@ -11,10 +11,12 @@ export function RecentFeed({
   trades,
   selectedId,
   onSelect,
+  ruleNote,
 }: {
   trades: AnnotatedTrade[];
   selectedId: string | null;
   onSelect: (trade: AnnotatedTrade) => void;
+  ruleNote?: (trade: AnnotatedTrade) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const recent = [...trades].sort((left, right) => right.exitAt.localeCompare(left.exitAt));
@@ -55,6 +57,7 @@ export function RecentFeed({
                   </div>
                 </dl>
                 <span className="note">{fmtWhen(trade.exitAt)} ET</span>
+                {ruleNote?.(trade) ? <span className="note">{ruleNote(trade)}</span> : null}
               </button>
             </article>
           );

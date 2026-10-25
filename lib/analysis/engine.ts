@@ -277,7 +277,7 @@ function writeLede(
 }
 
 function thinLede(count: number): string {
-  return `${count} closed round trip${count === 1 ? "" : "s"} so far. Suggestions start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Your own rules stay blank until you write them.`;
+  return `${count} closed round trip${count === 1 ? "" : "s"} so far. Suggestions start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Two base rules start on: exit under half the position, and a base trade of at most 10% of the portfolio.`;
 }
 
 function kolModeLabel(modeName: ReturnType<typeof kolMode>): string {
