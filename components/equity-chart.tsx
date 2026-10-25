@@ -1,32 +1,81 @@
-import { fmtUsd } from "@/lib/format";
+import { buildEquityChart } from "@/lib/equity-scale";
 import type { EquityPoint } from "@/lib/types";
 
 export function EquityChart({ points }: { points: EquityPoint[] }) {
-  if (points.length < 2) return null;
-  const width = 640;
-  const height = 200;
-  const pad = 18;
-  const values = points.map((point) => point.pnl);
-  const min = Math.min(0, ...values);
-  const max = Math.max(0, ...values);
-  const span = max - min || 1;
-  const coords = points.map((point, index) => {
-    const x = pad + (index / (points.length - 1)) * (width - pad * 2);
-    const y = pad + (1 - (point.pnl - min) / span) * (height - pad * 2);
-    return [x, y] as const;
-  });
-  const line = coords.map(([x, y], index) => `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const zeroY = pad + (1 - (0 - min) / span) * (height - pad * 2);
-  const last = coords[coords.length - 1];
-  const first = coords[0];
-  const area = `${line} L${last[0].toFixed(1)},${zeroY.toFixed(1)} L${first[0].toFixed(1)},${zeroY.toFixed(1)} Z`;
-  const end = points[points.length - 1]?.pnl ?? 0;
+  const model = buildEquityChart(points);
+  if (!model) return null;
+  const tone = model.end >= 0 ? "good" : "bad";
 
   return (
-    <svg className="equity" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Closed-trade equity ending at ${fmtUsd(end)}`}>
-      <line className="zero" x1={pad} x2={width - pad} y1={zeroY} y2={zeroY} />
-      <path className="area" d={area} />
-      <path d={line} fill="none" stroke={end >= 0 ? "var(--sage)" : "var(--clay)"} strokeWidth="2.4" />
-    </svg>
+    <div className={`equity-chart ${tone}`} role="img" aria-label={model.aria}>
+      <div className="equity-scale" aria-hidden="true">
+        {model.ticks.map((tick) => (
+          <span key={tick.value} className={`equity-tick ${tick.tone}`} style={{ top: `${(tick.y / model.height) * 100}%` }}>
+            {tick.label}
+          </span>
+        ))}
+      </div>
+      <div className="equity-main">
+        <svg
+          className="equity"
+          viewBox={`0 0 ${model.width} ${model.height}`}
+          style={{ aspectRatio: `${model.width} / ${model.height}` }}
+          aria-hidden="true"
+        >
+          {model.ticks.map((tick) => (
+            <line
+              key={tick.value}
+              className={tick.tone === "zero" ? "zero" : "grid"}
+              x1={model.plotLeft}
+              x2={model.plotRight}
+              y1={tick.y}
+              y2={tick.y}
+            />
+          ))}
+          <path className="area" d={model.area} />
+          <path
+            d={model.line}
+            fill="none"
+            stroke={tone === "good" ? "var(--sage)" : "var(--clay)"}
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div className="equity-overlay">
+          {model.marks.map((mark) => (
+            <span key={mark.roles.join("-")}>
+              <span
+                className={`equity-dot ${mark.pnl < 0 ? "bad" : mark.pnl > 0 ? "good" : ""}`}
+                style={{ left: `${(mark.x / model.width) * 100}%`, top: `${(mark.y / model.height) * 100}%` }}
+              />
+              <span
+                className={`equity-call ${mark.place}`}
+                style={{ left: `${(mark.labelX / model.width) * 100}%`, top: `${(mark.y / model.height) * 100}%` }}
+              >
+                <em>{mark.kicker}</em>
+                <strong className={mark.pnl < 0 ? "bad" : mark.pnl > 0 ? "good" : ""}>{mark.label}</strong>
+                {mark.showAxisTime ? null : <span className="when">{mark.stamp.label}</span>}
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="equity-times" aria-hidden="true">
+        {model.marks
+          .filter((mark) => mark.showAxisTime)
+          .map((mark) => (
+            <span
+              key={mark.roles.join("-")}
+              className={`equity-time ${mark.roles.includes("low") && !mark.roles.includes("start") && !mark.roles.includes("end") ? "low" : mark.roles.includes("end") ? "end" : "start"}`}
+              style={{ left: `${(mark.x / model.width) * 100}%` }}
+            >
+              <b>{mark.stamp.date}</b>
+              <span>{mark.stamp.time} ET</span>
+            </span>
+          ))}
+      </div>
+    </div>
   );
 }

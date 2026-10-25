@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { isWalletAddress } from "@/lib/address";
 import { CSV_TEMPLATE, parseCsvBook } from "@/lib/ingest/csv";
-import { TERMINALS } from "@/lib/terminals";
-import type { TerminalId } from "@/lib/types";
 import { TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import { connectWallet, type WalletKind } from "@/lib/wallet";
 
@@ -17,7 +15,6 @@ const WALLETS: { id: WalletKind; name: string }[] = [
 
 export function ConnectCard() {
   const router = useRouter();
-  const [terminal, setTerminal] = useState<TerminalId>(TRADER_TERMINAL);
   const [address, setAddress] = useState(TRADER_WALLET);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -25,11 +22,11 @@ export function ConnectCard() {
   function openAddress(next: string) {
     const trimmed = next.trim();
     if (!isWalletAddress(trimmed)) {
-      setError("Paste the trading wallet your terminal signs with. It looks like a Solana address, 32 to 44 characters.");
+      setError("Paste a Solana wallet address. It is 32 to 44 characters.");
       return;
     }
     setError("");
-    router.push(`/desk?address=${encodeURIComponent(trimmed)}&terminal=${terminal}`);
+    router.push(`/desk?address=${encodeURIComponent(trimmed)}&terminal=${TRADER_TERMINAL}`);
   }
 
   async function onConnect(kind: WalletKind) {
@@ -51,9 +48,9 @@ export function ConnectCard() {
     setError("");
     try {
       const text = await file.text();
-      const book = parseCsvBook(text, terminal);
+      const book = parseCsvBook(text, TRADER_TERMINAL);
       sessionStorage.setItem("extrapolate:csv", JSON.stringify(book));
-      router.push(`/desk?source=csv&terminal=${terminal}`);
+      router.push(`/desk?source=csv&terminal=${TRADER_TERMINAL}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not read that CSV.");
     }
@@ -67,24 +64,6 @@ export function ConnectCard() {
         openAddress(address);
       }}
     >
-      <div>
-        <p className="label">Terminal</p>
-        <div className="terminal-grid" role="group" aria-label="Preferred terminal">
-          {TERMINALS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={terminal === item.id}
-              onClick={() => setTerminal(item.id)}
-            >
-              {item.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <p className="note">
-        The terminal is where you click buy. The wallet underneath it is what Extrapolate reads. On Axiom, Photon, and BullX that is sometimes a separate trading wallet from the vault.
-      </p>
       <div className="wallet-row">
         {WALLETS.map((wallet) => (
           <button key={wallet.id} type="button" className="ghost" onClick={() => onConnect(wallet.id)} disabled={busy !== ""}>
@@ -93,11 +72,11 @@ export function ConnectCard() {
         ))}
       </div>
       <label className="field">
-        <span>Or paste the trading wallet</span>
+        <span>Wallet address</span>
         <input
           value={address}
           onChange={(event) => setAddress(event.target.value)}
-          placeholder="So1ana…trading wallet"
+          placeholder="Solana wallet"
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
@@ -109,7 +88,7 @@ export function ConnectCard() {
         <button type="submit" className="primary">Read this wallet</button>
       </div>
       <details className="csv">
-        <summary>Import a CSV from the terminal</summary>
+        <summary>Import a CSV of closed trades</summary>
         <p className="note">Use this when you already export fills, or when a public RPC cannot see far enough back.</p>
         <label className="field">
           <span>CSV file</span>

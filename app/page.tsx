@@ -34,7 +34,6 @@ export default function HomePage() {
           </p>
           <ul className="facts">
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
-            <li><b>Terminal</b><span>Axiom, Photon, BullX, GMGN, Padre, Bloom, Trojan, Banana Gun, Pump.fun, or the wallet itself.</span></li>
             <li><b>Reading</b><span>What the green trades shared. What the red trades shared. The practice that follows from the difference.</span></li>
           </ul>
         </div>
