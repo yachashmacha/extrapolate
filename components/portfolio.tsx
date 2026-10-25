@@ -11,6 +11,7 @@ import { Suggestions } from "@/components/suggestions";
 import { Tape } from "@/components/tape";
 import { TipFeed } from "@/components/tip-feed";
 import { useBook } from "@/components/use-book";
+import { useHighs } from "@/components/use-highs";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { tradingHabits } from "@/lib/analysis/habits";
 import { practiceTips } from "@/lib/analysis/tips";
@@ -28,6 +29,7 @@ type FeedScope =
 export function Portfolio() {
   const { book, analysis, error, loading, bookKey, title, note, search, reread, update } = useBook();
   const { rules } = useRules(bookKey);
+  const { highs, pending: pendingHighs } = useHighs(book);
   const latestMonth = useMemo(() => {
     const exits = analysis.trades.map((trade) => trade.exitAt).sort();
     return exits.length ? monthOf(dayKeyEt(exits[exits.length - 1])) : currentMonthEt();
@@ -40,7 +42,11 @@ export function Portfolio() {
     [analysis.trades, rules, book?.accountUsd],
   );
   const tips = useMemo(() => practiceTips(analysis.trades, bounds), [analysis.trades, bounds]);
-  const habits = useMemo(() => tradingHabits(analysis.trades, bounds), [analysis.trades, bounds]);
+  const habitTrades = useMemo(
+    () => analysis.trades.map((trade) => ({ ...trade, athMarketCapUsd: highs[trade.mint] || trade.athMarketCapUsd })),
+    [analysis.trades, highs],
+  );
+  const habits = useMemo(() => tradingHabits(habitTrades, bounds), [habitTrades, bounds]);
   const activeRules = rules.filter((rule) => rule.active).length;
 
   useEffect(() => {
@@ -112,6 +118,7 @@ export function Portfolio() {
             habits={habits}
             bounds={bounds}
             activeRules={activeRules}
+            pendingHighs={pendingHighs}
             selectedId={scope.kind === "habit" ? scope.id : null}
             onSelect={(habit) => {
               setScope((current) =>

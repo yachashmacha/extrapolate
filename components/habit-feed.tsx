@@ -9,12 +9,14 @@ export function HabitFeed({
   habits,
   bounds,
   activeRules,
+  pendingHighs,
   selectedId,
   onSelect,
 }: {
   habits: { positive: Habit[]; negative: Habit[] };
   bounds: BookBounds;
   activeRules: number;
+  pendingHighs: boolean;
   selectedId: string | null;
   onSelect: (habit: Habit) => void;
 }) {
@@ -30,6 +32,7 @@ export function HabitFeed({
         <h2>Habits</h2>
         <p>{intro}</p>
       </div>
+      {pendingHighs ? <p className="note">More coin highs are still loading.</p> : null}
       <div className="feeds">
         <HabitColumn title="Positive" tone="positive" habits={habits.positive} selectedId={selectedId} onSelect={onSelect} />
         <HabitColumn title="Negative" tone="negative" habits={habits.negative} selectedId={selectedId} onSelect={onSelect} />

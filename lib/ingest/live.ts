@@ -2,6 +2,7 @@ import { isWalletAddress } from "@/lib/address";
 import { isTerminalId, terminalName } from "@/lib/terminals";
 import type { Book, TerminalId } from "@/lib/types";
 import type { MintMeta } from "@/lib/ingest/round-trips";
+import { noteMints, startHighs } from "@/lib/ingest/highs";
 import { buildRoundTrips } from "@/lib/ingest/round-trips";
 import {
   parseHeliusTransaction,
@@ -54,22 +55,14 @@ export async function fetchWalletBook(
   }
 
   const metas = await loadMintMeta([...new Set(fills.map((fill) => fill.mint))]);
-  const ath = await loadAthMarketCaps(metas);
-  for (const [mint, value] of ath) {
-    const meta = metas.get(mint);
-    if (meta) meta.athMarketCapUsd = value;
-  }
+  noteMints(metas);
   const built = buildRoundTrips(fills, metas, terminal);
+  startHighs([...new Set(built.trades.map((trade) => trade.mint))]);
   if (built.trades.length === 0 && fills.length === 0) {
     warnings.push("No SOL or USDC memecoin swaps showed up in the recent transactions. A CSV export from the terminal still works.");
   }
-  const athMints = new Set(built.trades.map((trade) => trade.mint));
-  const athFound = built.trades.filter((trade) => (trade.athMarketCapUsd ?? 0) > 0).map((trade) => trade.mint);
-  const athUnique = new Set(athFound).size;
-  if (athMints.size > 0) {
-    warnings.push(
-      `Entry versus the coin's high uses the daily high on the main pool, for ${athUnique} of ${athMints.size} coins.`,
-    );
+  if (built.trades.length > 0) {
+    warnings.push("Entry versus the coin's high uses the daily high on the main pool. Those habits fill in as the highs come back.");
   }
 
   const accountUsd = await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, solPrice.priceAt(new Date().toISOString()), built.opens);
@@ -245,57 +238,6 @@ interface DexPair {
   fdv?: number;
   marketCap?: number;
   liquidity?: { usd?: number };
-}
-
-const athCache = new Map<string, number>();
-
-async function loadAthMarketCaps(metas: Map<string, MintMeta>): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  const todo = [...metas.entries()].filter(([, meta]) => meta.pairAddress && meta.supply > 0);
-  const work = mapPool(todo, 3, async ([mint, meta]) => {
-    if (!meta.pairAddress) return;
-    const cached = athCache.get(mint);
-    if (cached) {
-      out.set(mint, cached);
-      return;
-    }
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        const response = await fetch(
-          `https://api.geckoterminal.com/api/v2/networks/solana/pools/${meta.pairAddress}/ohlcv/day?aggregate=1&limit=1000&currency=usd&token=base`,
-          {
-            cache: "no-store",
-            signal: AbortSignal.timeout(8_000),
-            headers: { accept: "application/json", "user-agent": "extrapolate" },
-          },
-        );
-        if (response.status === 429) {
-          await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
-          continue;
-        }
-        if (!response.ok) return;
-        const body = (await response.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
-        const rows = body.data?.attributes?.ohlcv_list;
-        if (!Array.isArray(rows)) return;
-        let high = 0;
-        for (const row of rows) {
-          const price = Number(row?.[2]);
-          if (Number.isFinite(price) && price > high) high = price;
-        }
-        if (high <= 0 || meta.supply <= 0) return;
-        const ath = Math.round(high * meta.supply);
-        if (ath <= 0) return;
-        athCache.set(mint, ath);
-        out.set(mint, ath);
-        return;
-      } catch {
-        // This coin stays out of the high habit.
-        return;
-      }
-    }
-  });
-  await Promise.race([work, new Promise((resolve) => setTimeout(resolve, 20_000))]);
-  return out;
 }
 
 async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; approximate: boolean }> {
