@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
-import { Fraunces, Outfit } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import { DailyReportTab } from "@/components/daily-report-tab";
 import "./globals.css";
 
-const serif = Fraunces({
+const plex = IBM_Plex_Sans({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plex",
   display: "swap",
-});
-
-const sans = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
+  fallback: ["Source Sans 3", "Segoe UI", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -23,7 +19,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable}`}>
+    <html lang="en" className={plex.variable}>
       <body>
         <DailyReportTab />
         {children}
