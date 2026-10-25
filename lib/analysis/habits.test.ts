@@ -179,6 +179,44 @@ describe("trading habits", () => {
     expect(earlyHabit?.mark).toBe("Tendency");
     expect(earlyHabit?.detail).toMatch(/stays at \$0\.50/);
   });
+
+  it("names the house-money effect when a larger ticket after a win loses", () => {
+    const trades = [
+      row("w1", 1, { pnl: 10, amount: 20 }),
+      row("up1", 2, { pnl: -30, amount: 80, symbol: "PRESS1" }),
+      row("w2", 3, { pnl: 10, amount: 20 }),
+      row("up2", 4, { pnl: -30, amount: 80, symbol: "PRESS2" }),
+      row("w3", 5, { pnl: 10, amount: 20 }),
+      row("up3", 6, { pnl: -30, amount: 80, symbol: "PRESS3" }),
+      row("flat1", 7, { pnl: 12, amount: 20 }),
+      row("flat2", 8, { pnl: 12, amount: 20 }),
+    ];
+    const habits = tradingHabits(trades);
+    const pressed = habits.negative.find((item) => item.id === "size-after-win");
+    expect(pressed?.title).toBe("House-money effect");
+    expect(pressed?.mark).toBe("Bias");
+    expect(pressed?.detail).toMatch(/Pressing the last win/);
+    expect(pressed?.tradeIds.length).toBeGreaterThanOrEqual(3);
+    expect(habits.positive.find((item) => item.id === "size-press-paid")).toBeUndefined();
+  });
+
+  it("names the disposition effect only when the red trades were held longer", () => {
+    const longer = [
+      ...Array.from({ length: 4 }, (_, index) => row(`w-${index}`, index, { pnl: 20, hold: 4, symbol: `WIN${index}` })),
+      ...Array.from({ length: 4 }, (_, index) => row(`l-${index}`, index + 4, { pnl: -18, hold: 40, symbol: `LOSS${index}` })),
+    ];
+    const habit = tradingHabits(longer).negative.find((item) => item.id === "hold-losers");
+    expect(habit?.title).toBe("Disposition effect");
+    expect(habit?.mark).toBe("Bias");
+    expect(habit?.detail).toMatch(/Holding the red trades longer/);
+    expect(habit?.tradeIds).toHaveLength(4);
+
+    const even = [
+      ...Array.from({ length: 4 }, (_, index) => row(`ew-${index}`, index, { pnl: 20, hold: 10 })),
+      ...Array.from({ length: 4 }, (_, index) => row(`el-${index}`, index + 4, { pnl: -18, hold: 10 })),
+    ];
+    expect(tradingHabits(even).negative.some((item) => item.title === "Disposition effect")).toBe(false);
+  });
 });
 
 function kol(name: string, timing: KolTag["timing"]): KolTag {
@@ -197,6 +235,7 @@ function row(
     buys?: number;
     kol?: KolTag;
     mint?: string;
+    hold?: number;
   } = {},
 ): RoundTrip {
   const amount = extra.amount ?? 20;
@@ -217,7 +256,7 @@ function row(
     amountUsd: amount,
     pnlUsd: pnl,
     pnlPct: amount > 0 ? (pnl / amount) * 100 : 0,
-    holdMinutes: 10,
+    holdMinutes: extra.hold ?? 10,
     kols: extra.kol ? [extra.kol] : [],
     minutesFromLaunch: -1,
     buys: extra.buys ?? 1,

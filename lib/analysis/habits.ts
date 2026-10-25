@@ -87,8 +87,9 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   }
   if (worth("negative", pressed, keptWin.length >= 3 ? keptWin : others(ordered, pressed))) {
     out.push(
-      draft("size-after-win", "negative", "Sized up after a win", pressed, {
-        detail: `After a green close, ${pressed.length} of the next tickets were at least 1.35× the usual ${usualLabel}. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, bounds)}`,
+      draft("size-after-win", "negative", "House-money effect", pressed, {
+        mark: "Bias",
+        detail: `Pressing the last win. After a green close, ${pressed.length} of the next tickets were at least 1.35× the usual ${usualLabel}. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, bounds)}`,
       }),
     );
   }
@@ -205,8 +206,9 @@ function holdHabits(trades: RoundTrip[]): Draft[] {
     const group = losers.filter((trade) => trade.holdMinutes > winHold);
     if (group.length >= 3) {
       out.push(
-        draft("hold-losers", "negative", "Held the red trades longer", group, {
-          detail: `Losing trades were held about ${fmtHold(lossHold)}. Winning trades were held about ${fmtHold(winHold)}. ${group.length} of the red trades outlasted that winning hold${including(group, true)}.`,
+        draft("hold-losers", "negative", "Disposition effect", group, {
+          mark: "Bias",
+          detail: `Holding the red trades longer than the green ones. Losing trades were held about ${fmtHold(lossHold)}. Winning trades were held about ${fmtHold(winHold)}. ${group.length} of the red trades outlasted that winning hold${including(group, true)}.`,
         }),
       );
     }
