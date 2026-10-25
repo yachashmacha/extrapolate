@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookBar } from "@/components/book-bar";
 import { BookError, BookNotices } from "@/components/book-notices";
-import { HabitFeed } from "@/components/habit-feed";
 import { PnlCalendar } from "@/components/pnl-calendar";
 import { RecentFeed } from "@/components/recent-feed";
 import { RuleBook } from "@/components/rule-book";
@@ -11,9 +10,7 @@ import { Suggestions } from "@/components/suggestions";
 import { Tape } from "@/components/tape";
 import { TipFeed } from "@/components/tip-feed";
 import { useBook } from "@/components/use-book";
-import { useHighs } from "@/components/use-highs";
 import { bookBounds } from "@/lib/analysis/bounds";
-import { tradingHabits } from "@/lib/analysis/habits";
 import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
 import { currentMonthEt, dayKeyEt, dayLabel, monthOf } from "@/lib/calendar";
@@ -23,13 +20,11 @@ type FeedScope =
   | { kind: "book" }
   | { kind: "day"; dayKey: string }
   | { kind: "suggestion"; ids: string[]; label: string }
-  | { kind: "habit"; id: string; ids: string[]; label: string }
   | { kind: "trade"; id: string; symbol: string };
 
 export function Portfolio() {
   const { book, analysis, error, loading, bookKey, title, note, search, reread, update, kolScan } = useBook();
   const { rules } = useRules(bookKey);
-  const { highs, pending: pendingHighs } = useHighs(book);
   const latestMonth = useMemo(() => {
     const exits = analysis.trades.map((trade) => trade.exitAt).sort();
     return exits.length ? monthOf(dayKeyEt(exits[exits.length - 1])) : currentMonthEt();
@@ -42,11 +37,6 @@ export function Portfolio() {
     [analysis.trades, rules, book?.accountUsd],
   );
   const tips = useMemo(() => practiceTips(analysis.trades, bounds), [analysis.trades, bounds]);
-  const habitTrades = useMemo(
-    () => analysis.trades.map((trade) => ({ ...trade, athMarketCapUsd: highs[trade.mint] || trade.athMarketCapUsd })),
-    [analysis.trades, highs],
-  );
-  const habits = useMemo(() => tradingHabits(habitTrades, bounds), [habitTrades, bounds]);
   const activeRules = rules.filter((rule) => rule.active).length;
 
   useEffect(() => {
@@ -68,7 +58,7 @@ export function Portfolio() {
     const day = dayKeyEt(trade.exitAt);
     if (scope.kind === "book") return true;
     if (scope.kind === "day") return day === scope.dayKey;
-    if (scope.kind === "suggestion" || scope.kind === "habit") return scope.ids.includes(trade.id);
+    if (scope.kind === "suggestion") return scope.ids.includes(trade.id);
     if (scope.kind === "trade") return trade.id === scope.id;
     return day.startsWith(shownMonth);
   });
@@ -114,21 +104,6 @@ export function Portfolio() {
               />
             </div>
           </section>
-          <HabitFeed
-            habits={habits}
-            bounds={bounds}
-            activeRules={activeRules}
-            pendingHighs={pendingHighs}
-            selectedId={scope.kind === "habit" ? scope.id : null}
-            onSelect={(habit) => {
-              setScope((current) =>
-                current.kind === "habit" && current.id === habit.id
-                  ? { kind: "month" }
-                  : { kind: "habit", id: habit.id, ids: habit.tradeIds, label: habit.title },
-              );
-              document.getElementById("feeds")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
-          />
           <Suggestions analysis={analysis} bounds={bounds} onShowTrades={showSuggestion} />
           <section className="section" id="feeds">
             <div className="section-head">
@@ -147,7 +122,7 @@ export function Portfolio() {
                   {dayLabel(scope.dayKey)} · clear
                 </button>
               ) : null}
-              {scope.kind === "suggestion" || scope.kind === "habit" ? (
+              {scope.kind === "suggestion" ? (
                 <button type="button" className="chip" aria-pressed="true" onClick={() => setScope({ kind: "month" })}>
                   {scope.label} · clear
                 </button>
