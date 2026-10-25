@@ -139,6 +139,34 @@ describe("narrative score", () => {
     expect(pasted.line).not.toMatch(/\d of \d|finished up|finished down/);
   });
 
+  it("keeps the tag when one earlier coin is only a small part of the score", () => {
+    const prior = trade("prior-dog", {
+      metas: ["animal"],
+      pnl: -8.22,
+      entryAt: "2026-10-01T12:00:00.000Z",
+      exitAt: "2026-10-01T13:00:00.000Z",
+      ath: null,
+    });
+    const coin = trade("later", {
+      metas: ["animal"],
+      pnl: -1,
+      entryAt: "2026-10-20T12:00:00.000Z",
+      ath: null,
+    });
+    const scored = narrativeScore(coin, [prior, coin]);
+    expect(scored.score).toBeGreaterThan(0);
+    expect(scored.line).toMatch(/The narrative is Animals/);
+    expect(scored.line).toMatch(/earlier Animals coin in this book finished down/);
+  });
+
+  it("names three callers and counts the rest", () => {
+    const kols = ["art", "beanz", "cupsey", "decu", "flames", "cented"].map((name) => makeKol(name, "before"));
+    const line = narrativeScore(trade("crowd", { kols, ath: null, metas: ["ai"] }), []).line;
+    expect(line).toMatch(/Art, Beanz, Cupsey, and 3 more were in before the entry/);
+    expect(line).not.toMatch(/Decu|Flames|Cented/);
+    expect(line).toMatch(/The narrative is AI/);
+  });
+
   it("shows on the best and worst lines and does not move the rationality percent", () => {
     const day = [0, 1, 2, 3].map((minute) =>
       trade(`green-${minute}`, {

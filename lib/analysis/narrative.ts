@@ -50,8 +50,9 @@ const WEIGHT: Record<Piece["id"], number> = {
  * Timing, max 10, skipped when the high is missing: entry at or under 35% of the
  * high is 10, the lower half is 6, already up the range is 2, and near the high is 0.
  * That timing is not the FOMO rule.
- * The line is the two factors with the most points. When the record is one of them,
- * the bare tag is left off, because that line already names the narrative.
+ * The line is the two factors with the most points. The bare tag is left off only
+ * when the record scored at least as much and is already on the line. A long caller
+ * list names three and counts the rest.
  */
 export function narrativeScore(trade: RoundTrip, book: RoundTrip[]): NarrativeScore {
   const pieces = [
@@ -85,7 +86,15 @@ function leadingFactors(pieces: Piece[]): string[] {
     .filter((piece) => piece.read && piece.points > 0 && piece.text)
     .sort((left, right) => right.points - left.points || WEIGHT[left.id] - WEIGHT[right.id]);
   const chosen = ranked.slice(0, 2);
-  if (chosen.some((piece) => piece.id === "record") && chosen.some((piece) => piece.id === "catalyst")) {
+  const catalyst = pieces.find((piece) => piece.id === "catalyst");
+  const record = pieces.find((piece) => piece.id === "record");
+  if (
+    catalyst &&
+    record &&
+    record.points >= catalyst.points &&
+    chosen.some((piece) => piece.id === "record") &&
+    chosen.some((piece) => piece.id === "catalyst")
+  ) {
     const next = ranked.find((piece) => piece.id !== "catalyst" && !chosen.includes(piece));
     const withoutTag = chosen.filter((piece) => piece.id !== "catalyst");
     if (next) withoutTag.push(next);
@@ -93,7 +102,6 @@ function leadingFactors(pieces: Piece[]): string[] {
     chosen.splice(0, chosen.length, ...withoutTag);
   }
   const lines = chosen.map((piece) => piece.text);
-  const record = pieces.find((piece) => piece.id === "record");
   if (lines.length < 2 && record?.read && record.points === 0 && record.text && !lines.includes(record.text)) {
     lines.push(record.text);
   }
@@ -237,8 +245,12 @@ function callerClause(group: KolTag[], when: KolTiming): string {
           ? "was in before the entry"
           : "were in before the entry";
   if (named.length === 0) return `${group.length === 1 ? "A caller" : `${group.length} callers`} ${verb}`;
-  if (hidden === 0 && named.length === group.length) return `${joinAnd(named)} ${verb}`;
-  return `${group.length} callers ${verb}, including ${joinAnd(named)}`;
+  if (hidden === 0 && named.length === group.length) {
+    if (named.length <= 3) return `${joinAnd(named)} ${verb}`;
+    const head = named.slice(0, 3);
+    return `${head.join(", ")}, and ${group.length - head.length} more ${verb}`;
+  }
+  return `${group.length} callers ${verb}, including ${joinAnd(named.slice(0, 3))}`;
 }
 
 function publicName(kol: KolTag): string {
