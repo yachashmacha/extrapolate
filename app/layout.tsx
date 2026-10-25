@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
+import { DailyReportTab } from "@/components/daily-report-tab";
 import "./globals.css";
 
 const serif = Fraunces({
@@ -23,7 +24,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable}`}>
-      <body>{children}</body>
+      <body>
+        <DailyReportTab />
+        {children}
+      </body>
     </html>
   );
 }
