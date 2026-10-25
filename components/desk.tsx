@@ -8,7 +8,7 @@ import { Tape } from "@/components/tape";
 import { useBook } from "@/components/use-book";
 
 export function Desk() {
-  const { book, analysis, error, loading, terminal, title, note, search, reread, update } = useBook();
+  const { book, analysis, error, loading, title, note, search, reread, update } = useBook();
   const [focus, setFocus] = useState<{ ids: string[]; label: string } | null>(null);
   const [focusSearch, setFocusSearch] = useState(search);
   if (focusSearch !== search) {
@@ -31,7 +31,7 @@ export function Desk() {
       </nav>
 
       {loading ? <p className="loading">Reading signatures, rebuilding round trips, and comparing the winners with the losers.</p> : null}
-      {error ? <BookError error={error} terminal={terminal} /> : null}
+      {error ? <BookError error={error} /> : null}
 
       {book && !loading ? (
         <>

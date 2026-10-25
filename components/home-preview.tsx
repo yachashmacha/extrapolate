@@ -2,17 +2,17 @@ import { fmtPct, fmtRate, fmtUsd } from "@/lib/format";
 import type { Analysis } from "@/lib/types";
 import { EquityChart } from "@/components/equity-chart";
 
-export function HomePreview({ analysis }: { analysis: Analysis }) {
+export function HomePreview({ analysis, kicker, detail }: { analysis: Analysis; kicker: string; detail: string }) {
   const fix = analysis.fixes[0];
   const keep = analysis.keeps.find((card) => card.category === "narrative") ?? analysis.keeps[0];
   return (
-    <section className="section" aria-labelledby="sample-reading">
+    <section className="section" aria-labelledby="live-reading">
       <div className="section-head">
         <div>
-          <p className="kicker">Sample book</p>
-          <h2 id="sample-reading">What a reading looks like</h2>
+          <p className="kicker">{kicker}</p>
+          <h2 id="live-reading">The live book</h2>
         </div>
-        <p>Invented coins, real arithmetic. Suggestions come from the losing trades. Rules are yours to write.</p>
+        <p>{detail}</p>
       </div>
       <p className="lede-block">{analysis.lede}</p>
       <div className="stat-row">

@@ -6,6 +6,7 @@ import { isWalletAddress } from "@/lib/address";
 import { CSV_TEMPLATE, parseCsvBook } from "@/lib/ingest/csv";
 import { TERMINALS } from "@/lib/terminals";
 import type { TerminalId } from "@/lib/types";
+import { TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import { connectWallet, type WalletKind } from "@/lib/wallet";
 
 const WALLETS: { id: WalletKind; name: string }[] = [
@@ -16,14 +17,10 @@ const WALLETS: { id: WalletKind; name: string }[] = [
 
 export function ConnectCard() {
   const router = useRouter();
-  const [terminal, setTerminal] = useState<TerminalId>("axiom");
-  const [address, setAddress] = useState("");
+  const [terminal, setTerminal] = useState<TerminalId>(TRADER_TERMINAL);
+  const [address, setAddress] = useState(TRADER_WALLET);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-
-  function openSample() {
-    router.push(`/desk?demo=1&terminal=${terminal}`);
-  }
 
   function openAddress(next: string) {
     const trimmed = next.trim();
@@ -110,7 +107,6 @@ export function ConnectCard() {
       {error ? <p className="error">{error}</p> : null}
       <div className="actions">
         <button type="submit" className="primary">Read this wallet</button>
-        <button type="button" className="ghost" onClick={openSample}>Open the sample book</button>
       </div>
       <details className="csv">
         <summary>Import a CSV from the terminal</summary>

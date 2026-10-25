@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { analyze } from "@/lib/analysis/engine";
 import { isWalletAddress } from "@/lib/address";
 import { bookSearch } from "@/lib/book-query";
-import { sampleBook } from "@/lib/ingest/demo";
 import { isTerminalId, terminalName } from "@/lib/terminals";
+import { TRADER_DEPTH, TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import type { Analysis, Book, KolTag, MetaId, TerminalId } from "@/lib/types";
 import { shortAddress } from "@/lib/format";
 
@@ -19,17 +19,18 @@ const EMPTY: Overrides = { kols: {}, metas: {} };
 
 export function useBook() {
   const params = useSearchParams();
-  const demo = params.get("demo") === "1";
   const source = params.get("source");
-  const address = params.get("address") ?? "";
-  const depth = params.get("depth") ?? "200";
-  const terminal: TerminalId = isTerminalId(params.get("terminal")) ? (params.get("terminal") as TerminalId) : "axiom";
-  const bookKey = demo ? "sample" : source === "csv" ? "csv" : address || "unknown";
-  const search = bookSearch({ demo, source, address, terminal, depth });
+  const requested = (params.get("address") ?? "").trim();
+  const address = source === "csv" ? "" : requested || TRADER_WALLET;
+  const depth = params.get("depth") ?? (address === TRADER_WALLET ? TRADER_DEPTH : "200");
+  const terminalParam = params.get("terminal");
+  const terminal: TerminalId = isTerminalId(terminalParam) ? terminalParam : address === TRADER_WALLET ? TRADER_TERMINAL : "axiom";
+  const bookKey = source === "csv" ? "csv" : address || "unknown";
+  const search = bookSearch({ demo: false, source, address, terminal, depth });
 
-  const [book, setBook] = useState<Book | null>(() => (demo ? sampleBook(terminal) : null));
+  const [book, setBook] = useState<Book | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!demo && source !== "csv");
+  const [loading, setLoading] = useState(source !== "csv");
   const [overrides, setOverrides] = useState<Overrides>(EMPTY);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -43,12 +44,6 @@ export function useBook() {
   }, [bookKey]);
 
   useEffect(() => {
-    if (demo) {
-      setBook(sampleBook(terminal));
-      setError("");
-      setLoading(false);
-      return;
-    }
     if (source === "csv") {
       const raw = sessionStorage.getItem("extrapolate:csv");
       if (!raw) {
@@ -88,7 +83,7 @@ export function useBook() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [demo, source, address, terminal, depth, reloadKey]);
+  }, [source, address, terminal, depth, reloadKey]);
 
   const trades = useMemo(() => {
     if (!book) return [];
@@ -110,7 +105,7 @@ export function useBook() {
     localStorage.setItem(`extrapolate:overrides:${bookKey}`, JSON.stringify(next));
   }
 
-  const title = book?.source === "sample" ? "Sample book" : book?.source === "csv" ? "Imported book" : shortAddress(address);
+  const title = book?.source === "csv" ? "Imported book" : shortAddress(address || TRADER_WALLET);
   const note = book
     ? `${terminalName(terminal)} · ${analysis.summary.trades} closed · ${analysis.summary.spanLabel}`
     : terminalName(terminal);

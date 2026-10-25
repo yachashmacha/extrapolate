@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fmtUsdPlain } from "@/lib/format";
-import type { Book, TerminalId } from "@/lib/types";
+import { traderSearch } from "@/lib/trader";
+import type { Book } from "@/lib/types";
 
 export function BookNotices({ book }: { book: Book }) {
   return (
@@ -28,16 +29,16 @@ export function BookNotices({ book }: { book: Book }) {
   );
 }
 
-export function BookError({ error, terminal }: { error: string; terminal: TerminalId }) {
+export function BookError({ error }: { error: string }) {
   return (
     <div className="section">
       <p className="error">{error}</p>
       <p className="note">
-        A public RPC only sees recent transactions, and some wallets trade through a different address than the vault. The sample book is a full reading you can open while you sort the wallet out.
+        A public RPC reads the recent signatures on this wallet. Reread when the node answers, or import a CSV if the history sits further back.
       </p>
       <p>
-        <Link className="primary" href={`/desk?demo=1&terminal=${terminal}`}>
-          Open the sample book
+        <Link className="primary" href={`/desk${traderSearch()}`}>
+          Reread the wallet
         </Link>
       </p>
     </div>

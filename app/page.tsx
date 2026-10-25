@@ -1,14 +1,17 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ConnectCard } from "@/components/connect-card";
 import { HomePreview } from "@/components/home-preview";
 import { Mark } from "@/components/mark";
 import { analyze } from "@/lib/analysis/engine";
-import { sampleBook } from "@/lib/ingest/demo";
+import { fetchWalletBook } from "@/lib/ingest/live";
+import { TRADER_DEPTH, TRADER_TERMINAL, TRADER_WALLET, traderSearch } from "@/lib/trader";
+import { shortAddress } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
 
 export default function HomePage() {
-  const book = sampleBook("axiom");
-  const analysis = analyze(book.trades, book.terminal);
-
+  const search = traderSearch();
   return (
     <main className="shell">
       <header className="topbar">
@@ -17,8 +20,8 @@ export default function HomePage() {
           extrapolate
         </Link>
         <span className="actions">
-          <Link className="ghost" href="/desk?demo=1&terminal=axiom">Sample book</Link>
-          <Link className="ghost" href="/portfolio?demo=1&terminal=axiom">Portfolio</Link>
+          <Link className="ghost" href={`/desk${search}`}>Desk</Link>
+          <Link className="ghost" href={`/portfolio${search}`}>Portfolio</Link>
         </span>
       </header>
       <section className="hero">
@@ -26,21 +29,40 @@ export default function HomePage() {
           <p className="kicker">Memecoin trading desk</p>
           <h1>See the trade you keep repeating.</h1>
           <p className="lede">
-            Connect the Solana wallet your terminal trades from. Extrapolate rebuilds every closed memecoin round trip and lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Losing trades get specific suggestions. Portfolio keeps the daily PnL, and your rules stay blank until you write them.
+            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin round trip. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Losing trades get specific suggestions. Portfolio keeps the daily PnL, and your rules stay blank until you write them.
           </p>
           <ul className="facts">
-            <li><b>Wallet</b><span>Phantom, Solflare, Backpack, or the trading address pasted from the terminal header.</span></li>
+            <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
             <li><b>Terminal</b><span>Axiom, Photon, BullX, GMGN, Padre, Bloom, Trojan, Banana Gun, Pump.fun, or the wallet itself.</span></li>
             <li><b>Reading</b><span>What the green trades shared. What the red trades shared. The practice that follows from the difference.</span></li>
           </ul>
         </div>
         <ConnectCard />
       </section>
-      <HomePreview analysis={analysis} />
+      <Suspense fallback={<p className="loading">Reading the wallet and rebuilding the closed trades.</p>}>
+        <LiveHome />
+      </Suspense>
       <footer className="footer">
-        <span>Extrapolate mirrors your own fills. It is not a signal service.</span>
+        <span>Extrapolate mirrors this wallet’s fills. It is not a signal service.</span>
         <span>Your rules stay empty until you write them.</span>
       </footer>
     </main>
   );
+}
+
+async function LiveHome() {
+  try {
+    const book = await fetchWalletBook(TRADER_WALLET, TRADER_TERMINAL, Number(TRADER_DEPTH));
+    const analysis = analyze(book.trades, book.terminal);
+    return (
+      <HomePreview
+        analysis={analysis}
+        kicker={shortAddress(TRADER_WALLET)}
+        detail={`${analysis.summary.trades} closed fills from this wallet, ${analysis.summary.spanLabel}. Entry market cap is the fill price times the supply now.`}
+      />
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The wallet could not be read.";
+    return <p className="error">{message}</p>;
+  }
 }

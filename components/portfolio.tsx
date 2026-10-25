@@ -21,7 +21,7 @@ type FeedScope =
   | { kind: "trade"; id: string; symbol: string };
 
 export function Portfolio() {
-  const { book, analysis, error, loading, bookKey, terminal, title, note, search, reread, update } = useBook();
+  const { book, analysis, error, loading, bookKey, title, note, search, reread, update } = useBook();
   const latestMonth = useMemo(() => {
     const exits = analysis.trades.map((trade) => trade.exitAt).sort();
     return exits.length ? monthOf(dayKeyEt(exits[exits.length - 1])) : currentMonthEt();
@@ -59,7 +59,7 @@ export function Portfolio() {
     <main className="shell desk">
       <BookBar page="portfolio" title={title} note={note} search={search} onReread={reread} />
       {loading ? <p className="loading">Reading signatures and building the month.</p> : null}
-      {error ? <BookError error={error} terminal={terminal} /> : null}
+      {error ? <BookError error={error} /> : null}
       {book && !loading ? (
         <>
           <BookNotices book={book} />

@@ -78,7 +78,7 @@ async function loadHelius(
   priceAt: (iso: string) => number,
 ): Promise<{ fills: Fill[]; scanned: number }> {
   const url = `https://api.helius.xyz/v0/addresses/${encodeURIComponent(wallet)}/transactions?api-key=${encodeURIComponent(apiKey)}&limit=80`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(12_000) });
   if (!response.ok) throw new Error(`status ${response.status}`);
   const body = (await response.json()) as HeliusTransaction[];
   if (!Array.isArray(body)) throw new Error("unexpected payload");
@@ -130,6 +130,7 @@ async function loadMintMeta(mints: string[]): Promise<Map<string, MintMeta>> {
     if (chunk.length === 0) continue;
     try {
       const response = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${chunk.join(",")}`, {
+        cache: "no-store",
         signal: AbortSignal.timeout(12_000),
         headers: { accept: "application/json" },
       });
@@ -174,7 +175,7 @@ async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; appr
   try {
     const response = await fetch(
       "https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=90",
-      { signal: AbortSignal.timeout(10_000), headers: { accept: "application/json" } },
+      { cache: "no-store", signal: AbortSignal.timeout(10_000), headers: { accept: "application/json" } },
     );
     if (response.ok) {
       const body = (await response.json()) as { prices?: [number, number][] };
@@ -209,6 +210,7 @@ async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; appr
 async function loadSpotSol(): Promise<number> {
   try {
     const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", {
+      cache: "no-store",
       signal: AbortSignal.timeout(8_000),
       headers: { accept: "application/json" },
     });
@@ -264,6 +266,7 @@ async function rpcCall<T>(rpc: string, method: string, params: unknown[]): Promi
 async function rpcCallOnce<T>(rpc: string, method: string, params: unknown[]): Promise<T> {
   const response = await fetch(rpc, {
     method: "POST",
+    cache: "no-store",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     signal: AbortSignal.timeout(15_000),
