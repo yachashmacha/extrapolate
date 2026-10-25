@@ -1,0 +1,240 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { PublicKey } from "@solana/web3.js";
+import { isWalletAddress } from "@/lib/address";
+import { TRACKED_KOLS } from "@/lib/kols";
+import { gropyRpc } from "@/lib/gropy/rpc";
+import { booksFromLegs, decodeTokenName, legFromTransaction, type SwapLeg } from "@/lib/gropy/swaps";
+import type { BuySignal, ClosedTrade } from "@/lib/gropy/types";
+
+/** gropy's own read of KOL wallets. Not the desk scan cache. */
+export const GROPY_CHAIN_CACHE = "/tmp/gropy-chain.json";
+
+const METADATA = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+const FRESH_MS = 20 * 60 * 1000;
+const RETRY_MS = 5 * 60 * 1000;
+
+export interface KolRead {
+  closed: ClosedTrade[];
+  buys: BuySignal[];
+  readWallets: string[];
+  skippedWallets: string[];
+  unreadable: number;
+}
+
+interface CacheRow {
+  at: number;
+  closed: ClosedTrade[];
+  buys: BuySignal[];
+  unreadable?: boolean;
+}
+
+interface CacheFile {
+  cursor: number;
+  wallets: Record<string, CacheRow>;
+}
+
+type Rpc = (method: string, params: unknown[]) => Promise<unknown>;
+
+class BudgetError extends Error {}
+
+export async function loadKolRecords(options?: {
+  wallets?: { wallet: string }[];
+  cachePath?: string;
+  budgetMs?: number;
+  rpc?: Rpc;
+  now?: () => number;
+  signatureLimit?: number;
+  txLimit?: number;
+}): Promise<KolRead> {
+  const list = options?.wallets ?? TRACKED_KOLS;
+  const cachePath = options?.cachePath ?? GROPY_CHAIN_CACHE;
+  const rpc = options?.rpc ?? gropyRpc;
+  const now = options?.now ?? Date.now;
+  const signatureLimit = options?.signatureLimit ?? 20;
+  const txLimit = options?.txLimit ?? 10;
+  const cache = readCache(cachePath);
+  const started = now();
+  const deadline = started + (options?.budgetMs ?? 8_000);
+  let index = list.length === 0 ? 0 : cache.cursor % list.length;
+  let steps = 0;
+  while (list.length > 0 && steps < list.length && now() < deadline) {
+    const wallet = list[index]?.wallet;
+    index = (index + 1) % list.length;
+    steps += 1;
+    if (!wallet) continue;
+    const row = cache.wallets[wallet];
+    const age = row ? started - row.at : Number.POSITIVE_INFINITY;
+    if (row && age < (row.unreadable ? RETRY_MS : FRESH_MS)) continue;
+    try {
+      const parsed = await readWallet(wallet, rpc, deadline, signatureLimit, txLimit);
+      cache.wallets[wallet] = { at: now(), closed: parsed.closed, buys: parsed.buys };
+    } catch (error) {
+      if (error instanceof BudgetError) break;
+      cache.wallets[wallet] = { at: now(), closed: [], buys: [], unreadable: true };
+    }
+  }
+  cache.cursor = index;
+  writeCache(cachePath, cache);
+  return collect(cache, new Set(list.map((row) => row.wallet)));
+}
+
+async function readWallet(wallet: string, rpc: Rpc, deadline: number, signatureLimit: number, txLimit: number): Promise<{ closed: ClosedTrade[]; buys: BuySignal[] }> {
+  if (Date.now() > deadline) throw new BudgetError();
+  const signatures = await rpc("getSignaturesForAddress", [wallet, { limit: signatureLimit }]);
+  if (!Array.isArray(signatures)) throw new Error("signatures");
+  const ok = signatures.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const signature = (row as { signature?: unknown }).signature;
+    const err = (row as { err?: unknown }).err;
+    if (typeof signature !== "string" || err) return [];
+    return [signature];
+  });
+  const legs: SwapLeg[] = [];
+  for (const signature of ok.slice(0, txLimit)) {
+    if (Date.now() > deadline) throw new BudgetError();
+    const tx = await rpc("getTransaction", [signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 1 }]);
+    const leg = legFromTransaction(wallet, tx, signature);
+    if (leg) legs.push(leg);
+  }
+  const books = booksFromLegs(legs);
+  await attachNames(books.buys, rpc, deadline);
+  return books;
+}
+
+async function attachNames(buys: BuySignal[], rpc: Rpc, deadline: number): Promise<void> {
+  const mints = [...new Set(buys.map((buy) => buy.mint))].slice(0, 6);
+  for (const mint of mints) {
+    if (Date.now() > deadline) return;
+    try {
+      const pda = metadataAddress(mint);
+      const result = await rpc("getAccountInfo", [pda, { encoding: "base64" }]);
+      const decoded = decodeAccount(result);
+      if (!decoded) continue;
+      const symbol = cleanLabel(decoded.symbol);
+      const name = cleanLabel(decoded.name);
+      const label = symbol || name;
+      if (!label) continue;
+      for (const buy of buys) {
+        if (buy.mint !== mint) continue;
+        buy.symbol = label;
+        if (name) buy.coinName = name;
+      }
+    } catch {
+      // A missing name skips the copy later. The close still counts.
+    }
+  }
+}
+
+function metadataAddress(mint: string): string {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("metadata"), METADATA.toBuffer(), new PublicKey(mint).toBuffer()],
+    METADATA,
+  );
+  return pda.toBase58();
+}
+
+function decodeAccount(result: unknown): { name: string; symbol: string } | null {
+  const value = result && typeof result === "object" && "value" in result ? (result as { value?: unknown }).value : result;
+  if (!value || typeof value !== "object" || !("data" in value)) return null;
+  const data = (value as { data?: unknown }).data;
+  const base64 = Array.isArray(data) ? data[0] : data;
+  if (typeof base64 !== "string" || !base64) return null;
+  return decodeTokenName(Buffer.from(base64, "base64"));
+}
+
+function cleanLabel(value: string): string {
+  const text = value.trim();
+  if (!text || text.includes("·") || text.includes("…") || isWalletAddress(text)) return "";
+  return text;
+}
+
+function collect(cache: CacheFile, allowed: Set<string>): KolRead {
+  const closed: ClosedTrade[] = [];
+  const buys: BuySignal[] = [];
+  const readWallets: string[] = [];
+  const skippedWallets: string[] = [];
+  let unreadable = 0;
+  for (const [wallet, row] of Object.entries(cache.wallets)) {
+    if (!allowed.has(wallet)) continue;
+    if (row.unreadable) {
+      unreadable += 1;
+      continue;
+    }
+    readWallets.push(wallet);
+    const ownClosed = row.closed.filter((trade) => trade.wallet === wallet);
+    const ownBuys = row.buys.filter((buy) => buy.wallet === wallet);
+    if (ownClosed.length === 0) skippedWallets.push(wallet);
+    closed.push(...ownClosed);
+    buys.push(...ownBuys);
+  }
+  return { closed, buys, readWallets, skippedWallets, unreadable };
+}
+
+function readCache(file: string): CacheFile {
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as { cursor?: unknown; wallets?: unknown };
+    const wallets: Record<string, CacheRow> = {};
+    if (parsed.wallets && typeof parsed.wallets === "object") {
+      for (const [wallet, row] of Object.entries(parsed.wallets as Record<string, unknown>)) {
+        const clean = sanitizeRow(row);
+        if (clean) wallets[wallet] = clean;
+      }
+    }
+    const cursor = typeof parsed.cursor === "number" && parsed.cursor >= 0 ? parsed.cursor : 0;
+    return { cursor, wallets };
+  } catch {
+    return { cursor: 0, wallets: {} };
+  }
+}
+
+function sanitizeRow(value: unknown): CacheRow | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as { at?: unknown; closed?: unknown; buys?: unknown; unreadable?: unknown };
+  if (typeof row.at !== "number") return null;
+  return {
+    at: row.at,
+    closed: Array.isArray(row.closed) ? row.closed.flatMap(sanitizeClosed) : [],
+    buys: Array.isArray(row.buys) ? row.buys.flatMap(sanitizeBuy) : [],
+    unreadable: row.unreadable === true,
+  };
+}
+
+function sanitizeClosed(value: unknown): ClosedTrade[] {
+  if (!value || typeof value !== "object") return [];
+  const row = value as Record<string, unknown>;
+  if (typeof row.wallet !== "string" || typeof row.closedAt !== "string" || !Number.isFinite(Date.parse(row.closedAt))) return [];
+  const pnlSol = typeof row.pnlSol === "number" && Number.isFinite(row.pnlSol) ? row.pnlSol : undefined;
+  const pnlUsd = typeof row.pnlUsd === "number" && Number.isFinite(row.pnlUsd) ? row.pnlUsd : undefined;
+  if (pnlSol == null && pnlUsd == null) return [];
+  const trade: ClosedTrade = { id: stringOr(row.id, `${row.wallet}|${row.closedAt}`), wallet: row.wallet, closedAt: row.closedAt };
+  if (pnlSol != null) trade.pnlSol = pnlSol;
+  if (pnlUsd != null) trade.pnlUsd = pnlUsd;
+  if (typeof row.mint === "string") trade.mint = row.mint;
+  if (typeof row.symbol === "string" && row.symbol.trim()) trade.symbol = row.symbol.trim();
+  if (typeof row.amountSol === "number" && Number.isFinite(row.amountSol)) trade.amountSol = row.amountSol;
+  return [trade];
+}
+
+function sanitizeBuy(value: unknown): BuySignal[] {
+  if (!value || typeof value !== "object") return [];
+  const row = value as Record<string, unknown>;
+  if (typeof row.wallet !== "string" || typeof row.mint !== "string" || typeof row.boughtAt !== "string") return [];
+  if (!Number.isFinite(Date.parse(row.boughtAt))) return [];
+  const buy: BuySignal = { id: stringOr(row.id, `${row.wallet}|${row.mint}|${row.boughtAt}`), wallet: row.wallet, mint: row.mint, boughtAt: row.boughtAt };
+  if (typeof row.symbol === "string" && row.symbol.trim()) buy.symbol = row.symbol.trim();
+  if (typeof row.coinName === "string" && row.coinName.trim()) buy.coinName = row.coinName.trim();
+  if (typeof row.amountSol === "number" && Number.isFinite(row.amountSol) && row.amountSol > 0) buy.amountSol = row.amountSol;
+  return [buy];
+}
+
+function stringOr(value: unknown, fallback: string): string {
+  return typeof value === "string" && value ? value : fallback;
+}
+
+function writeCache(file: string, cache: CacheFile): void {
+  try {
+    writeFileSync(file, JSON.stringify(cache));
+  } catch {
+    // The next read fetches again.
+  }
+}

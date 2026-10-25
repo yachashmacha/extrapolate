@@ -30,12 +30,16 @@ describe("gropy names", () => {
     const view = buildGropyView({
       catalogSize: 718,
       closed: trades,
-      buyOnlyWallets: [hidden],
+      skippedWallets: [hidden],
       book: runCopyBook(trades, []),
       nameOf: gropyName,
+      botAddress: "BotWalletOnly",
+      balanceSol: 0,
     });
     expect(view.copying).toBeNull();
-    expect(view.unscoredNames).toEqual([]);
+    expect(view.copies).toEqual([]);
+    expect(view.unfunded).toBe(true);
+    expect(view.skippedNames).toEqual([]);
     expect(JSON.stringify(view)).not.toContain(hidden);
   });
 });

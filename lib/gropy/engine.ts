@@ -11,13 +11,20 @@ export function isFired(losses: number): boolean {
   return losses > FIRE_LOSS_LIMIT;
 }
 
-export function lossCount(trades: readonly { pnlUsd: number }[]): number {
-  return trades.reduce((count, trade) => (trade.pnlUsd < 0 ? count + 1 : count), 0);
+/** SOL when the swap record has it, otherwise the dollar result. A missing number does not qualify. */
+export function tradePnl(trade: { pnlUsd?: number; pnlSol?: number }): number {
+  if (typeof trade.pnlSol === "number" && Number.isFinite(trade.pnlSol)) return trade.pnlSol;
+  if (typeof trade.pnlUsd === "number" && Number.isFinite(trade.pnlUsd)) return trade.pnlUsd;
+  return Number.NaN;
+}
+
+export function lossCount(trades: readonly { pnlUsd?: number; pnlSol?: number }[]): number {
+  return trades.reduce((count, trade) => (tradePnl(trade) < 0 ? count + 1 : count), 0);
 }
 
 export function walletResult(wallet: string, trades: readonly ClosedTrade[]): WalletScore {
-  const own = trades.filter((trade) => trade.wallet === wallet && Number.isFinite(trade.pnlUsd));
-  const realizedUsd = own.reduce((sum, trade) => sum + trade.pnlUsd, 0);
+  const own = trades.filter((trade) => trade.wallet === wallet && Number.isFinite(tradePnl(trade)));
+  const realizedUsd = own.reduce((sum, trade) => sum + tradePnl(trade), 0);
   return {
     wallet,
     closed: own.length,
@@ -151,10 +158,11 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
   for (const event of timeline(closed, buys)) {
     if (event.kind === "close") {
       const trade = event.trade;
-      realized.set(trade.wallet, (realized.get(trade.wallet) ?? 0) + trade.pnlUsd);
+      const pnl = tradePnl(trade);
+      realized.set(trade.wallet, (realized.get(trade.wallet) ?? 0) + pnl);
       closedCount.set(trade.wallet, (closedCount.get(trade.wallet) ?? 0) + 1);
-      if (trade.pnlUsd < 0) lifetimeLosses.set(trade.wallet, (lifetimeLosses.get(trade.wallet) ?? 0) + 1);
-      if (copying === trade.wallet && trade.pnlUsd < 0) losses += 1;
+      if (pnl < 0) lifetimeLosses.set(trade.wallet, (lifetimeLosses.get(trade.wallet) ?? 0) + 1);
+      if (copying === trade.wallet && pnl < 0) losses += 1;
       if (copying === trade.wallet && isFired(losses)) {
         fire(trade.wallet, trade.closedAt);
       } else if (copying === trade.wallet && (realized.get(trade.wallet) ?? 0) <= 0) {
@@ -180,6 +188,9 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
       coin,
     };
     if (typeof event.buy.amountUsd === "number" && Number.isFinite(event.buy.amountUsd)) fill.amountUsd = event.buy.amountUsd;
+    if (typeof event.buy.amountSol === "number" && Number.isFinite(event.buy.amountSol) && event.buy.amountSol > 0) {
+      fill.amountSol = event.buy.amountSol;
+    }
     if (typeof event.buy.entryMarketCapUsd === "number" && Number.isFinite(event.buy.entryMarketCapUsd) && event.buy.entryMarketCapUsd > 0) {
       fill.entryMarketCapUsd = event.buy.entryMarketCapUsd;
     }
@@ -200,7 +211,7 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
 function timeline(closed: readonly ClosedTrade[], buys: readonly BuySignal[]): BookEvent[] {
   const events: BookEvent[] = [];
   for (const trade of closed) {
-    if (!Number.isFinite(trade.pnlUsd)) continue;
+    if (!Number.isFinite(tradePnl(trade))) continue;
     const at = Date.parse(trade.closedAt);
     if (!Number.isFinite(at)) continue;
     events.push({ at, kind: "close", trade });

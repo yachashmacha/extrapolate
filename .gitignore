@@ -6,5 +6,6 @@ out
 .env
 .env.local
 .env*.local
+.gropy-wallet.json
 tsconfig.tsbuildinfo
 next-env.d.ts

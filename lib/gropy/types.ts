@@ -1,13 +1,17 @@
-/** A closed KOL fill with a realized result that was already on file. Missing pnl never qualifies. */
+/** A closed round trip from a wallet's own swaps. Missing pnl never qualifies. */
 export interface ClosedTrade {
   id: string;
   wallet: string;
   mint?: string;
   closedAt: string;
-  pnlUsd: number;
+  /** Set when the result was priced in dollars. */
+  pnlUsd?: number;
+  /** Set when the result is the SOL that actually moved. Not a converted dollar guess. */
+  pnlSol?: number;
   symbol?: string;
   coinName?: string;
   amountUsd?: number;
+  amountSol?: number;
   entryMarketCapUsd?: number;
 }
 
@@ -20,6 +24,7 @@ export interface BuySignal {
   symbol?: string;
   coinName?: string;
   amountUsd?: number;
+  amountSol?: number;
   entryMarketCapUsd?: number;
 }
 
@@ -37,6 +42,7 @@ export interface CopyFill {
   boughtAt: string;
   coin: string;
   amountUsd?: number;
+  amountSol?: number;
   entryMarketCapUsd?: number;
 }
 

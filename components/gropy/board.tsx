@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { Mark } from "@/components/mark";
-import { fmtMc, fmtUsd, fmtWhen } from "@/lib/format";
+import { fmtUsd, fmtWhen } from "@/lib/format";
+import { fmtSol } from "@/lib/gropy/sol";
 import type { GropyView } from "@/lib/gropy/view";
-import { traderSearch } from "@/lib/trader";
 import styles from "./gropy.module.css";
 
 export function GropyBoard({ view }: { view: GropyView }) {
-  const search = traderSearch();
-  const showSize = view.copies.some((row) => typeof row.amountUsd === "number");
-  const showCap = view.copies.some((row) => typeof row.entryMarketCapUsd === "number");
-
   return (
     <main className={`shell desk ${styles.page}`}>
       <header className="desk-bar">
@@ -19,8 +15,8 @@ export function GropyBoard({ view }: { view: GropyView }) {
             extrapolate
           </Link>
           <nav className="page-switch" aria-label="Book pages">
-            <Link href={`/desk${search}`}>Desk</Link>
-            <Link href={`/portfolio${search}`}>Portfolio</Link>
+            <Link href="/desk">Desk</Link>
+            <Link href="/portfolio">Portfolio</Link>
             <Link href="/gropy" aria-current="page">
               gropy
             </Link>
@@ -29,22 +25,35 @@ export function GropyBoard({ view }: { view: GropyView }) {
       </header>
 
       <div className={styles.intro}>
-        <p className="kicker">Grokbot copy book</p>
+        <p className="kicker">Grokbot</p>
         <h1>gropy</h1>
-        <p className="lede">
-          gropy follows one wallet from the KOL list. The seat has to be profitable on verified closed trades. Losing trades are counted while that wallet is being copied. More than {view.fireLossLimit} losses fires them, and the next seat has to be a different wallet with a better verified result. A fired wallet stays off the book. The rows below are paper copies of real buys. gropy does not hold a key and does not send a transaction.
-        </p>
       </div>
+
+      <section className={styles.card} aria-labelledby="gropy-wallet">
+        <p className="kicker" id="gropy-wallet">
+          Bot wallet
+        </p>
+        <p className={styles.address}>{view.botAddress}</p>
+        <p className={styles.note}>Load this wallet with SOL.</p>
+        <p className={styles.realized}>{balanceLine(view.balanceSol)}</p>
+      </section>
+
+      <p className="lede">
+        gropy copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. The next wallet has to be a different one with a better verified result. This page does not send a swap.
+      </p>
 
       <p className={styles.stats}>
         <span>
           KOL list<b>{view.catalogSize.toLocaleString("en-US")}</b>
         </span>
         <span>
+          Swaps read<b>{view.readCount.toLocaleString("en-US")}</b>
+        </span>
+        <span>
           Verified closes<b>{view.verifiedCloses.toLocaleString("en-US")}</b>
         </span>
         <span>
-          Profitable<b>{view.eligibleCount.toLocaleString("en-US")}</b>
+          Unreadable<b>{view.unreadableCount.toLocaleString("en-US")}</b>
         </span>
       </p>
 
@@ -56,9 +65,9 @@ export function GropyBoard({ view }: { view: GropyView }) {
           {view.copying ? (
             <>
               <h2 className={styles.name}>{view.copying}</h2>
-              {typeof view.copyingRealizedUsd === "number" && typeof view.copyingCloses === "number" ? (
+              {typeof view.copyingRealized === "number" && typeof view.copyingCloses === "number" ? (
                 <p className={styles.realized}>
-                  Verified realized {fmtUsd(view.copyingRealizedUsd)} across {view.copyingCloses} closed {view.copyingCloses === 1 ? "trade" : "trades"}.
+                  Verified realized {fmtResult(view.copyingRealized, view.unit)} across {view.copyingCloses} closed {view.copyingCloses === 1 ? "trade" : "trades"}.
                 </p>
               ) : null}
               <div className={styles.meter} aria-label="Losing trades toward the fire line">
@@ -93,17 +102,18 @@ export function GropyBoard({ view }: { view: GropyView }) {
 
       <section className={styles.section}>
         <h2>Copies</h2>
-        <p className={styles.note}>Mirrored from real buys while that wallet held the seat. A buy with no coin name is skipped.</p>
-        {view.copies.length > 0 ? (
+        {view.unfunded ? (
+          <p className={styles.note}>{view.balanceSol === 0 ? "No copy was sent. This wallet has no SOL to spend." : "No copy was sent. The SOL balance could not be read."}</p>
+        ) : view.copies.length > 0 ? (
           <div className={styles.card}>
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th>Trader</th>
                   <th>Coin</th>
-                    {showSize ? <th className={styles.num}>Size</th> : null}
-                    {showCap ? <th className={styles.num}>Entry cap</th> : null}
-                    <th className={styles.num}>Bought</th>
+                  <th className={styles.num}>Size</th>
+                  <th className={styles.num}>Bought</th>
+                  <th className={styles.num}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,9 +121,9 @@ export function GropyBoard({ view }: { view: GropyView }) {
                   <tr key={`${row.trader}-${row.coin}-${row.boughtAt}`}>
                     <td>{row.trader}</td>
                     <td className={styles.coin}>{row.coin}</td>
-                    {showSize ? <td className={styles.num}>{typeof row.amountUsd === "number" ? fmtUsd(row.amountUsd) : ""}</td> : null}
-                    {showCap ? <td className={styles.num}>{typeof row.entryMarketCapUsd === "number" ? fmtMc(row.entryMarketCapUsd) : ""}</td> : null}
+                    <td className={styles.num}>{row.sol == null ? "" : fmtSol(row.sol)}</td>
                     <td className={styles.num}>{fmtWhen(row.boughtAt)}</td>
+                    <td className={styles.num}>Not sent</td>
                   </tr>
                 ))}
               </tbody>
@@ -124,7 +134,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
         )}
         {view.skippedUnnamedBuys > 0 ? (
           <p className={styles.note}>
-            {view.skippedUnnamedBuys} {view.skippedUnnamedBuys === 1 ? "buy" : "buys"} from a copied wallet had no coin name on file, so {view.skippedUnnamedBuys === 1 ? "it was" : "they were"} skipped.
+            {view.skippedUnnamedBuys} {view.skippedUnnamedBuys === 1 ? "buy had" : "buys had"} no coin name on the swap, so {view.skippedUnnamedBuys === 1 ? "it was" : "they were"} skipped.
           </p>
         ) : null}
       </section>
@@ -135,9 +145,9 @@ export function GropyBoard({ view }: { view: GropyView }) {
           <ol className={styles.log}>
             {view.log.map((row) => (
               <li key={`${row.at}-${row.firedName}`}>
-                <span className={styles.when}>{fmtWhen(row.at)}</span> Fired {row.firedName} after {row.losses} losing trades. Verified result {fmtUsd(row.firedRealizedUsd)}.{" "}
-                {row.replacementName && typeof row.replacementRealizedUsd === "number"
-                  ? `${row.replacementName} took the seat with a better verified result (${fmtUsd(row.replacementRealizedUsd)}).`
+                <span className={styles.when}>{fmtWhen(row.at)}</span> Fired {row.firedName} after {row.losses} losing trades. Verified result {fmtResult(row.firedRealized, view.unit)}.{" "}
+                {row.replacementName && typeof row.replacementRealized === "number"
+                  ? `${row.replacementName} took the seat with a better verified result (${fmtResult(row.replacementRealized, view.unit)}).`
                   : "No other wallet has a better verified result, so the seat stays empty."}
               </li>
             ))}
@@ -147,15 +157,13 @@ export function GropyBoard({ view }: { view: GropyView }) {
         )}
       </section>
 
-      {view.buyOnlyCount > 0 ? (
+      {view.readCount > 0 || view.unreadableCount > 0 ? (
         <section className={styles.section}>
           <h2>Not scored</h2>
-          <p className={styles.note}>
-            {view.buyOnlyCount} {view.buyOnlyCount === 1 ? "wallet has" : "wallets have"} a buy time in the KOL scan and no verified closed trade. A buy time is not a result, so {view.buyOnlyCount === 1 ? "this wallet is" : "these wallets are"} not copied.
-          </p>
-          {view.unscoredNames.length > 0 ? (
+          <p className={styles.note}>{skippedLine(view)}</p>
+          {view.skippedNames.length > 0 && view.skippedNames.length <= 24 ? (
             <div className={styles.chips}>
-              {view.unscoredNames.map((name) => (
+              {view.skippedNames.map((name) => (
                 <span key={name} className={styles.chip}>
                   {name}
                 </span>
@@ -168,6 +176,15 @@ export function GropyBoard({ view }: { view: GropyView }) {
   );
 }
 
+function balanceLine(balanceSol: number | null): string {
+  if (balanceSol == null) return "Balance unavailable.";
+  return fmtSol(balanceSol);
+}
+
+function fmtResult(value: number, unit: "sol" | "usd"): string {
+  return unit === "sol" ? fmtSol(value, true) : fmtUsd(value);
+}
+
 function lossSentence(losses: number, limit: number): string {
   if (losses === 0) return `No losing trades since this wallet was copied. Loss ${limit + 1} fires them.`;
   const noun = losses === 1 ? "losing trade" : "losing trades";
@@ -175,14 +192,17 @@ function lossSentence(losses: number, limit: number): string {
 }
 
 function emptySeat(view: GropyView): string {
-  if (view.log.length > 0) {
-    return "The last trader was fired, and no other wallet has a better verified result.";
-  }
-  if (view.verifiedCloses === 0) {
-    return `None of the ${view.catalogSize.toLocaleString("en-US")} KOL wallets have a verified closed trade, so none can be scored.`;
-  }
+  if (view.log.length > 0) return "The last trader was fired, and no other wallet has a better verified result.";
+  if (view.readCount === 0 && view.unreadableCount > 0) return "Those wallets' closed trades could not be read, so none are copied.";
+  if (view.verifiedCloses === 0) return "No verified close has been read from these wallets' own swaps, so none are copied.";
   if (view.eligibleCount === 0) {
     return `${view.scoredWallets} ${view.scoredWallets === 1 ? "wallet has" : "wallets have"} verified closes, and none of those results are profitable.`;
   }
   return "No eligible wallet is free to copy.";
+}
+
+function skippedLine(view: GropyView): string {
+  const skipped = `${view.skippedCount} ${view.skippedCount === 1 ? "wallet was" : "wallets were"} read and had no verified close, so ${view.skippedCount === 1 ? "it is" : "they are"} not copied.`;
+  const missed = view.unreadableCount > 0 ? ` ${view.unreadableCount} ${view.unreadableCount === 1 ? "wallet" : "wallets"} could not be read and ${view.unreadableCount === 1 ? "was" : "were"} skipped.` : "";
+  return `${skipped}${missed}`;
 }
