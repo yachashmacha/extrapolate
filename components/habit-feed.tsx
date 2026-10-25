@@ -30,8 +30,8 @@ export function HabitFeed({
       : `${point} A caller leaves the ticket where this wallet and your rules put it.`;
   return (
     <section className="section" id="biases">
-      <div className="section-head">
-        <h2>Biases and tendencies</h2>
+      <div className="bias-lead">
+        <h2 className="bias-quote">Your biases from YOUR subconscious</h2>
         <p>{intro}</p>
       </div>
       {pendingHighs ? <p className="note">More coin highs are still loading.</p> : null}
