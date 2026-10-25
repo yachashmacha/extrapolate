@@ -1,5 +1,6 @@
 "use client";
 
+import { clampTicketAmounts } from "@/lib/analysis/bounds";
 import { EquityChart } from "@/components/equity-chart";
 import { fmtHold, fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import type { Analysis, Pattern, PlayCard, SidePortrait } from "@/lib/types";
@@ -14,9 +15,11 @@ const CATEGORY: Record<PlayCard["category"], string> = {
 
 export function Reading({
   analysis,
+  ticketUsd,
   onShowTrades,
 }: {
   analysis: Analysis;
+  ticketUsd?: number;
   onShowTrades: (ids: string[], label: string) => void;
 }) {
   const { summary } = analysis;
@@ -97,7 +100,7 @@ export function Reading({
         ) : (
           <div className="play-grid">
             {analysis.fixes.map((play) => (
-              <PlayCardView key={play.id} play={play} onShowTrades={onShowTrades} />
+              <PlayCardView key={play.id} play={play} ticketUsd={ticketUsd} onShowTrades={onShowTrades} />
             ))}
           </div>
         )}
@@ -113,7 +116,7 @@ export function Reading({
         ) : (
           <div className="play-grid">
             {analysis.keeps.map((play) => (
-              <PlayCardView key={play.id} play={play} onShowTrades={onShowTrades} />
+              <PlayCardView key={play.id} play={play} ticketUsd={ticketUsd} onShowTrades={onShowTrades} />
             ))}
           </div>
         )}
@@ -230,20 +233,23 @@ function PatternCard({
 
 function PlayCardView({
   play,
+  ticketUsd,
   onShowTrades,
 }: {
   play: PlayCard;
+  ticketUsd?: number;
   onShowTrades: (ids: string[], label: string) => void;
 }) {
+  const fit = (text: string) => (ticketUsd && ticketUsd > 0 ? clampTicketAmounts(text, ticketUsd) : text);
   return (
     <article className={play.tone === "fix" ? "play fix" : "play keep"}>
       <p className="kicker">{play.tone === "fix" ? "Change this" : "Repeat this"} · {CATEGORY[play.category]}</p>
-      <h3>{play.title}</h3>
-      <p className="rule">{play.rule}</p>
+      <h3>{fit(play.title)}</h3>
+      <p className="rule">{fit(play.rule)}</p>
       <p className="evidence">{play.evidence}</p>
       <ol>
-        {play.steps.map((step) => (
-          <li key={step}>{step}</li>
+        {play.steps.map((step, index) => (
+          <li key={`${play.id}-${index}`}>{fit(step)}</li>
         ))}
       </ol>
       <button type="button" className="ghost" onClick={() => onShowTrades(play.tradeIds, play.title)}>

@@ -8,6 +8,9 @@ export interface MintMeta {
   supply: number;
   liquidityUsd: number;
   metas?: MetaId[];
+  /** Highest-liquidity pair, used to read the coin's high. */
+  pairAddress?: string;
+  athMarketCapUsd?: number;
 }
 
 interface OpenLot {
@@ -114,6 +117,7 @@ function toTrip(lot: OpenLot, metas: Map<string, MintMeta>, terminal: TerminalId
     minutesFromLaunch: -1,
     buys: lot.buys,
     sells: lot.sells,
+    athMarketCapUsd: info?.athMarketCapUsd,
   };
 }
 

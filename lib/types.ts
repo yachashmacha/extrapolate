@@ -50,6 +50,8 @@ export interface RoundTrip {
   minutesFromLaunch: number;
   buys: number;
   sells: number;
+  /** Daily high on the main pool, times the same supply used for entry market cap. */
+  athMarketCapUsd?: number;
 }
 
 export interface OpenPosition {
@@ -73,6 +75,8 @@ export interface Book {
   warnings: string[];
   fetchedAt: string;
   scannedTransactions?: number;
+  /** SOL plus stables in the wallet, in dollars, plus the cost of coins still open. */
+  accountUsd?: number;
 }
 
 export type PlayCategory = "entry" | "size" | "callers" | "narrative" | "behavior";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "@/lib/analysis/engine";
+import { bookBounds } from "@/lib/analysis/bounds";
 import { practiceTips } from "@/lib/analysis/tips";
 import { sampleBook } from "@/lib/ingest/demo";
 import { kolFromSpec } from "@/lib/kols";
@@ -31,6 +32,38 @@ describe("practice tips", () => {
     expect(tips[0].tip).toMatch(/\$480k/);
     expect(tips[0].tip).toMatch(/\$150/);
     expect(tips[0].tip).toMatch(/Pass once the coin clears/i);
+    expect(tips[0].tip).toMatch(/ticket stays at \$150/i);
+  });
+
+  it("sizes the next ticket from the account and the trader's rule", () => {
+    const trades = [winner("a"), winner("b"), winner("c"), loss("roar")];
+    const byAccount = practiceTips(trades, bookBounds({ trades, accountUsd: 400 }));
+    expect(byAccount[0].tip).toMatch(/\$20/);
+    expect(byAccount[0].tip).toMatch(/5% of the \$400/);
+    expect(byAccount[0].tip).not.toMatch(/\$150/);
+
+    const byRule = practiceTips(
+      trades,
+      bookBounds({ trades, accountUsd: 8_000, rules: [{ id: "r", text: "Next buy is $10", active: true }] }),
+    );
+    expect(byRule[0].tip).toMatch(/\$10/);
+    expect(byRule[0].tip).toMatch(/Next buy is \$10/);
+    expect(byRule[0].tip).not.toMatch(/\$150/);
+    expect(byRule[0].tip).toMatch(/ticket stays at \$10/i);
+
+    const small = practiceTips(trades, bookBounds({ trades, accountUsd: 9.9 }));
+    expect(small[0].tip).toMatch(/\$0\.5/);
+    expect(small[0].tip).toMatch(/5% of the \$9\.9/);
+    expect(small[0].tip).toMatch(/ticket stays at \$0\.5/i);
+    expect(small[0].tip).not.toMatch(/\$150/);
+
+    const capped = practiceTips(
+      trades,
+      bookBounds({ trades, accountUsd: 9.9, rules: [{ id: "r", text: "Next buy is $10", active: true }] }),
+    );
+    expect(capped[0].tip).toMatch(/\$9\.9/);
+    expect(capped[0].tip).toMatch(/Next buy is \$10/);
+    expect(capped[0].tip).not.toMatch(/\$150/);
   });
 });
 

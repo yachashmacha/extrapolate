@@ -11,6 +11,13 @@ const usdExact = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
+const usdCents = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function fmtUsd(value: number, exact = false): string {
   if (!Number.isFinite(value)) return "—";
   const abs = Math.abs(value);
@@ -23,7 +30,9 @@ export function fmtUsd(value: number, exact = false): string {
 export function fmtUsdPlain(value: number): string {
   if (!Number.isFinite(value)) return "—";
   const abs = Math.abs(value);
-  return abs < 100 ? usdExact.format(abs) : usd.format(abs);
+  if (abs >= 100) return usd.format(abs);
+  if (Math.abs(abs - Math.round(abs)) < 0.001) return usd.format(abs);
+  return usdCents.format(abs);
 }
 
 export function fmtMc(value: number): string {

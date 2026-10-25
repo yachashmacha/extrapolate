@@ -1,5 +1,6 @@
 "use client";
 
+import { clampTicketAmounts, type BookBounds } from "@/lib/analysis/bounds";
 import { fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import type { Analysis, AnnotatedTrade, PlayCard } from "@/lib/types";
 
@@ -13,11 +14,14 @@ const CATEGORY: Record<PlayCard["category"], string> = {
 
 export function Suggestions({
   analysis,
+  bounds,
   onShowTrades,
 }: {
   analysis: Analysis;
+  bounds?: BookBounds;
   onShowTrades: (ids: string[], label: string) => void;
 }) {
+  const fit = (text: string) => (bounds && bounds.ticketUsd > 0 ? clampTicketAmounts(text, bounds.ticketUsd) : text);
   return (
     <section className="section" id="suggestions">
       <div className="section-head">
@@ -31,13 +35,13 @@ export function Suggestions({
           {analysis.fixes.map((play) => (
             <article key={play.id} className="play fix">
               <p className="kicker">{CATEGORY[play.category]}</p>
-              <h3>{play.title}</h3>
-              <p className="rule">{play.rule}</p>
+              <h3>{fit(play.title)}</h3>
+              <p className="rule">{fit(play.rule)}</p>
               <p className="evidence">{play.evidence}</p>
               <SourceLine trades={analysis.trades} ids={play.tradeIds} />
               <ol>
                 {play.steps.map((step) => (
-                  <li key={step}>{step}</li>
+                  <li key={step}>{fit(step)}</li>
                 ))}
               </ol>
               <button type="button" className="ghost" onClick={() => onShowTrades(play.tradeIds, play.title)}>

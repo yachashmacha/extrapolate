@@ -1,3 +1,4 @@
+import { bookBounds, type BookBounds } from "@/lib/analysis/bounds";
 import { median } from "@/lib/analysis/stats";
 import { kolMode } from "@/lib/analysis/slices";
 import { fmtHold, fmtMc, fmtUsdPlain } from "@/lib/format";
@@ -17,8 +18,9 @@ export interface PracticeTip {
   tip: string;
 }
 
-export function practiceTips(trades: AnnotatedTrade[]): PracticeTip[] {
+export function practiceTips(trades: AnnotatedTrade[], bounds?: BookBounds): PracticeTip[] {
   const winners = trades.filter((trade) => trade.result === "win");
+  const limits = bounds ?? bookBounds({ trades });
   return trades
     .filter((trade) => trade.result === "loss")
     .sort((left, right) => left.pnlUsd - right.pnlUsd || right.exitAt.localeCompare(left.exitAt))
@@ -32,7 +34,7 @@ export function practiceTips(trades: AnnotatedTrade[]): PracticeTip[] {
       pnlUsd: trade.pnlUsd,
       pnlPct: trade.pnlPct,
       kols: trade.kols,
-      tip: writeTip(trade, winners),
+      tip: writeTip(trade, winners, limits),
     }));
 }
 
@@ -41,7 +43,7 @@ export function kolBoughtLine(kols: KolTag[]): string {
   return kols.map((kol) => `${kol.name}, ${timingLabel(kol.timing)}`).join(" · ");
 }
 
-function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[]): string {
+function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: BookBounds): string {
   const bought =
     trade.entryMarketCapUsd > 0
       ? `${fmtUsdPlain(trade.amountUsd)} bought at ${fmtMc(trade.entryMarketCapUsd)}`
@@ -58,39 +60,73 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[]): string {
   const meta = META_LABEL[trade.metas[0] ?? "other"];
   const where = scoped ? `${meta} winners` : "winners";
   const winMc = median(pool.map((row) => row.entryMarketCapUsd));
-  const winSize = median(pool.map((row) => row.amountUsd));
   const winHold = median(pool.map((row) => row.holdMinutes));
   const earlyNames = topNames(
     pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kol.name)),
     2,
   );
+  const ticket = bounds.ticketUsd;
+  const passMc = bounds.maxMcUsd != null && bounds.maxMcUsd > 0 ? Math.min(bounds.maxMcUsd, winMc > 0 ? winMc : bounds.maxMcUsd) : winMc;
+  const mcFromRule = bounds.maxMcUsd != null && bounds.maxMcUsd > 0 && passMc === bounds.maxMcUsd && (winMc === 0 || bounds.maxMcUsd < winMc);
 
   const actions: string[] = [];
-  if (trade.entryMarketCapUsd > 0 && winMc > 0 && trade.entryMarketCapUsd > winMc * 1.5) {
-    actions.push(`Pass once the coin clears ${fmtMc(winMc)}, where the ${where} got in.`);
+  if (ticket > 0 && trade.amountUsd > ticket * 1.25) {
+    actions.push(`Keep the next ticket at ${fmtUsdPlain(ticket)}. ${ticketWhy(bounds)}`);
   }
-  const mode = kolMode(trade);
-  if (mode !== "early" && earlyNames.length > 0) {
+  if (trade.entryMarketCapUsd > 0 && passMc > 0 && trade.entryMarketCapUsd > passMc * (mcFromRule ? 1.05 : 1.5)) {
     actions.push(
-      mode === "late"
-        ? `Wait until ${joinOr(earlyNames)} is already in. A caller who arrives after ${trade.symbol} leaves the buy unconfirmed.`
-        : `Wait until ${joinOr(earlyNames)} is already in before a buy like ${trade.symbol}.`,
+      mcFromRule
+        ? `Pass once the coin clears ${fmtMc(passMc)}, the line in your rule “${bounds.mcRule}”.`
+        : `Pass once the coin clears ${fmtMc(passMc)}, where the ${where} got in.`,
     );
   }
-  if (winSize > 0 && trade.amountUsd > winSize * 1.5) {
-    actions.push(`Keep the next ticket near ${fmtUsdPlain(winSize)}, the size those winners used.`);
+  const mode = kolMode(trade);
+  if (mode !== "early" && earlyNames.length > 0 && ticket > 0) {
+    const wait =
+      mode === "late"
+        ? `Wait until ${joinOr(earlyNames)} is already in. A caller who arrives after ${trade.symbol} leaves the buy unconfirmed.`
+        : `Wait until ${joinOr(earlyNames)} is already in before a buy like ${trade.symbol}.`;
+    const sized =
+      bounds.ticketReason === "account" || bounds.ticketReason === "account-rule"
+        ? `The ticket stays at ${fmtUsdPlain(ticket)} for this wallet.`
+        : `The ticket stays at ${fmtUsdPlain(ticket)}.`;
+    actions.push(`${wait} ${sized}`);
   }
-  if (trade.revenge && winSize > 0) {
-    actions.push(`The next buy after this red close goes back to ${fmtUsdPlain(winSize)}.`);
+  if (trade.revenge && ticket > 0) {
+    actions.push(`The next buy after this red close goes back to ${fmtUsdPlain(ticket)}. ${ticketWhy(bounds)}`);
   }
-  if (trade.session === "Overnight" && pool.filter((row) => row.session !== "Overnight").length >= Math.ceil(pool.length * 0.6)) {
-    actions.push(`Skip the overnight window. The ${where} closed in the daytime sessions.`);
+  if (
+    trade.session === "Overnight" &&
+    pool.filter((row) => row.session !== "Overnight").length >= Math.ceil(pool.length * 0.6)
+  ) {
+    actions.push(
+      bounds.overnightRule
+        ? `Skip the overnight window. Your rule says “${bounds.overnightRule}”.`
+        : `Skip the overnight window. The ${where} closed in the daytime sessions.`,
+    );
+  }
+  if (bounds.onePerCoin && trade.buys > 1) {
+    actions.push(`Your rule is one ticket per coin (“${bounds.onePerCoin}”). ${trade.symbol} was bought ${trade.buys} times.`);
   }
   if (actions.length === 0) {
     actions.push(`Take the exit the ${where} used, about ${fmtHold(winHold)}. ${trade.symbol} was held ${fmtHold(trade.holdMinutes)}.`);
   }
 
-  return `${loss} ${who} ${actions.slice(0, 3).join(" ")}`;
+  return `${loss} ${who} ${actions.slice(0, 4).join(" ")}`;
+}
+
+export function ticketWhy(bounds: BookBounds): string {
+  if (bounds.ticketReason === "account" && bounds.accountUsd) {
+    return `That is 5% of the ${fmtUsdPlain(bounds.accountUsd)} in this wallet.`;
+  }
+  if (bounds.ticketReason === "account-rule") {
+    const cash = bounds.accountUsd ? `the ${fmtUsdPlain(bounds.accountUsd)} in this wallet` : "the cash in this wallet";
+    return bounds.sizeRule ? `Your rule “${bounds.sizeRule}” and ${cash} both hold it there.` : `The cash in this wallet holds it there.`;
+  }
+  if (bounds.ticketReason === "rule" && bounds.sizeRule) {
+    return `Your rule sets it: “${bounds.sizeRule}”.`;
+  }
+  return "That is the winning ticket in this book.";
 }
 
 function kolSentence(trade: AnnotatedTrade): string {

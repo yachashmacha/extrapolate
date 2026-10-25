@@ -1,15 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { bookBounds } from "@/lib/analysis/bounds";
+import { tradingHabits } from "@/lib/analysis/habits";
 import { BookBar } from "@/components/book-bar";
+import { HabitFeed } from "@/components/habit-feed";
 import { BookError, BookNotices } from "@/components/book-notices";
 import { Reading } from "@/components/reading";
 import { Tape } from "@/components/tape";
 import { useBook } from "@/components/use-book";
+import { useRules } from "@/components/use-rules";
 
 export function Desk() {
-  const { book, analysis, error, loading, title, note, search, reread, update } = useBook();
-  const [focus, setFocus] = useState<{ ids: string[]; label: string } | null>(null);
+  const { book, analysis, error, loading, bookKey, title, note, search, reread, update } = useBook();
+  const { rules } = useRules(bookKey);
+  const bounds = useMemo(
+    () => bookBounds({ trades: analysis.trades, rules, accountUsd: book?.accountUsd ?? null }),
+    [analysis.trades, rules, book?.accountUsd],
+  );
+  const habits = useMemo(() => tradingHabits(analysis.trades, bounds), [analysis.trades, bounds]);
+  const activeRules = rules.filter((rule) => rule.active).length;
+  const [focus, setFocus] = useState<{ ids: string[]; label: string; habitId?: string } | null>(null);
   const [focusSearch, setFocusSearch] = useState(search);
   if (focusSearch !== search) {
     setFocusSearch(search);
@@ -25,6 +36,7 @@ export function Desk() {
         <a href="#curve">Equity</a>
         <a href="#patterns">Shared</a>
         <a href="#fixes">Leaks</a>
+        <a href="#habits">Habits</a>
         <a href="#keeps">Edge</a>
         <a href="#people">KOLs</a>
         <a href="#tape">Tape</a>
@@ -38,8 +50,21 @@ export function Desk() {
           <BookNotices book={book} />
           <Reading
             analysis={analysis}
+            ticketUsd={bounds.ticketUsd}
             onShowTrades={(ids, label) => {
               setFocus({ ids, label });
+              document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+          <HabitFeed
+            habits={habits}
+            bounds={bounds}
+            activeRules={activeRules}
+            selectedId={focus?.habitId ?? null}
+            onSelect={(habit) => {
+              setFocus((current) =>
+                current?.habitId === habit.id ? null : { ids: habit.tradeIds, label: habit.title, habitId: habit.id },
+              );
               document.getElementById("tape")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
           />

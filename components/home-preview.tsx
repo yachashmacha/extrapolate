@@ -1,8 +1,21 @@
+import { clampTicketAmounts } from "@/lib/analysis/bounds";
+import { EquityChart } from "@/components/equity-chart";
 import { fmtPct, fmtRate, fmtUsd } from "@/lib/format";
 import type { Analysis } from "@/lib/types";
-import { EquityChart } from "@/components/equity-chart";
 
-export function HomePreview({ analysis, kicker, detail }: { analysis: Analysis; kicker: string; detail: string }) {
+export function HomePreview({
+  analysis,
+  kicker,
+  detail,
+  ticketUsd,
+}: {
+  analysis: Analysis;
+  kicker: string;
+  detail: string;
+  ticketUsd?: number;
+}) {
+  const fit = (text: string | undefined) =>
+    text && ticketUsd && ticketUsd > 0 ? clampTicketAmounts(text, ticketUsd) : text;
   const fix = analysis.fixes[0];
   const keep = analysis.keeps.find((card) => card.category === "narrative") ?? analysis.keeps[0];
   return (
@@ -29,11 +42,11 @@ export function HomePreview({ analysis, kicker, detail }: { analysis: Analysis; 
         </div>
         <div className="panel">
           <p className="kicker">First fix</p>
-          <h3>{fix?.title}</h3>
-          <p className="rule">{fix?.rule}</p>
+          <h3>{fit(fix?.title)}</h3>
+          <p className="rule">{fit(fix?.rule)}</p>
           <p className="kicker" style={{ marginTop: 16 }}>Keep doing</p>
-          <h3>{keep?.title}</h3>
-          <p>{keep?.rule}</p>
+          <h3>{fit(keep?.title)}</h3>
+          <p>{fit(keep?.rule)}</p>
         </div>
       </div>
     </section>

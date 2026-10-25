@@ -1,24 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { parseRules, type TradingRule } from "@/lib/rules";
+import { useRules } from "@/components/use-rules";
 
 export function RuleBook({ bookKey }: { bookKey: string }) {
-  const [rules, setRules] = useState<TradingRule[]>([]);
+  const { rules, save } = useRules(bookKey);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
-    setRules(parseRules(localStorage.getItem(`extrapolate:rules:${bookKey}`)));
     setDraft("");
     setEditingId(null);
   }, [bookKey]);
-
-  function save(next: TradingRule[]) {
-    setRules(next);
-    localStorage.setItem(`extrapolate:rules:${bookKey}`, JSON.stringify(next));
-  }
 
   function add() {
     const text = draft.trim();

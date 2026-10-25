@@ -3,10 +3,11 @@ import { Suspense } from "react";
 import { ConnectCard } from "@/components/connect-card";
 import { HomePreview } from "@/components/home-preview";
 import { Mark } from "@/components/mark";
+import { bookBounds } from "@/lib/analysis/bounds";
 import { analyze } from "@/lib/analysis/engine";
 import { fetchWalletBook } from "@/lib/ingest/live";
 import { TRADER_DEPTH, TRADER_TERMINAL, TRADER_WALLET, traderSearch } from "@/lib/trader";
-import { shortAddress } from "@/lib/format";
+import { fmtUsdPlain, shortAddress } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -54,11 +55,14 @@ async function LiveHome() {
   try {
     const book = await fetchWalletBook(TRADER_WALLET, TRADER_TERMINAL, Number(TRADER_DEPTH));
     const analysis = analyze(book.trades, book.terminal);
+    const bounds = bookBounds({ trades: book.trades, accountUsd: book.accountUsd ?? null });
+    const cash = book.accountUsd ? ` About ${fmtUsdPlain(book.accountUsd)} is in the wallet, and a tip sizes from that.` : "";
     return (
       <HomePreview
         analysis={analysis}
         kicker={shortAddress(TRADER_WALLET)}
-        detail={`${analysis.summary.trades} closed fills from this wallet, ${analysis.summary.spanLabel}. Entry market cap is the fill price times the supply now.`}
+        detail={`${analysis.summary.trades} closed fills from this wallet, ${analysis.summary.spanLabel}. Entry market cap is the fill price times the supply now.${cash}`}
+        ticketUsd={bounds.ticketUsd}
       />
     );
   } catch (error) {
