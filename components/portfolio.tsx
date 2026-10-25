@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookBar } from "@/components/book-bar";
 import { BookError, BookNotices } from "@/components/book-notices";
+import { DayReportPanel } from "@/components/day-report";
 import { PnlCalendar } from "@/components/pnl-calendar";
 import { RecentFeed } from "@/components/recent-feed";
 import { RuleBook } from "@/components/rule-book";
@@ -13,6 +14,7 @@ import { useBook } from "@/components/use-book";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
+import { endOfDayReport, latestClosedDay } from "@/lib/analysis/day-report";
 import { currentMonthEt, dayKeyEt, dayLabel, monthOf } from "@/lib/calendar";
 
 type FeedScope =
@@ -38,6 +40,11 @@ export function Portfolio() {
   );
   const tips = useMemo(() => practiceTips(analysis.trades, bounds), [analysis.trades, bounds]);
   const activeRules = rules.filter((rule) => rule.active).length;
+  const reportDay = scope.kind === "day" ? scope.dayKey : latestClosedDay(analysis.trades);
+  const dayReport = useMemo(
+    () => (reportDay ? endOfDayReport(analysis.trades, reportDay) : null),
+    [analysis.trades, reportDay],
+  );
 
   useEffect(() => {
     setMonth(null);
@@ -71,6 +78,7 @@ export function Portfolio() {
       {book && !loading ? (
         <>
           <BookNotices book={book} />
+          {dayReport ? <DayReportPanel report={dayReport} /> : null}
           <PnlCalendar
             trades={analysis.trades}
             month={shownMonth}
