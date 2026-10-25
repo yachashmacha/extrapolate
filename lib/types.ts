@@ -52,8 +52,21 @@ export interface RoundTrip {
   minutesFromLaunch: number;
   buys: number;
   sells: number;
-  /** Daily high on the main pool, times the same supply used for entry market cap. */
+  /**
+   * High at or after this entry, from daily candles, times the fetched supply.
+   * A peak from before the buy is not stored here. Absent when that high was not read.
+   */
   athMarketCapUsd?: number;
+  /** Sum of the daily pool volume that was actually fetched. Absent when that tape was not read. */
+  lifeVolumeUsd?: number;
+  lifeCandleCount?: number;
+  lifeFromMs?: number;
+  lifeToMs?: number;
+  /** The daily read stopped at the source page cap, so the sum is not the whole life. */
+  lifeWindowCapped?: boolean;
+  /** Pool close, in market cap, on the first and last fetched daily candles. */
+  poolCloseFromUsd?: number;
+  poolCloseToUsd?: number;
   /**
    * True when the minutes after the entry averaged under the entry minute's volume
    * and the later of those minutes did not rise above the earlier ones.

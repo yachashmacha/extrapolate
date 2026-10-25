@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { NarrativeLine } from "@/components/narrative-line";
+import { describeVerifiedTape } from "@/lib/analysis/coin-stats";
 import { narrativeScore } from "@/lib/analysis/narrative";
 import { kolBoughtLine } from "@/lib/analysis/tips";
-import { fmtMc, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
+import { fmtCoin, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
 import type { AnnotatedTrade, RoundTrip } from "@/lib/types";
 
 const PREVIEW = 12;
@@ -38,6 +39,7 @@ export function RecentFeed({
         {shown.map((trade) => {
           const win = trade.result === "win";
           const narrative = narrativeScore(trade, allTrades ?? trades);
+          const tapeLine = describeVerifiedTape(trade);
           return (
             <article key={trade.id} id={`recent-${trade.id}`} className={selectedId === trade.id ? "trade panel picked" : "trade panel"}>
               <button type="button" className="recent-open" onClick={() => onSelect(trade)} aria-pressed={selectedId === trade.id}>
@@ -51,7 +53,7 @@ export function RecentFeed({
                 <dl className="facts">
                   <div className="fact">
                     <dt>Bought at</dt>
-                    <dd>{fmtMc(trade.entryMarketCapUsd)}</dd>
+                    <dd>{fmtCoin(trade.entryMarketCapUsd)}</dd>
                   </div>
                   <div className="fact">
                     <dt>Size</dt>
@@ -61,6 +63,12 @@ export function RecentFeed({
                     <dt>KOL</dt>
                     <dd>{kolBoughtLine(trade.kols)}</dd>
                   </div>
+                  {tapeLine ? (
+                    <div className="fact">
+                      <dt>Tape</dt>
+                      <dd>{tapeLine}</dd>
+                    </div>
+                  ) : null}
                   <div className="fact">
                     <dt>Narrative</dt>
                     <dd>

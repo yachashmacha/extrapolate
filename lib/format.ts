@@ -35,6 +35,12 @@ export function fmtUsdPlain(value: number): string {
   return usdCents.format(abs);
 }
 
+/** Dollars for one coin's fetched cap, volume, or fill. Not rounded into $20k. */
+export function fmtCoin(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  return usdExact.format(value);
+}
+
 export function fmtMc(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return "—";
   if (value >= 1_000_000) {

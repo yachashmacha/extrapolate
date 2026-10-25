@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { NarrativeLine } from "@/components/narrative-line";
+import { describeVerifiedTape } from "@/lib/analysis/coin-stats";
 import { narrativeScore } from "@/lib/analysis/narrative";
-import { fmtHold, fmtMc, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
+import { fmtCoin, fmtHold, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
 import { kolLabel, makeKol, searchKols } from "@/lib/kols";
 import { META_LABEL, META_ORDER } from "@/lib/metas";
 import type { AnnotatedTrade, KolTag, KolTiming, MetaId, RoundTrip } from "@/lib/types";
@@ -60,6 +61,7 @@ export function Tape({
       {visible.length === 0 ? <p className="note">Nothing in this slice.</p> : null}
       {visible.map((trade) => {
         const narrative = narrativeScore(trade, allTrades ?? trades);
+        const tapeLine = describeVerifiedTape(trade);
         return (
         <article key={trade.id} className="trade panel" data-narrative-score={narrative.score}>
           <button
@@ -73,7 +75,7 @@ export function Tape({
               <span className="trade-meta"> {trade.metas.map((meta) => META_LABEL[meta]).join(" · ")}</span>
             </span>
             <span className="trade-meta">
-              {fmtWhen(trade.entryAt)} ET · {fmtMc(trade.entryMarketCapUsd)} → {fmtMc(trade.exitMarketCapUsd)} · {fmtHold(trade.holdMinutes)} · {fmtUsdPlain(trade.amountUsd)}
+              {fmtWhen(trade.entryAt)} ET · {fmtCoin(trade.entryMarketCapUsd)} → {fmtCoin(trade.exitMarketCapUsd)} · {fmtHold(trade.holdMinutes)} · {fmtUsdPlain(trade.amountUsd)}
               {trade.kols.length > 0
                 ? ` · ${trade.kols
                     .slice(0, 2)
@@ -81,6 +83,7 @@ export function Tape({
                     .join(", ")}${trade.kols.length > 2 ? ` +${trade.kols.length - 2}` : ""}`
                 : ""}
               <NarrativeLine score={narrative.score} line={narrative.line} />
+              {tapeLine ? <span className="trade-meta"> {tapeLine}</span> : null}
             </span>
             <span className={trade.pnlUsd >= 0 ? "pnl good" : "pnl bad"}>
               {fmtPct(trade.pnlPct)}

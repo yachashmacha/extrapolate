@@ -53,7 +53,7 @@ describe("sample book", () => {
     const roar = analysis.trades.find((trade) => trade.symbol === "ROAR");
     expect(roar?.result).toBe("loss");
     expect(roar?.note).toMatch(/Winners in animals/i);
-    expect(roar?.note).toMatch(/480k|\$480k/i);
+    expect(roar?.note).toMatch(/\$480,000/);
   });
 });
 

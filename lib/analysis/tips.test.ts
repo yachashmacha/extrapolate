@@ -15,7 +15,7 @@ describe("practice tips", () => {
     expect(tips.every((tip) => tip.tip.includes(tip.symbol))).toBe(true);
     expect(tips.some((tip) => tip.pnlUsd >= 0)).toBe(false);
     const roar = tips.find((tip) => tip.symbol === "ROAR");
-    expect(roar?.tip).toMatch(/\$480k/);
+    expect(roar?.tip).toMatch(/\$480,000/);
     expect(roar?.tip).toMatch(/bought at/i);
   });
 
@@ -29,7 +29,7 @@ describe("practice tips", () => {
     expect(tips).toHaveLength(1);
     expect(tips[0].symbol).toBe("ROAR");
     expect(tips[0].tip).toMatch(/Orangie/);
-    expect(tips[0].tip).toMatch(/\$480k/);
+    expect(tips[0].tip).toMatch(/\$480,000/);
     expect(tips[0].tip).toMatch(/\$150/);
     expect(tips[0].tip).toMatch(/Pass once the coin clears/i);
     expect(tips[0].tip).toMatch(/ticket stays at \$150/i);

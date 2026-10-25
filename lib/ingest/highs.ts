@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { coinStatsFromTape, verifiedTape, type DailyHigh, type PoolCandle, type VerifiedTape } from "@/lib/analysis/coin-stats";
 import type { MintMeta } from "@/lib/ingest/round-trips";
 
 const CACHE_PATH = "/tmp/extrapolate-ath.json";
@@ -9,7 +10,7 @@ interface HighTarget {
   liquidity: number;
 }
 
-const memory = new Map<string, number>();
+const memory = new Map<string, VerifiedTape>();
 const targets = new Map<string, HighTarget>();
 const pending = new Map<string, Promise<void>>();
 let active = 0;
@@ -21,9 +22,10 @@ function loadDisk(): void {
   if (loaded) return;
   loaded = true;
   try {
-    const parsed = JSON.parse(readFileSync(CACHE_PATH, "utf8")) as Record<string, number>;
+    const parsed = JSON.parse(readFileSync(CACHE_PATH, "utf8")) as Record<string, VerifiedTape | number>;
     for (const [mint, value] of Object.entries(parsed)) {
-      if (typeof value === "number" && value > 0) memory.set(mint, value);
+      const tape = tapeFromDisk(value);
+      if (tape) memory.set(mint, tape);
     }
   } catch {
     // The first read of a wallet fills this file.
@@ -64,8 +66,6 @@ export function noteMints(metas: Map<string, MintMeta>): void {
   for (const [mint, meta] of metas) {
     if (!meta.pairAddress || meta.supply <= 0) continue;
     targets.set(mint, { pairAddress: meta.pairAddress, supply: meta.supply, liquidity: meta.liquidityUsd });
-    const cached = memory.get(mint);
-    if (cached) meta.athMarketCapUsd = cached;
   }
 }
 
@@ -74,16 +74,16 @@ export function startHighs(mints: string[]): void {
   for (const mint of mints) void ensureMint(mint);
 }
 
-export async function highsFor(mints: string[]): Promise<Record<string, number>> {
+export async function highsFor(mints: string[]): Promise<Record<string, VerifiedTape>> {
   loadDisk();
-  await resolveTargets(mints.filter((mint) => !memory.has(mint) && !targets.has(mint)));
+  await resolveTargets(mints.filter((mint) => !targets.has(mint) && !Array.isArray(memory.get(mint)?.bars)));
   await Promise.all(mints.map((mint) => ensureMint(mint)));
-  const highs: Record<string, number> = {};
+  const tapes: Record<string, VerifiedTape> = {};
   for (const mint of mints) {
-    const value = memory.get(mint);
-    if (value && value > 0) highs[mint] = value;
+    const tape = memory.get(mint);
+    if (tape) tapes[mint] = tape;
   }
-  return highs;
+  return tapes;
 }
 
 async function resolveTargets(mints: string[]): Promise<void> {
@@ -130,7 +130,7 @@ interface DexRow {
 function ensureMint(mint: string): Promise<void> {
   const existing = pending.get(mint);
   if (existing) return existing;
-  if (memory.has(mint)) return Promise.resolve();
+  if (Array.isArray(memory.get(mint)?.bars)) return Promise.resolve();
   const target = targets.get(mint);
   if (!target) return Promise.resolve();
   const job = new Promise<void>((resolve) => {
@@ -165,17 +165,66 @@ async function readHigh(mint: string, target: HighTarget): Promise<void> {
     if (!response.ok) return;
     const body = (await response.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
     const rows = body.data?.attributes?.ohlcv_list;
-    if (!Array.isArray(rows)) return;
-    let high = 0;
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const candles: PoolCandle[] = [];
     for (const row of rows) {
-      const price = Number(row?.[2]);
-      if (Number.isFinite(price) && price > high) high = price;
+      const t = Number(row?.[0]) * 1000;
+      const high = Number(row?.[2]);
+      const close = Number(row?.[4]);
+      const volume = Number(row?.[5]);
+      if (!Number.isFinite(t) || t <= 0) continue;
+      if (!Number.isFinite(volume) || volume < 0) continue;
+      if (!Number.isFinite(close) || close <= 0) continue;
+      candles.push({ t, v: volume, c: close, h: Number.isFinite(high) && high > 0 ? high : undefined });
     }
-    if (high <= 0 || target.supply <= 0) return;
-    const ath = Math.round(high * target.supply);
-    if (ath <= 0) return;
-    memory.set(mint, ath);
+    const tape = verifiedTape(
+      coinStatsFromTape({
+        life: candles,
+        supply: target.supply,
+        windowCapped: rows.length >= 1000,
+      }),
+    );
+    if (!tape) return;
+    memory.set(mint, tape);
     scheduleDisk();
     return;
   }
+}
+
+function readBars(value: unknown): DailyHigh[] | null {
+  if (!Array.isArray(value)) return null;
+  const bars: DailyHigh[] = [];
+  for (const row of value) {
+    if (!row || typeof row !== "object") continue;
+    const bar = row as DailyHigh;
+    const t = Number(bar.t);
+    const highUsd = Number(bar.highUsd);
+    if (t > 0 && highUsd > 0) bars.push({ t, highUsd });
+  }
+  return bars;
+}
+
+/** A bare number from the old cache is a high with no tape. It is not reused. */
+function tapeFromDisk(value: VerifiedTape | number): VerifiedTape | null {
+  if (!value || typeof value === "number") return null;
+  const volume = typeof value.volumeUsd === "number" && Number.isFinite(value.volumeUsd) && value.volumeUsd >= 0 ? value.volumeUsd : null;
+  const count = typeof value.candleCount === "number" && value.candleCount > 0 ? value.candleCount : 0;
+  const from = typeof value.fromMs === "number" && value.fromMs > 0 ? value.fromMs : null;
+  const to = typeof value.toMs === "number" && value.toMs > 0 ? value.toMs : null;
+  const bars = readBars(value.bars);
+  const dated = bars != null;
+  const high = dated && typeof value.highMarketCapUsd === "number" && value.highMarketCapUsd > 0 ? value.highMarketCapUsd : null;
+  const hasVolume = volume != null && count > 0 && from != null && to != null;
+  if (!hasVolume && high == null && !dated) return null;
+  return {
+    highMarketCapUsd: high,
+    bars: bars ?? undefined,
+    volumeUsd: hasVolume ? volume : null,
+    candleCount: hasVolume ? count : 0,
+    fromMs: hasVolume ? from : null,
+    toMs: hasVolume ? to : null,
+    windowCapped: hasVolume ? Boolean(value.windowCapped) : false,
+    firstMarketCapUsd: hasVolume && typeof value.firstMarketCapUsd === "number" && value.firstMarketCapUsd > 0 ? value.firstMarketCapUsd : null,
+    lastMarketCapUsd: hasVolume && typeof value.lastMarketCapUsd === "number" && value.lastMarketCapUsd > 0 ? value.lastMarketCapUsd : null,
+  };
 }

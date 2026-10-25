@@ -1,7 +1,7 @@
 import { bookBounds, type BookBounds } from "@/lib/analysis/bounds";
 import { median } from "@/lib/analysis/stats";
 import { kolMode } from "@/lib/analysis/slices";
-import { fmtHold, fmtMc, fmtUsdPlain } from "@/lib/format";
+import { fmtCoin, fmtHold, fmtMc, fmtUsdPlain } from "@/lib/format";
 import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
 import type { AnnotatedTrade, KolTag, KolTiming } from "@/lib/types";
@@ -49,7 +49,7 @@ export function kolBoughtLine(kols: KolTag[]): string {
 function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: BookBounds): string {
   const bought =
     trade.entryMarketCapUsd > 0
-      ? `${fmtUsdPlain(trade.amountUsd)} bought at ${fmtMc(trade.entryMarketCapUsd)}`
+      ? `${fmtUsdPlain(trade.amountUsd)} bought at ${fmtCoin(trade.entryMarketCapUsd)}`
       : `${fmtUsdPlain(trade.amountUsd)} bought at an unknown market cap`;
   const loss = `${trade.symbol} lost ${fmtUsdPlain(Math.abs(trade.pnlUsd))} on ${bought}.`;
   const who = kolSentence(trade);

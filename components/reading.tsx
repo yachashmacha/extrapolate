@@ -61,8 +61,10 @@ export function Reading({
               <Row label="Usual narrative" win={analysis.comparison.winners.topMeta} loss={analysis.comparison.losers.topMeta} />
               <Row label="Usual session" win={analysis.comparison.winners.topSession} loss={analysis.comparison.losers.topSession} />
               <Row label="Names that show up" win={names(analysis.comparison.winners)} loss={names(analysis.comparison.losers)} />
-              <Row label="Median liquidity" win={fmtMc(analysis.comparison.winners.medianLiquidity)} loss={fmtMc(analysis.comparison.losers.medianLiquidity)} />
-              <Row label="Median time from launch" win={fmtHold(analysis.comparison.winners.medianLaunchMin)} loss={fmtHold(analysis.comparison.losers.medianLaunchMin)} />
+              <Row label="Median liquidity now" win={fmtMc(analysis.comparison.winners.medianLiquidity)} loss={fmtMc(analysis.comparison.losers.medianLiquidity)} />
+              {analysis.comparison.winners.medianLaunchMin >= 0 || analysis.comparison.losers.medianLaunchMin >= 0 ? (
+                <Row label="Median time from launch" win={fmtHold(analysis.comparison.winners.medianLaunchMin)} loss={fmtHold(analysis.comparison.losers.medianLaunchMin)} />
+              ) : null}
             </tbody>
           </table>
         </div>

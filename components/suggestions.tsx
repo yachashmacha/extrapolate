@@ -1,7 +1,7 @@
 "use client";
 
 import { clampTicketAmounts, type BookBounds } from "@/lib/analysis/bounds";
-import { fmtMc, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
+import { fmtCoin, fmtRate, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import type { Analysis, AnnotatedTrade, PlayCard } from "@/lib/types";
 
 const CATEGORY: Record<PlayCard["category"], string> = {
@@ -60,7 +60,7 @@ function SourceLine({ trades, ids }: { trades: AnnotatedTrade[]; ids: string[] }
     .filter((trade) => ids.includes(trade.id) && trade.result === "loss")
     .sort((left, right) => left.pnlUsd - right.pnlUsd)[0];
   if (!source) return null;
-  const bought = source.entryMarketCapUsd > 0 ? fmtMc(source.entryMarketCapUsd) : "an unknown market cap";
+  const bought = source.entryMarketCapUsd > 0 ? fmtCoin(source.entryMarketCapUsd) : "an unknown market cap";
   return (
     <p className="note">
       From {source.symbol}, a {fmtUsd(source.pnlUsd)} loss, {fmtUsdPlain(source.amountUsd)} bought at {bought}.

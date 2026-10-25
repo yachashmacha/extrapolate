@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { tradingHabits } from "@/lib/analysis/habits";
+import { copyVerifiedTape } from "@/lib/analysis/coin-stats";
 import { withStoredHigh } from "@/lib/analysis/narrative";
 import { BookBar } from "@/components/book-bar";
 import { HabitFeed } from "@/components/habit-feed";
@@ -31,7 +32,11 @@ export function Desk() {
     setFocusSearch(search);
     setFocus(null);
   }
-  const contextual = useMemo(() => withStoredHigh(analysis.trades, habitTrades), [analysis.trades, habitTrades]);
+  const contextual = useMemo(() => {
+    const marked = withStoredHigh(analysis.trades, habitTrades);
+    const byId = new Map(habitTrades.map((trade) => [trade.id, trade]));
+    return marked.map((trade) => copyVerifiedTape(trade, byId.get(trade.id)));
+  }, [analysis.trades, habitTrades]);
   const shown = focus ? contextual.filter((trade) => focus.ids.includes(trade.id)) : contextual;
   const ruleNote = (trade: AnnotatedTrade) =>
     ruleBreak(trade, analysis.trades, {

@@ -1,4 +1,4 @@
-import { fmtMc, fmtUsdPlain } from "@/lib/format";
+import { fmtCoin, fmtUsdPlain } from "@/lib/format";
 import { isWalletAddress } from "@/lib/address";
 import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
@@ -163,12 +163,12 @@ function runPiece(trade: RoundTrip): Piece {
   if (!(high > 0) || !(entry > 0)) return { id: "run", points: 0, text: "", read: false };
   const multiple = high / entry;
   if (multiple < 1.2) {
-    return { id: "run", points: 0, text: `Never left the ${fmtMc(entry)} entry.`, read: true };
+    return { id: "run", points: 0, text: `Never left the ${fmtCoin(entry)} entry.`, read: true };
   }
   const multipleScore = Math.min(1, Math.log(multiple) / Math.log(8));
   const levelScore = Math.min(1, Math.max(0, Math.log10(high / 10_000)) / 2);
   const points = Math.min(16, Math.max(1, Math.round(16 * (0.7 * multipleScore + 0.3 * levelScore))));
-  return { id: "run", points, text: `Ran to ${fmtMc(high)}.`, read: true };
+  return { id: "run", points, text: `Ran to ${fmtCoin(high)}.`, read: true };
 }
 
 function timingPiece(trade: RoundTrip): Piece {

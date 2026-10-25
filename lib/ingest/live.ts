@@ -27,8 +27,8 @@ export async function fetchWalletBook(
   const warnings: string[] = [];
 
   const solPrice = await loadSolPrices();
-  if (solPrice.approximate) {
-    warnings.push("SOL was priced at the current rate for every fill. Dollar size is approximate.");
+  if (!solPrice.priced) {
+    warnings.push("SOL/USD history did not load. Swaps quoted in SOL were left out instead of priced with a guess.");
   }
 
   let fills: Fill[] = [];
@@ -58,7 +58,13 @@ export async function fetchWalletBook(
     warnings.push("No SOL or USDC memecoin swaps showed up in the recent transactions. A CSV export from the terminal still works.");
   }
 
-  const balances = await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, solPrice.priceAt(new Date().toISOString()), built.opens);
+  const spot = solPrice.priceAt(new Date().toISOString()) || (await loadSpotSol());
+  if (!(spot && spot > 0)) {
+    warnings.push("The current SOL price did not load, so the wallet total was left blank.");
+  }
+  const balances = spot && spot > 0
+    ? await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, spot, built.opens)
+    : undefined;
 
   return {
     source: "wallet",
@@ -238,7 +244,7 @@ interface DexPair {
   liquidity?: { usd?: number };
 }
 
-async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; approximate: boolean }> {
+async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; priced: boolean }> {
   try {
     const response = await fetch(
       "https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=90",
@@ -246,12 +252,13 @@ async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; appr
     );
     if (response.ok) {
       const body = (await response.json()) as { prices?: [number, number][] };
-      const prices = (body.prices ?? []).filter((row) => row.length === 2);
+      const prices = (body.prices ?? []).filter((row) => row.length === 2 && row[1] > 0);
       if (prices.length > 0) {
         return {
-          approximate: false,
+          priced: true,
           priceAt(iso: string) {
             const time = Date.parse(iso);
+            if (!Number.isFinite(time)) return 0;
             let nearest = prices[0];
             let best = Infinity;
             for (const row of prices) {
@@ -261,20 +268,18 @@ async function loadSolPrices(): Promise<{ priceAt: (iso: string) => number; appr
                 nearest = row;
               }
             }
-            return nearest[1] || prices[prices.length - 1][1];
+            return nearest[1] > 0 ? nearest[1] : 0;
           },
         };
       }
     }
   } catch {
-    // Fall through to a spot price.
+    // Leave SOL-quoted fills unpriced. A guessed SOL price would invent the dollar size.
   }
-
-  const spot = await loadSpotSol();
-  return { approximate: true, priceAt: () => spot };
+  return { priced: false, priceAt: () => 0 };
 }
 
-async function loadSpotSol(): Promise<number> {
+async function loadSpotSol(): Promise<number | null> {
   try {
     const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", {
       cache: "no-store",
@@ -287,9 +292,9 @@ async function loadSpotSol(): Promise<number> {
       if (price && price > 0) return price;
     }
   } catch {
-    // Use a last-resort figure so size is still in dollars.
+    // The wallet total stays blank when the spot price is missing.
   }
-  return 150;
+  return null;
 }
 
 async function loadSignatures(rpc: string, wallet: string, depth: number): Promise<string[]> {

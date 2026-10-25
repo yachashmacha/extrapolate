@@ -1,24 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { applyVerifiedTape, tapeForMint } from "@/lib/analysis/coin-stats";
 import type { BiasRead, BiasTrade } from "@/lib/ingest/bias-context";
 import type { Book, RoundTrip } from "@/lib/types";
 import { useHighs } from "@/components/use-highs";
 
 export function useTradeContext(book: Book | null, trades: RoundTrip[]): { trades: RoundTrip[]; pending: boolean } {
-  const { highs, pending: pendingHighs } = useHighs(book);
+  const { tapes, pending: pendingHighs } = useHighs(book);
   const { reads, pending: pendingBias } = useBiasContext(book, trades);
   const merged = useMemo(
     () =>
       trades.map((trade) => {
         const read = reads[trade.id];
-        const next: RoundTrip = { ...trade, athMarketCapUsd: highs[trade.mint] || trade.athMarketCapUsd };
-        if (!read) return next;
-        if (typeof read.volumeDroppedAfter === "boolean") next.volumeDroppedAfter = read.volumeDroppedAfter;
-        if (typeof read.mcDroppedAfter === "boolean") next.mcDroppedAfter = read.mcDroppedAfter;
-        return next;
+        const next: RoundTrip = { ...trade };
+        if (typeof read?.volumeDroppedAfter === "boolean") next.volumeDroppedAfter = read.volumeDroppedAfter;
+        if (typeof read?.mcDroppedAfter === "boolean") next.mcDroppedAfter = read.mcDroppedAfter;
+        return applyVerifiedTape(next, tapeForMint(tapes, trade.mint));
       }),
-    [trades, highs, reads],
+    [trades, tapes, reads],
   );
   return { trades: merged, pending: pendingHighs || pendingBias };
 }

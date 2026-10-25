@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fmtUsdPlain } from "@/lib/format";
+import { fmtCoin, fmtUsdPlain } from "@/lib/format";
 import { traderSearch } from "@/lib/trader";
 import type { Book } from "@/lib/types";
 
@@ -20,7 +20,7 @@ export function BookNotices({ book }: { book: Book }) {
           {book.opens
             .map(
               (open) =>
-                `${open.symbol} ${fmtUsdPlain(open.costUsd)} at ${open.entryMarketCapUsd > 0 ? `$${Math.round(open.entryMarketCapUsd / 1000)}k` : "an unknown cap"}`,
+                `${open.symbol} ${fmtUsdPlain(open.costUsd)} at ${open.entryMarketCapUsd > 0 ? fmtCoin(open.entryMarketCapUsd) : "an unknown cap"}`,
             )
             .join(" · ")}
         </p>

@@ -1,4 +1,4 @@
-import { fmtHold, fmtMc, fmtUsd, fmtUsdPlain } from "@/lib/format";
+import { fmtCoin, fmtHold, fmtMc, fmtUsd, fmtUsdPlain } from "@/lib/format";
 import { kolLabel } from "@/lib/kols";
 import { META_LABEL } from "@/lib/metas";
 import type {
@@ -249,7 +249,7 @@ function lossNote(trade: RoundTrip, winners: RoundTrip[]): string {
   const kols = topNames(pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kolLabel(kol))), 2);
   const kolBit = kols.length > 0 ? `, with ${kols.join(" or ")} already in` : "";
   const yours = trade.kols.length === 0 ? "no tagged KOL" : trade.kols.map((kol) => `${kolLabel(kol)} ${kol.timing}`).join(", ");
-  return `${scope} entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtMc(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}.`;
+  return `${scope} entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtCoin(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}.`;
 }
 
 function winNote(trade: RoundTrip, winners: RoundTrip[], losers: RoundTrip[]): string {
@@ -259,7 +259,7 @@ function winNote(trade: RoundTrip, winners: RoundTrip[], losers: RoundTrip[]): s
     trade.entryMarketCapUsd > 0 && loserMc > trade.entryMarketCapUsd * 1.5
       ? ` The losing entries sat nearer ${fmtMc(loserMc)}.`
       : "";
-  return `Fits the winning cluster: ${fmtMc(trade.entryMarketCapUsd)} entry, ${fmtUsdPlain(trade.amountUsd)} ticket, ${fmtHold(trade.holdMinutes)} hold, ${sessionName(trade).toLowerCase()}.${mcBit}`;
+  return `Fits the winning cluster: ${fmtCoin(trade.entryMarketCapUsd)} entry, ${fmtUsdPlain(trade.amountUsd)} ticket, ${fmtHold(trade.holdMinutes)} hold, ${sessionName(trade).toLowerCase()}.${mcBit}`;
 }
 
 function writeLede(

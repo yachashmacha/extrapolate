@@ -2,7 +2,7 @@
 
 import type { BookBounds } from "@/lib/analysis/bounds";
 import { kolBoughtLine, type PracticeTip } from "@/lib/analysis/tips";
-import { fmtMc, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
+import { fmtCoin, fmtPct, fmtUsd, fmtUsdPlain, fmtWhen } from "@/lib/format";
 
 export function TipFeed({
   tips,
@@ -46,7 +46,7 @@ export function TipFeed({
             <dl className="facts">
               <div className="fact">
                 <dt>Bought at</dt>
-                <dd>{fmtMc(tip.entryMarketCapUsd)}</dd>
+                <dd>{fmtCoin(tip.entryMarketCapUsd)}</dd>
               </div>
               <div className="fact">
                 <dt>Size</dt>

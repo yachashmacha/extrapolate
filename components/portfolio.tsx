@@ -13,6 +13,7 @@ import { TipFeed } from "@/components/tip-feed";
 import { useBook } from "@/components/use-book";
 import { useTradeContext } from "@/components/use-trade-context";
 import { bookBounds } from "@/lib/analysis/bounds";
+import { copyVerifiedTape } from "@/lib/analysis/coin-stats";
 import { withStoredHigh } from "@/lib/analysis/narrative";
 import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
@@ -81,7 +82,11 @@ export function Portfolio() {
     document.getElementById("feeds")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const contextual = useMemo(() => withStoredHigh(analysis.trades, reportTrades), [analysis.trades, reportTrades]);
+  const contextual = useMemo(() => {
+    const marked = withStoredHigh(analysis.trades, reportTrades);
+    const byId = new Map(reportTrades.map((trade) => [trade.id, trade]));
+    return marked.map((trade) => copyVerifiedTape(trade, byId.get(trade.id)));
+  }, [analysis.trades, reportTrades]);
   const scoped = contextual.filter((trade) => {
     const day = dayKeyEt(trade.exitAt);
     if (scope.kind === "book") return true;

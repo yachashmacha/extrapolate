@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { fadeAfterEntry, type TapeCandle } from "@/lib/analysis/fomo";
+import { coinStatsFromTape } from "@/lib/analysis/coin-stats";
+import type { TapeCandle } from "@/lib/analysis/fomo";
 
 export interface BiasTrade {
   id: string;
@@ -52,11 +53,16 @@ export async function biasContextFor(trades: BiasTrade[]): Promise<Record<string
       paced(async () => {
         const candles = await candlesFor(pair, group);
         for (const trade of group) {
-          const fade = fadeAfterEntry(candles, Date.parse(trade.entryAt));
-          if (typeof fade.volumeDroppedAfter !== "boolean" || typeof fade.mcDroppedAfter !== "boolean") continue;
+          const stats = coinStatsFromTape({
+            life: null,
+            supply: null,
+            entryMs: Date.parse(trade.entryAt),
+            postEntry: candles,
+          });
+          if (stats.fomo === "unknown") continue;
           reads[trade.id] = {
-            volumeDroppedAfter: fade.volumeDroppedAfter,
-            mcDroppedAfter: fade.mcDroppedAfter,
+            volumeDroppedAfter: stats.volumeDroppedAfter,
+            mcDroppedAfter: stats.mcDroppedAfter,
           };
         }
       }),
