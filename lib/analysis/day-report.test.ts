@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { endOfDayReport, latestClosedDay, RATIONALITY_NOTE } from "@/lib/analysis/day-report";
+import { baseRules, PACE_RULE_ID, PACE_RULE_TEXT } from "@/lib/rules";
 import type { RoundTrip } from "@/lib/types";
 
 describe("end of day report", () => {
@@ -337,6 +338,13 @@ describe("end of day report", () => {
     expect(report.why).toMatch(/re-entering losers/);
   });
 
+  it("does not call an entry sunk cost when that coin's red close is still in the future", () => {
+    const first = row("first", "2026-10-24", 0, { pnl: -20, mint: "same-mint", symbol: "SAME", exitMinute: 40 });
+    const during = row("during", "2026-10-24", 10, { pnl: -8, mint: "same-mint", symbol: "SAME", exitMinute: 15 });
+    const report = endOfDayReport([first, during], "2026-10-24");
+    expect(report.biases.map((bias) => bias.title)).not.toContain("Sunk-cost fallacy");
+  });
+
   it("names averaging down, and does not treat a normal share of the pool as a bias", () => {
     const adds = [
       ...[0, 1, 2].map((minute) =>
@@ -506,7 +514,135 @@ describe("end of day report", () => {
     expect(off.lead).not.toMatch(/more than 10%/);
     expect(off.score).toBe(100);
   });
+
+  it("does not dock a day when a $20 ticket only exceeds 10% of the later portfolio", () => {
+    const early = row("early", "2026-10-24", 0, {
+      pnl: 8,
+      amount: 20,
+      mc: 30_000,
+      exitMc: 36_000,
+      symbol: "EARLY",
+      exitMinute: 10,
+    });
+    const wreck = row("wreck", "2026-10-24", 40, {
+      pnl: -320,
+      amount: 40,
+      mc: 40_000,
+      exitMc: 32_000,
+      symbol: "WRECK",
+      exitMinute: 70,
+    });
+    const trades = [early, wreck];
+    const report = endOfDayReport(trades, "2026-10-24", { accountUsd: 188 });
+    const off = endOfDayReport(trades, "2026-10-24", {
+      accountUsd: 188,
+      rules: [
+        { id: "base-exit-half", text: "Exit the position if the chart goes below 50% of your position.", active: true },
+        { id: "base-size-tenth", text: "Trade with no more than 10 percent of your portfolio for your base trade.", active: false },
+      ],
+    });
+    expect(report.pnlUsd).toBeLessThan(0);
+    expect(report.score).toBe(off.score);
+    expect(report.lead).not.toMatch(/more than 10%/);
+    expect(report.best.find((fill) => fill.symbol === "EARLY")?.note ?? "").not.toMatch(/10%/);
+    expect(report.worst.find((fill) => fill.symbol === "WRECK")?.note ?? "").not.toMatch(/10%/);
+    expect(report.sizeNote).toMatch(/\$18\.80/);
+    expect(report.sizeNote).toMatch(/\$188/);
+  });
+
+  it("still docks a green day when $60 was over 10% of the portfolio at the entry", () => {
+    const trades = [
+      row("wide", "2026-10-24", 0, {
+        pnl: 200,
+        amount: 60,
+        mc: 30_000,
+        exitMc: 48_000,
+        symbol: "WIDE",
+        exitMinute: 20,
+      }),
+    ];
+    const report = endOfDayReport(trades, "2026-10-24", { accountUsd: 700 });
+    const off = endOfDayReport(trades, "2026-10-24", {
+      accountUsd: 700,
+      rules: [
+        { id: "base-exit-half", text: "Exit the position if the chart goes below 50% of your position.", active: true },
+        { id: "base-size-tenth", text: "Trade with no more than 10 percent of your portfolio for your base trade.", active: false },
+      ],
+    });
+    expect(report.pnlUsd).toBeGreaterThan(0);
+    expect(report.score).toBeLessThan(off.score ?? 100);
+    expect(report.lead).toMatch(/\$60 ticket was over the \$50 line/);
+    expect(report.lead).toMatch(/\$500 portfolio at that entry/);
+    expect(report.lead).not.toMatch(/\$700/);
+    expect(report.best[0]?.note).toMatch(/\$60 against a \$50 line on a \$500 portfolio/);
+    expect(report.sizeNote).toMatch(/\$70/);
+    expect(report.sizeNote).toMatch(/\$700/);
+  });
+
+  it("does not break a day of 50 closed round trips, and lowers a green day of 51", () => {
+    const inside = greenCloses(50, "2026-10-24", "in");
+    const held = endOfDayReport(inside, "2026-10-24");
+    const heldOff = endOfDayReport(inside, "2026-10-24", { rules: paceOff() });
+    expect(held.tradeCount).toBe(50);
+    expect(inside.every((trade) => trade.buys === 2 && trade.sells === 1)).toBe(true);
+    expect(held.pnlUsd).toBeGreaterThan(0);
+    expect(held.score).toBe(heldOff.score);
+    expect(held.lead).not.toContain(PACE_RULE_TEXT);
+    expect(held.why).not.toMatch(/broken base rule/);
+
+    const over = greenCloses(51, "2026-10-24", "over");
+    const broke = endOfDayReport(over, "2026-10-24");
+    const brokeOff = endOfDayReport(over, "2026-10-24", { rules: paceOff() });
+    expect(broke.tradeCount).toBe(51);
+    expect(broke.pnlUsd).toBeGreaterThan(0);
+    expect(broke.score).toBeLessThan(100);
+    expect(broke.score).toBeLessThan(brokeOff.score!);
+    expect(broke.score).toBe((brokeOff.score ?? 0) - Math.round(8 + 40 / 51));
+    expect(broke.lead).toMatch(/51 closed trades/);
+    expect(broke.lead).toMatch(/The rule is 50/);
+    expect(broke.lead).toContain(PACE_RULE_TEXT);
+    expect(broke.why).toMatch(/broken base rule/);
+    expect(broke.rational).toBe(false);
+    expect(brokeOff.lead).not.toContain(PACE_RULE_TEXT);
+    expect(brokeOff.why).not.toMatch(/broken base rule/);
+  });
+
+  it("does not count a UTC timestamp that is still the previous evening in New York", () => {
+    const saturday = greenCloses(50, "2026-10-24", "sat");
+    const fridayEvening = row("eve", "2026-10-23", 0, {
+      at: "2026-10-24T03:30:00.000Z",
+      pnl: 3,
+      amount: 10,
+      mc: 40_000,
+      exitMc: 48_000,
+      buys: 2,
+    });
+    const saturdayReport = endOfDayReport([fridayEvening, ...saturday], "2026-10-24");
+    const fridayReport = endOfDayReport([fridayEvening, ...saturday], "2026-10-23");
+    expect(saturdayReport.tradeCount).toBe(50);
+    expect(saturdayReport.lead).not.toContain(PACE_RULE_TEXT);
+    expect(saturdayReport.why).not.toMatch(/broken base rule/);
+    expect(fridayReport.tradeCount).toBe(1);
+    expect(fridayReport.lead).not.toMatch(/The rule is 50/);
+  });
 });
+
+function paceOff() {
+  return baseRules().map((rule) => (rule.id === PACE_RULE_ID ? { ...rule, active: false } : rule));
+}
+
+function greenCloses(count: number, day: string, prefix: string): RoundTrip[] {
+  return Array.from({ length: count }, (_, minute) =>
+    row(`${prefix}-${minute}`, day, minute, {
+      pnl: 3,
+      amount: 10,
+      mc: 40_000,
+      exitMc: 48_000,
+      buys: 2,
+      symbol: `${prefix}${minute}`,
+    }),
+  );
+}
 
 function stamp(day: string, minute: number): string {
   const [year, month, date] = day.split("-").map(Number);
@@ -528,6 +664,7 @@ function row(
     mint?: string;
     liquidity?: number;
     at?: string;
+    exitMinute?: number;
     volumeDroppedAfter?: boolean;
     mcDroppedAfter?: boolean;
     averagedDown?: boolean;
@@ -537,6 +674,7 @@ function row(
   const pnl = extra.pnl ?? 0;
   const mc = extra.mc ?? 30_000;
   const at = extra.at ?? stamp(day, minute);
+  const exitAt = extra.exitMinute != null ? stamp(day, extra.exitMinute) : at;
   return {
     id,
     mint: extra.mint ?? id,
@@ -545,7 +683,7 @@ function row(
     metas: ["other"],
     terminal: "wallet",
     entryAt: at,
-    exitAt: at,
+    exitAt,
     entryMarketCapUsd: mc,
     exitMarketCapUsd: extra.exitMc ?? mc,
     liquidityUsd: extra.liquidity ?? 100_000,

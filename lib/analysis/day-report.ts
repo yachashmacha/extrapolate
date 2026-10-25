@@ -6,7 +6,7 @@ import { median, net, winRate } from "@/lib/analysis/stats";
 import { baseTicketSentence } from "@/lib/analysis/tips";
 import { dayKeyEt } from "@/lib/calendar";
 import { fmtUsdPlain } from "@/lib/format";
-import { dayBreachSentence, ruleBreak, type TradingRule } from "@/lib/rules";
+import { activePaceRule, dayBreachSentence, paceOverIds, ruleBreak, type TradingRule } from "@/lib/rules";
 import type { RoundTrip } from "@/lib/types";
 
 /** Same line the habit feed uses for a buy well under the high. */
@@ -62,6 +62,8 @@ export interface DayScoreContext {
   rules?: TradingRule[] | null;
   accountUsd?: number | null;
   cashUsd?: number | null;
+  /** Cost basis still open. Used only to rebuild the portfolio at each entry. */
+  opens?: { entryAt: string; costUsd: number }[] | null;
 }
 
 interface Built {
@@ -189,10 +191,27 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string, context?: Da
   // On a small red day the unnamed marks are only a few points, so the lead stays with the tickets.
   const primary = namedBias || pnlUsd >= 0 ? cluster : false;
   const fomoInScore = biases.some((bias) => bias.id === "fomo") || (pnlUsd >= 0 && fomoCluster);
-  const breaks = day.map((trade) => ruleBreak(trade, trades, { rules: context?.rules, accountUsd: context?.accountUsd ?? null }));
+  const breaks = day.map((trade) =>
+    ruleBreak(trade, trades, {
+      rules: context?.rules,
+      accountUsd: context?.accountUsd ?? null,
+      cashUsd: context?.cashUsd ?? null,
+      opens: context?.opens,
+    }),
+  );
   const pastStop = day.filter((_, index) => breaks[index]?.stop);
-  const oversized = day.filter((_, index) => breaks[index]?.size);
-  const broken = pastStop.length + oversized.filter((trade) => !pastStop.some((stop) => stop.id === trade.id)).length;
+  const oversized = day.flatMap((trade, index) => {
+    const hit = breaks[index];
+    if (!hit?.size) return [];
+    return [{ ...trade, portfolioUsd: hit.portfolioUsd }];
+  });
+  const pace = activePaceRule(context?.rules);
+  const overPace = new Set(pace ? paceOverIds(day, pace.limit) : []);
+  const brokenIds = new Set<string>();
+  for (const trade of pastStop) brokenIds.add(trade.id);
+  for (const trade of oversized) brokenIds.add(trade.id);
+  for (const id of overPace) brokenIds.add(id);
+  const broken = brokenIds.size;
   const behaviorScore = toScore({ weight, namedBias, cluster, pnlUsd, turnoverUsd, patternLoss });
   const ruled = applyBaseRuleScore(behaviorScore, broken, day.length);
   const score = applyNarrativeNudge(
@@ -213,7 +232,7 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string, context?: Da
     reentryTrades,
     pnlUsd,
   });
-  const breach = dayBreachSentence(pastStop, oversized, context?.rules);
+  const breach = dayBreachSentence(pastStop, oversized, context?.rules, day.length);
   if (breach) {
     lead = `${lead} ${breach}`;
     why = `${why} A broken base rule lowers the percent.`;
@@ -258,7 +277,8 @@ export function endOfDayReport(trades: RoundTrip[], dayKey: string, context?: Da
 
 /**
  * The percent above is unchanged when no base rule broke.
- * A broken stop or an oversized ticket then comes off that percent, including on a green day.
+ * A broken stop, an oversized ticket, or a close past the daily trade cap then comes off
+ * that percent, including on a green day. Trades 1 through the cap stay inside it.
  * This only lowers the score. A red day is already under 100 before this runs.
  */
 function applyBaseRuleScore(score: number, broken: number, total: number): number {
@@ -642,11 +662,19 @@ function flatAfterLoss(ordered: RoundTrip[], dayKey: string, revenge: Set<string
 }
 
 function reentryIds(ordered: RoundTrip[]): Set<string> {
-  const lost = new Set<string>();
+  const lostExits = new Map<string, number[]>();
   const again = new Set<string>();
   for (const trade of ordered) {
-    if (lost.has(trade.mint)) again.add(trade.id);
-    if (trade.pnlUsd < 0) lost.add(trade.mint);
+    const entry = Date.parse(trade.entryAt);
+    const exits = lostExits.get(trade.mint) ?? [];
+    if (Number.isFinite(entry) && exits.some((exit) => exit <= entry)) again.add(trade.id);
+    if (trade.pnlUsd < 0) {
+      const exit = Date.parse(trade.exitAt);
+      if (Number.isFinite(exit)) {
+        exits.push(exit);
+        lostExits.set(trade.mint, exits);
+      }
+    }
   }
   return again;
 }

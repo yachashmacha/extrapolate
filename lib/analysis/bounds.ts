@@ -139,7 +139,7 @@ function findAmounts(text: string): { value: number; kind: "ticket" | "mc"; mode
     if (!Number.isFinite(value) || value <= 0) continue;
     const index = match.index ?? 0;
     const tail = text.slice(index + raw.length, index + raw.length + 12);
-    if (/^\s*(%|percent\b)/i.test(tail)) continue;
+    if (/^\s*(%|percent\b|trades?\b)/i.test(tail)) continue;
     const before = text.slice(Math.max(0, index - 48), index).toLowerCase();
     const after = text.slice(index, index + raw.length + 24).toLowerCase();
     const around = `${before} ${after}`;

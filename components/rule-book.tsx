@@ -35,7 +35,7 @@ export function RuleBook({ bookKey }: { bookKey: string }) {
     <section className="section" id="rules">
       <div className="section-head">
         <h2>Your rules</h2>
-        <p>Two rules start on. Turn one off, edit it, or add a rule you trade with.</p>
+        <p>Three rules start on. Turn one off, edit it, or add a rule you trade with.</p>
       </div>
       <div className="panel">
         <form

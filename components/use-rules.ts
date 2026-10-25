@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { baseRules, parseRules, withBaseRules, type TradingRule } from "@/lib/rules";
+import { baseRules, parseRules, PACE_RULE_ID, withBaseRule, withBaseRules, type TradingRule } from "@/lib/rules";
 
 export const RULES_EVENT = "extrapolate:rules";
 
@@ -16,12 +16,18 @@ export function useRules(bookKey: string) {
     function load() {
       const key = rulesKey(bookKey);
       const seedKey = `${key}:base-v1`;
+      const paceKey = `${key}:base-trades-fifty`;
       const raw = localStorage.getItem(key);
       let next = parseRules(raw);
       if (!localStorage.getItem(seedKey)) {
         next = withBaseRules(next);
         localStorage.setItem(key, JSON.stringify(next));
         localStorage.setItem(seedKey, "1");
+        localStorage.setItem(paceKey, "1");
+      } else if (!localStorage.getItem(paceKey)) {
+        next = withBaseRule(next, PACE_RULE_ID);
+        localStorage.setItem(key, JSON.stringify(next));
+        localStorage.setItem(paceKey, "1");
       }
       setRules(next);
     }
