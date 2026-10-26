@@ -3,7 +3,7 @@ export type WalletKind = "phantom" | "solflare" | "backpack";
 interface SolanaProvider {
   isPhantom?: boolean;
   isSolflare?: boolean;
-  connect: () => Promise<{ publicKey: { toString(): string } }>;
+  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString(): string } }>;
 }
 
 interface WalletWindow extends Window {
@@ -19,13 +19,13 @@ const LABELS: Record<WalletKind, string> = {
   backpack: "Backpack",
 };
 
-export async function connectWallet(kind: WalletKind): Promise<string> {
+export async function connectWallet(kind: WalletKind, options?: { onlyIfTrusted?: boolean }): Promise<string> {
   const provider = providerFor(kind);
   if (!provider) {
     throw new Error(`${LABELS[kind]} is not installed in this browser.`);
   }
   try {
-    const result = await provider.connect();
+    const result = await provider.connect(options?.onlyIfTrusted ? { onlyIfTrusted: true } : undefined);
     const address = result.publicKey?.toString();
     if (!address) throw new Error("The wallet did not return an address.");
     return address;

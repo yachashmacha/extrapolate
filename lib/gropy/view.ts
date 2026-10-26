@@ -12,6 +12,14 @@ export interface GropyCopyRow {
   sent: false;
 }
 
+/** A copy before the spend wallet's SOL cap is applied. */
+export interface GropyCopyDraft {
+  trader: string;
+  coin: string;
+  boughtAt: string;
+  sol: number | null;
+}
+
 export interface GropyLogRow {
   at: string;
   firedName: string;
@@ -39,6 +47,7 @@ export interface GropyView {
   copyingCloses: number | null;
   fireLossLimit: number;
   copies: GropyCopyRow[];
+  drafts: GropyCopyDraft[];
   log: GropyLogRow[];
   switches: SwitchFacts[];
   copyingStreak: number;
@@ -93,6 +102,7 @@ export function buildGropyView(input: {
     copyingCloses: copying ? input.book.copyingCloses : null,
     fireLossLimit: FIRE_LOSS_LIMIT,
     copies: funded ? sized.rows.flatMap((row) => copyRow(byId.get(row.id), row.sol, input.nameOf)) : [],
+    drafts: input.book.copies.flatMap((fill) => draftOf(fill, input.nameOf)),
     log: input.book.fires.flatMap((fire) => {
       const firedName = input.nameOf(fire.firedWallet);
       if (!firedName) return [];
@@ -141,6 +151,13 @@ function copyRow(fill: CopyFill | undefined, sol: number | null, nameOf: (wallet
   const trader = nameOf(fill.wallet);
   if (!trader) return [];
   return [{ trader, coin: fill.coin, boughtAt: fill.boughtAt, sol, sent: false }];
+}
+
+function draftOf(fill: CopyFill, nameOf: (wallet: string) => string | null): GropyCopyDraft[] {
+  const trader = nameOf(fill.wallet);
+  if (!trader) return [];
+  const sol = typeof fill.amountSol === "number" && Number.isFinite(fill.amountSol) && fill.amountSol > 0 ? fill.amountSol : null;
+  return [{ trader, coin: fill.coin, boughtAt: fill.boughtAt, sol }];
 }
 
 function unique(values: string[]): string[] {

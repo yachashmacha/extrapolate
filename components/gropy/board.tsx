@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mark } from "@/components/mark";
+import { GropyCopyList, GropySpendProvider, GropyWalletCard } from "@/components/gropy/connect";
 import { GropyControls } from "@/components/gropy/controls";
 import { GropyPnlChart } from "@/components/gropy/pnl-chart";
 import { GropyReasoning } from "@/components/gropy/reasoning";
@@ -10,6 +11,7 @@ import styles from "./gropy.module.css";
 
 export function GropyBoard({ view }: { view: GropyView }) {
   return (
+    <GropySpendProvider premadeAddress={view.botAddress} premadeBalance={view.balanceSol} drafts={view.drafts}>
     <main className={`shell desk ${styles.page}`}>
       <header className="desk-bar">
         <div className="bar-start">
@@ -32,14 +34,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
 
       <div className={styles.work}>
         <div className={styles.mainCol}>
-      <section className={styles.card} aria-labelledby="gropy-wallet">
-        <p className="kicker" id="gropy-wallet">
-          Bot wallet
-        </p>
-        <p className={styles.address}>{view.botAddress}</p>
-        <p className={styles.note}>Load this wallet with SOL.</p>
-        <p className={styles.realized}>{balanceLine(view.balanceSol)}</p>
-      </section>
+      <GropyWalletCard />
 
       <p className="lede">
         gropy copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
@@ -103,44 +98,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
         </section>
       </div>
 
-      <section className={styles.section}>
-        <h2>Copies</h2>
-        {view.unfunded ? (
-          <p className={styles.note}>{view.balanceSol === 0 ? "No copy was sent. This wallet has no SOL to spend." : "No copy was sent. The SOL balance could not be read."}</p>
-        ) : view.copies.length > 0 ? (
-          <div className={styles.card}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Trader</th>
-                  <th>Coin</th>
-                  <th className={styles.num}>Size</th>
-                  <th className={styles.num}>Bought</th>
-                  <th className={styles.num}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {view.copies.map((row) => (
-                  <tr key={`${row.trader}-${row.coin}-${row.boughtAt}`}>
-                    <td>{row.trader}</td>
-                    <td className={styles.coin}>{row.coin}</td>
-                    <td className={styles.num}>{row.sol == null ? "" : fmtSol(row.sol)}</td>
-                    <td className={styles.num}>{fmtWhen(row.boughtAt)}</td>
-                    <td className={styles.num}>Not sent</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className={styles.note}>No buy has been mirrored.</p>
-        )}
-        {view.skippedUnnamedBuys > 0 ? (
-          <p className={styles.note}>
-            {view.skippedUnnamedBuys} {view.skippedUnnamedBuys === 1 ? "buy had" : "buys had"} no coin name on the swap, so {view.skippedUnnamedBuys === 1 ? "it was" : "they were"} skipped.
-          </p>
-        ) : null}
-      </section>
+      <GropyCopyList copies={view.copies} unfunded={view.unfunded} balanceSol={view.balanceSol} skippedUnnamedBuys={view.skippedUnnamedBuys} />
 
       <section className={styles.section}>
         <h2>Fired</h2>
@@ -183,12 +141,8 @@ export function GropyBoard({ view }: { view: GropyView }) {
         />
       </div>
     </main>
+    </GropySpendProvider>
   );
-}
-
-function balanceLine(balanceSol: number | null): string {
-  if (balanceSol == null) return "Balance unavailable.";
-  return fmtSol(balanceSol);
 }
 
 function fmtResult(value: number, unit: "sol" | "usd"): string {
