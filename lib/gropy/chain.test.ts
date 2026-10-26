@@ -74,4 +74,51 @@ describe("open-lot names", () => {
     const stored = JSON.parse(readFileSync(cachePath, "utf8")) as { wallets: Record<string, { buys: { mint: string; symbol?: string }[] }> };
     expect(stored.wallets[wallet].buys.find((buy) => buy.mint === openMint)?.symbol).toBe("PEPE");
   });
+
+  it("reads a Token-2022 name when the mint has no Metaplex account", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "gropy-token2022-"));
+    const cachePath = path.join(dir, "chain.json");
+    const openMint = Keypair.generate().publicKey.toBase58();
+    const asked: string[] = [];
+    writeFileSync(
+      cachePath,
+      JSON.stringify({
+        cursor: 0,
+        wallets: {
+          [wallet]: {
+            at: Date.now(),
+            closed: [],
+            buys: [{ id: `buy-open|${openMint}`, wallet, mint: openMint, boughtAt: "2026-10-20T12:00:00.000Z" }],
+            open: [{ id: `buy-open|${openMint}`, wallet, mint: openMint, tokens: 12 }],
+          },
+        },
+      }),
+    );
+    const read = await loadKolRecords({
+      wallets: [{ wallet }],
+      cachePath,
+      budgetMs: 5_000,
+      rpc: async (method, params) => {
+        asked.push(method);
+        const address = params[0];
+        if (address === openMint) {
+          return {
+            value: {
+              data: {
+                parsed: {
+                  info: {
+                    extensions: [{ extension: "tokenMetadata", state: { name: "The Normie", symbol: "NORMIE" } }],
+                  },
+                },
+              },
+            },
+          };
+        }
+        return { value: null };
+      },
+    });
+    expect(asked).toEqual(["getAccountInfo", "getAccountInfo"]);
+    expect(read.buys.find((buy) => buy.mint === openMint)?.symbol).toBe("NORMIE");
+    expect(read.buys.find((buy) => buy.mint === openMint)?.coinName).toBe("The Normie");
+  });
 });

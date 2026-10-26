@@ -160,19 +160,63 @@ async function attachNames(buys: BuySignal[], open: readonly OpenLot[], rpc: Rpc
 }
 
 async function labelMint(mint: string, rpc: Rpc): Promise<{ symbol: string; name: string } | null> {
+  const classic = await metaplexLabel(mint, rpc);
+  if (classic) return classic;
+  return token2022Label(mint, rpc);
+}
+
+async function metaplexLabel(mint: string, rpc: Rpc): Promise<{ symbol: string; name: string } | null> {
   try {
     const result = await rpc("getAccountInfo", [metadataAddress(mint), { encoding: "base64" }]);
     const decoded = decodeAccount(result);
     if (!decoded) return null;
-    const symbol = cleanLabel(decoded.symbol);
-    const name = cleanLabel(decoded.name);
-    const label = symbol || name;
-    if (!label) return null;
-    return { symbol: label, name };
+    return labelPair(decoded.symbol, decoded.name);
   } catch {
     // A missing name skips the copy later. The close still counts.
     return null;
   }
+}
+
+async function token2022Label(mint: string, rpc: Rpc): Promise<{ symbol: string; name: string } | null> {
+  try {
+    const result = await rpc("getAccountInfo", [mint, { encoding: "jsonParsed" }]);
+    const embedded = tokenMetadata(result);
+    if (!embedded) return null;
+    return labelPair(embedded.symbol, embedded.name);
+  } catch {
+    return null;
+  }
+}
+
+function labelPair(symbolRaw: string, nameRaw: string): { symbol: string; name: string } | null {
+  const symbol = cleanLabel(symbolRaw);
+  const name = cleanLabel(nameRaw);
+  const label = symbol || name;
+  if (!label) return null;
+  return { symbol: label, name };
+}
+
+function tokenMetadata(result: unknown): { name: string; symbol: string } | null {
+  const value = result && typeof result === "object" && "value" in result ? (result as { value?: unknown }).value : result;
+  if (!value || typeof value !== "object" || !("data" in value)) return null;
+  const data = (value as { data?: unknown }).data;
+  if (!data || typeof data !== "object" || !("parsed" in data)) return null;
+  const parsed = (data as { parsed?: unknown }).parsed;
+  if (!parsed || typeof parsed !== "object" || !("info" in parsed)) return null;
+  const info = (parsed as { info?: unknown }).info;
+  if (!info || typeof info !== "object" || !("extensions" in info)) return null;
+  const extensions = (info as { extensions?: unknown }).extensions;
+  if (!Array.isArray(extensions)) return null;
+  for (const row of extensions) {
+    if (!row || typeof row !== "object" || (row as { extension?: unknown }).extension !== "tokenMetadata") continue;
+    const state = (row as { state?: unknown }).state;
+    if (!state || typeof state !== "object") continue;
+    const name = (state as { name?: unknown }).name;
+    const symbol = (state as { symbol?: unknown }).symbol;
+    if (typeof name !== "string" || typeof symbol !== "string") continue;
+    return { name, symbol };
+  }
+  return null;
 }
 
 function metadataAddress(mint: string): string {
