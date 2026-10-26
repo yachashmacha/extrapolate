@@ -26,7 +26,7 @@ export function Suggestions({
     <section className="section" id="suggestions">
       <div className="section-head">
         <h2>From the losers</h2>
-        <p>These cards compare the red trades with the green ones in this book. They are a reading of this book. The rule list below starts with the three base rules. Add to it, or turn one off.</p>
+        <p>These cards compare the red trades with the green ones. They are a reading of your trades. The rule list below starts with the three base rules. Add to it, or turn one off.</p>
       </div>
       {analysis.fixes.length === 0 ? (
         <p className="note">{analysis.thin ? "Suggestions wait for 8 closed trades." : "No leak cleared the sample bar."}</p>

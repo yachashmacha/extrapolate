@@ -23,9 +23,9 @@ describe("gropy switch reasoning", () => {
   it("explains a third losing trade and who took the seat", () => {
     const lines = reasonsForSwitch(change(), "", EMPTY_HARD_RULES, "sol");
     expect(lines[0]).toContain("Left orangie after 3 losing trades while copied (PEPE, BONK, WIF)");
-    expect(lines[0]).toContain("fires on the third");
+    expect(lines[0]).toContain("stops copying on the third");
     expect(lines.some((line) => line.startsWith("Your instruction"))).toBe(false);
-    expect(lines.at(-1)).toContain("absol took the seat");
+    expect(lines.at(-1)).toContain("absol is copied next");
     expect(lines.join(" ")).not.toContain("in a row");
   });
 
@@ -85,7 +85,7 @@ describe("gropy switch reasoning", () => {
 
   it("says the seat stayed empty when nobody was ahead", () => {
     const lines = reasonsForSwitch(change({ toName: null, toRealized: null }), "", EMPTY_HARD_RULES, "sol");
-    expect(lines.at(-1)).toContain("seat stayed empty");
+    expect(lines.at(-1)).toContain("nobody else was copied");
   });
 
   it("explains a seat that ended because the verified result was no longer positive", () => {

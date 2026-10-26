@@ -49,7 +49,7 @@ export function Desk() {
   return (
     <main className="shell desk">
       <BookBar page="desk" title={title} note={note} search={search} onReread={reread} />
-      {loading ? <p className="loading">Reading signatures, rebuilding round trips, and comparing the winners with the losers.</p> : null}
+      {loading ? <p className="loading">Reading signatures, rebuilding closed trades, and comparing the winners with the losers.</p> : null}
       {error ? <BookError error={error} /> : null}
 
       {book && !loading ? (

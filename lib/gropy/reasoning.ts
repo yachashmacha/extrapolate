@@ -57,7 +57,7 @@ export function reasonsForSwitch(change: SwitchFacts, prompt: string, rules: Gro
   const reasons: string[] = [];
   if (change.trigger === "losses") {
     const noun = change.losses === 1 ? "losing trade" : "losing trades";
-    reasons.push(`Left ${change.fromName} after ${change.losses} ${noun} while copied${coinList(change.lossCoins)}. The built-in rule fires on the third.`);
+    reasons.push(`Left ${change.fromName} after ${change.losses} ${noun} while copied${coinList(change.lossCoins)}. The built-in rule stops copying on the third.`);
   } else {
     reasons.push(`Left ${change.fromName} because the verified result was no longer positive (${fmtResult(change.fromRealized, unit)}).`);
   }
@@ -83,19 +83,19 @@ export function reasonsForSwitch(change: SwitchFacts, prompt: string, rules: Gro
   }
 
   if (change.toName && typeof change.toRealized === "number") {
-    reasons.push(`${change.toName} took the seat at ${fmtResult(change.toRealized, unit)}, ahead of ${fmtResult(change.fromRealized, unit)}.`);
+    reasons.push(`${change.toName} is copied next at ${fmtResult(change.toRealized, unit)}, ahead of ${fmtResult(change.fromRealized, unit)}.`);
   } else {
-    reasons.push("No other wallet had a better verified result, so the seat stayed empty.");
+    reasons.push("No other wallet had a better verified result, so nobody else was copied.");
   }
   return reasons;
 }
 
 /** What the current seat looks like against the built-in rule and the saved instructions. */
 export function seatNotes(seat: SeatFacts, prompt: string, rules: GropyHardRules, unit: "sol" | "usd"): string[] {
-  if (!seat.name) return ["Nobody is seated."];
+  if (!seat.name) return ["Nobody is being copied."];
   const noun = seat.losses === 1 ? "losing trade" : "losing trades";
   const now = seat.losses === 0 ? `Still copying ${seat.name}. No losing trade while copied.` : `Still copying ${seat.name}. ${seat.losses} ${noun} while copied.`;
-  const notes = [now, "The built-in rule fires on the third losing trade."];
+  const notes = [now, "The built-in rule stops copying on the third losing trade."];
   for (const rule of lossRules(prompt, rules)) {
     const count = rule.inARow ? seat.streak : seat.losses;
     if (count < rule.losses) continue;

@@ -63,8 +63,8 @@ describe("narrative score", () => {
     expect(high.line).toMatch(/Orangie/);
     expect(high.line).toMatch(/Cented/);
     expect(high.line).toMatch(/before the entry/);
-    expect(high.line).toMatch(/Animals is 3 of 3 in this book, up \$300/);
-    expect(low.line).toMatch(/No earlier Politics coin in this book/);
+    expect(high.line).toMatch(/Animals is 3 of 3 in your trades, up \$300/);
+    expect(low.line).toMatch(/No earlier Politics coin in your trades/);
     expect(low.line).not.toMatch(/Ran to/);
     expect(high.line).not.toMatch(/fomo/i);
     expect(low.line).not.toMatch(/fomo/i);
@@ -163,7 +163,7 @@ describe("narrative score", () => {
     const scored = narrativeScore(coin, [prior, coin]);
     expect(scored.score).toBeGreaterThan(0);
     expect(scored.line).toMatch(/The narrative is Animals/);
-    expect(scored.line).toMatch(/earlier Animals coin in this book finished down/);
+    expect(scored.line).toMatch(/earlier Animals coin in your trades finished down/);
   });
 
   it("names three callers and counts the rest", () => {

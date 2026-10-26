@@ -376,7 +376,7 @@ export function dayBreachSentence(
   }
   if (size && oversized.length > 0) {
     const pct = Math.round(size.fraction * 100);
-    const noun = oversized.length === 1 ? "ticket was" : "tickets were";
+    const noun = oversized.length === 1 ? "trade was" : "trades were";
     const won = oversized.some((trade) => trade.pnlUsd > 0) ? ", including a winner" : "";
     const example = entrySizeExample(oversized, size.fraction);
     const detail = example ? ` ${example}` : "";
@@ -394,7 +394,7 @@ export function dayBreachSentence(
 function sizeBreakNote(amountUsd: number, portfolioUsd: number, fraction: number, ruleText: string): string {
   const pct = Math.round(fraction * 100);
   const ceiling = portfolioUsd * fraction;
-  return `The ${fmtUsdPlain(amountUsd)} ticket was more than ${pct}% of the portfolio at the entry: ${fmtUsdPlain(amountUsd)} against a ${fmtUsdPlain(ceiling)} line on a ${fmtUsdPlain(portfolioUsd)} portfolio. That broke “${ruleText}”.`;
+  return `The ${fmtUsdPlain(amountUsd)} trade was more than ${pct}% of the portfolio at the entry: ${fmtUsdPlain(amountUsd)} against a ${fmtUsdPlain(ceiling)} line on a ${fmtUsdPlain(portfolioUsd)} portfolio. That broke “${ruleText}”.`;
 }
 
 function entrySizeExample(
@@ -408,7 +408,7 @@ function entrySizeExample(
   const portfolio = pick.portfolioUsd ?? 0;
   const amount = pick.amountUsd ?? 0;
   const pct = Math.round(fraction * 100);
-  return `The ${fmtUsdPlain(amount)} ticket was over the ${fmtUsdPlain(portfolio * fraction)} line, ${pct}% of the ${fmtUsdPlain(portfolio)} portfolio at that entry.`;
+  return `The ${fmtUsdPlain(amount)} trade was over the ${fmtUsdPlain(portfolio * fraction)} line, ${pct}% of the ${fmtUsdPlain(portfolio)} portfolio at that entry.`;
 }
 
 function looksLikeDailyTradeCap(text: string): boolean {

@@ -21,32 +21,32 @@ export function HabitFeed({
   onSelect: (habit: Habit) => void;
 }) {
   const rules =
-    activeRules > 0 ? ` Your ${activeRules} active ${activeRules === 1 ? "rule holds" : "rules hold"} that ticket.` : "";
+    activeRules > 0 ? ` Your ${activeRules} active ${activeRules === 1 ? "rule holds" : "rules hold"} that trade.` : "";
   const point =
-    "This feed reads this wallet's own fills. A bias is named only when the fills match that measurement. A repeat is the sequence in the fills, with no motive attached. A tendency is a cluster that paid. Each card names the trades it came from.";
+    "This feed reads this wallet's own trades. A bias is named only when the trades match that measurement. A repeat is the order of the trades, with no motive attached. A tendency is a pattern that made money. Each card names the trades it came from.";
   const intro =
     bounds.ticketUsd > 0
-      ? `${point} Where a habit names a next ticket, that ticket is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A caller leaves that ticket where it is.`
-      : `${point} A caller leaves the ticket where this wallet and your rules put it.`;
+      ? `${point} Where a habit names a next trade, that trade is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A caller leaves that trade where it is.`
+      : `${point} A caller leaves the trade where this wallet and your rules put it.`;
   return (
     <section className="section" id="biases">
       <div className="bias-lead">
         <h2 className="bias-quote">Your biases from YOUR subconscious</h2>
         <p>{intro}</p>
       </div>
-      {pendingHighs ? <p className="note">Coin highs and the tape after each fill are still loading.</p> : null}
+      {pendingHighs ? <p className="note">Coin highs and the chart after each buy are still loading.</p> : null}
       <div className="feeds">
         <HabitColumn
           title="Biases"
           habits={habits.negative}
-          empty="No bias clears the bar in this book yet."
+          empty="No bias shows up in these trades yet."
           selectedId={selectedId}
           onSelect={onSelect}
         />
         <HabitColumn
           title="Tendencies that paid"
           habits={habits.positive}
-          empty="No working tendency clears the bar in this book yet."
+          empty="No pattern that made money shows up in these trades yet."
           selectedId={selectedId}
           onSelect={onSelect}
         />

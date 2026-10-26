@@ -39,8 +39,8 @@ export function Tape({
     <section className={showHeading ? "section" : "section tape-embed"} id={anchor}>
       {showHeading ? (
         <div className="section-head">
-          <h2>The tape</h2>
-          <p>Open a fill to see how it sits against the winners. Callers show up by name.</p>
+          <h2>Trades</h2>
+          <p>Open a trade to see how it sits against the winners. Callers show up by name.</p>
         </div>
       ) : null}
       <div className="filter-row">
@@ -176,7 +176,7 @@ function KolEditor({
     <div className="editor">
       <span className="label">KOLs in this coin</span>
       <p className="note">Search the tracked list, or paste an address. The coin shows the name.</p>
-      {trade.kols.length === 0 ? <p className="note">No tracked wallet is on this fill yet.</p> : null}
+      {trade.kols.length === 0 ? <p className="note">No tracked wallet is on this trade yet.</p> : null}
       <div className="kol-list">
         {trade.kols.map((kol) => (
           <div key={kol.id} className="kol-row">

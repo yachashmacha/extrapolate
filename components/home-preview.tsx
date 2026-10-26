@@ -23,7 +23,7 @@ export function HomePreview({
       <div className="section-head">
         <div>
           <p className="kicker">{kicker}</p>
-          <h2 id="live-reading">The live book</h2>
+          <h2 id="live-reading">Your trades</h2>
         </div>
         <p>{detail}</p>
       </div>

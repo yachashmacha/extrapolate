@@ -13,7 +13,7 @@ import type { RoundTrip } from "@/lib/types";
 const UNDER_HIGH = 0.45;
 
 export const RATIONALITY_NOTE =
-  "100% is a day the fills did not repeat the costly patterns, no active rule was broken, and the close was not negative. A red day cannot be 100%. The score reads this day's behavior. It is not a prediction.";
+  "100% is a day the trades did not repeat the costly patterns, no active rule was broken, and the close was not negative. A red day cannot be 100%. The score reads this day's behavior. It is not a prediction.";
 
 export interface DayFill {
   id: string;
@@ -407,7 +407,7 @@ function biasFindings(input: {
   const { revengeTrades, flat, day, fomoTrades, reentryTrades, down, once, aboveUsual, usual, usualLabel } = input;
   if (worth("negative", revengeTrades, flat.length >= 3 ? flat : others(day, revengeTrades))) {
     const usualBit = usualLabel
-      ? `, within 30 minutes of a loss that was about your usual ${usualLabel}, to at least 1.5× that size and at least 1.5× the losing ticket`
+      ? `, within 30 minutes of a loss that was about your usual ${usualLabel}, to at least 1.5× that size and at least 1.5× the losing trade`
       : " within 30 minutes";
     out.push(
       built(
@@ -448,20 +448,20 @@ function biasFindings(input: {
         "adds",
         "Averaging down",
         "averaging down",
-        `${noun(down.length, "ticket", "tickets")} bought more after the coin was already down, and those dropped ${money(down)}${including(down, true)}`,
+        `${noun(down.length, "trade", "trades")} bought more after the coin was already down, and those dropped ${money(down)}${including(down, true)}`,
         down,
       ),
     );
   }
   if (usual > 0 && worth("negative", aboveUsual, others(day, aboveUsual))) {
     const multiple = sizeMultiple(median(aboveUsual.map((trade) => trade.amountUsd)), usual);
-    const usualBit = usualLabel ? `your usual ${usualLabel}` : "your usual ticket";
+    const usualBit = usualLabel ? `your usual ${usualLabel}` : "your usual trade";
     out.push(
       built(
         "size-above-usual",
-        "The ticket was well above your usual size",
-        "a ticket well above your usual size",
-        `${noun(aboveUsual.length, "ticket", "tickets")} were at least 1.5× ${usualBit}. The median of those was ${multiple} that size, and those dropped ${money(aboveUsual)}${including(aboveUsual, true)}`,
+        "The trade was well above your usual size",
+        "a trade well above your usual size",
+        `${noun(aboveUsual.length, "trade", "trades")} were at least 1.5× ${usualBit}. The median of those was ${multiple} that size, and those dropped ${money(aboveUsual)}${including(aboveUsual, true)}`,
         aboveUsual,
       ),
     );
@@ -483,13 +483,13 @@ function paidTendency(input: {
   const { flat, revengeTrades, day, fomoTrades, under, known, once, multi, usualLabel } = input;
   const out: Built[] = [];
   if (worth("positive", flat, revengeTrades.length >= 3 ? revengeTrades : others(day, flat))) {
-    const usualBit = usualLabel ? `your usual ${usualLabel}` : "your usual ticket";
+    const usualBit = usualLabel ? `your usual ${usualLabel}` : "your usual size";
     out.push(
       built(
         "size-flat-after-loss",
-        "Kept the ticket flat after a loss",
-        "keeping the ticket flat after a loss",
-        `${noun(flat.length, "next ticket", "next tickets")} stayed at or under ${usualBit}, and those made ${gained(flat)}${including(flat, false)}`,
+        "Kept the size the same after a loss",
+        "keeping the size the same after a loss",
+        `${noun(flat.length, "next trade", "next trades")} stayed at or under ${usualBit}, and those made ${gained(flat)}${including(flat, false)}`,
         flat,
       ),
     );
@@ -499,8 +499,8 @@ function paidTendency(input: {
     out.push(
       built(
         "fomo-paid",
-        "Got paid after the tape faded",
-        "getting paid after the tape faded",
+        "Got paid after volume faded",
+        "getting paid after volume faded",
         `${noun(fomoTrades.length, "entry", "entries")} bought in as volume started dropping and market cap dropped, and those made ${gained(fomoTrades)}${including(fomoTrades, false)}`,
         fomoTrades,
       ),
@@ -521,8 +521,8 @@ function paidTendency(input: {
     out.push(
       built(
         "one-ticket",
-        "One ticket per coin",
-        "one ticket per coin",
+        "One trade per coin",
+        "one trade per coin",
         `${noun(once.length, "coin", "coins")} were bought once, and those made ${gained(once)}${including(once, false)}`,
         once,
       ),
@@ -567,7 +567,7 @@ function leadLine(input: {
   if (pnlUsd < 0) {
     const detail = rationalDetail(counts, usualLabel);
     if (counts.n > 0 && counts.small === counts.n) {
-      return detail ? `The tickets stayed small. ${detail}` : "The tickets stayed small.";
+      return detail ? `The trades stayed small. ${detail}` : "The trades stayed small.";
     }
     if (detail) return detail;
   }
@@ -619,8 +619,8 @@ function whyLine(counts: Counts, fomoInScore: boolean): string {
   const slips: string[] = [];
   if (counts.adds === 1) slips.push("one coin was averaged down");
   else if (counts.adds > 1) slips.push(`${counts.adds} coins were averaged down`);
-  if (counts.aboveUsual === 1) slips.push("one ticket was at least 1.5× your usual size");
-  else if (counts.aboveUsual > 1) slips.push(`${counts.aboveUsual} tickets were at least 1.5× your usual size`);
+  if (counts.aboveUsual === 1) slips.push("one trade was at least 1.5× your usual size");
+  else if (counts.aboveUsual > 1) slips.push(`${counts.aboveUsual} trades were at least 1.5× your usual size`);
   const rest: string[] = [];
   if (counts.n > 0 && counts.small === counts.n) rest.push("the other closes stayed small");
   if (counts.revenge === 0) rest.push("nothing sized up after a loss");
@@ -631,17 +631,17 @@ function whyLine(counts: Counts, fomoInScore: boolean): string {
 
 function cleanWhy(counts: Counts): string {
   const details: string[] = [];
-  if (counts.n > 0 && counts.small === counts.n) details.push("the tickets stayed small");
+  if (counts.n > 0 && counts.small === counts.n) details.push("the trades stayed small");
   if (counts.revenge === 0) details.push("nothing sized up after a loss");
   if (counts.fomo > 0) {
     details.push(
-      `${counts.fomo} ${counts.fomo === 1 ? "entry faded after the fill" : "entries faded after the fill"}`,
+      `${counts.fomo} ${counts.fomo === 1 ? "trade faded after the entry" : "trades faded after the entry"}`,
     );
   } else if (counts.athKnown > 0 && counts.under === counts.athKnown) details.push("entries stayed at or under 45% of the high");
-  else if (counts.fomoUnknown === 0) details.push("no entry faded after the fill");
-  if (details.length === 0) return "The fills did not repeat a costly pattern.";
+  else if (counts.fomoUnknown === 0) details.push("no trade faded after the entry");
+  if (details.length === 0) return "The trades did not repeat a costly pattern.";
   if (counts.fomo > 0) return `${capitalize(joinAnd(details))}.`;
-  return `The fills did not repeat a costly pattern: ${joinAnd(details)}.`;
+  return `The trades did not repeat a costly pattern: ${joinAnd(details)}.`;
 }
 
 function leastBadClose(losses: RoundTrip[], book: RoundTrip[], notes?: Map<string, string>): DayFill | null {

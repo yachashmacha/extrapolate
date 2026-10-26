@@ -25,14 +25,14 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
           <SiteNav current="news" />
         </div>
         <div className="who">
-          <strong>The wire</strong>
+          <strong>News</strong>
           <div className="note">Read at {fmtWhen(desk.loadedAt)} ET</div>
         </div>
       </header>
 
       <section className={styles.lead}>
         <p className="kicker">News</p>
-        <h1>What the wires and the Solana tape are saying.</h1>
+        <h1>What the news and the boosted Solana coins are saying.</h1>
         <p className="lede">
           Headlines come from CoinDesk, Cointelegraph, Decrypt, The Block, DL News, Blockworks, Unchained, Bankless, and The Defiant. The coins are Solana pairs DexScreener is boosting now. A post appears only when one of those coins links it, the text can be read back from X, and that text is about a coin or the market.
         </p>
@@ -51,14 +51,14 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
           ))}
         </p>
         <p className={`note ${styles.center}`}>
-          A headline with no narrower match is filed under Markets. One headline can sit in more than one lane.
+          A headline with no closer match goes under Markets. One headline can match more than one filter.
         </p>
       </section>
 
       <section className="section" aria-labelledby="attention">
         <div className="section-head">
           <div>
-            <p className="kicker">Solana tape</p>
+            <p className="kicker">Boosted coins</p>
             <h2 id="attention">Getting attention</h2>
           </div>
           <p>DexScreener boosts are paid placement. They show what is being promoted, not what is safe. Market cap, volume, and the day change are the pair. The line under the name is the project’s own text.</p>
@@ -123,7 +123,7 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
           <div className="section-head">
             <div>
               <p className="kicker">Strategies</p>
-              <h2 id="strategies">What the wires named</h2>
+              <h2 id="strategies">What the headlines named</h2>
             </div>
             <p>A story lands here when the headline names a way of trading or a trend. It is the outlet’s piece, not a rule for this desk.</p>
           </div>
@@ -143,9 +143,9 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
         <div className="section-head">
           <div>
             <p className="kicker">Headlines</p>
-            <h2 id="wire">{lane === "all" ? "The wire" : NEWS_LANES.find((row) => row.id === lane)?.label}</h2>
+            <h2 id="wire">{lane === "all" ? "Latest" : NEWS_LANES.find((row) => row.id === lane)?.label}</h2>
           </div>
-          <p>{wires.length === 1 ? "1 story in this lane." : `${wires.length} stories in this lane.`}</p>
+          <p>{wires.length === 1 ? "1 story here." : `${wires.length} stories here.`}</p>
         </div>
         <div className={styles.lanes}>
           {NEWS_LANES.map((row) => (
@@ -161,7 +161,7 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
             ))}
           </div>
         ) : (
-          <p className="note">None of the headlines in this read sit in that lane.</p>
+          <p className="note">None of the headlines in this read match that filter.</p>
         )}
         {desk.missed.length > 0 ? <p className="note">Did not answer: {desk.missed.join(", ")}.</p> : null}
       </section>

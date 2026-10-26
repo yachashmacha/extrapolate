@@ -76,22 +76,22 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
         mark: "Bias",
-        detail: `Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next tickets were at least 1.5× that size and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, trades, bounds)}`,
+        detail: `Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next trades were at least 1.5× that size and at least 1.5× the trade that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, trades, bounds)}`,
       }),
     );
   }
   if (worth("positive", kept, sizedUp.length >= 3 ? sizedUp : others(ordered, kept))) {
     out.push(
-      draft("size-flat-after-loss", "positive", "Kept the ticket flat after a loss", kept, {
-        detail: `After a red close, ${kept.length} of the next tickets stayed at or under the usual ${usualLabel}. Those made ${gained(kept)}${including(kept, false)}. ${sizeCloser(kept, trades, bounds)}`,
+      draft("size-flat-after-loss", "positive", "Kept the size the same after a loss", kept, {
+        detail: `After a red close, ${kept.length} of the next trades stayed at or under the usual ${usualLabel}. Those made ${gained(kept)}${including(kept, false)}. ${sizeCloser(kept, trades, bounds)}`,
       }),
     );
   }
   if (worth("negative", pressed, keptWin.length >= 3 ? keptWin : others(ordered, pressed))) {
     out.push(
-      draft("size-after-win", "negative", "House-money effect", pressed, {
+      draft("size-after-win", "negative", "Sized up after a win", pressed, {
         mark: "Bias",
-        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next tickets were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning ticket. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, trades, bounds)}`,
+        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next trades were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning trade. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, trades, bounds)}`,
       }),
     );
   }
@@ -100,9 +100,9 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   if (worth("negative", above, ordinary.length >= 3 ? ordinary : others(ordered, above))) {
     const multiple = sizeMultiple(median(above.map((trade) => trade.amountUsd)), usual);
     out.push(
-      draft("size-above-usual", "negative", "The ticket was well above your usual size", above, {
+      draft("size-above-usual", "negative", "The trade was well above your usual size", above, {
         mark: "Bias",
-        detail: `Considerably bigger than your own usual ticket. ${above.length} tickets were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, trades, bounds)}`,
+        detail: `Considerably bigger than your usual size. ${above.length} trades were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, trades, bounds)}`,
       }),
     );
   }
@@ -113,12 +113,12 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
       draft(
         "size-press-paid",
         "positive",
-        capped ? "A larger ticket after a win stays capped" : "The larger ticket after a win paid",
+        capped ? "A larger trade after a win stays capped" : "The larger trade after a win paid",
         pressed,
         {
           detail: capped
-            ? `${closer} After a green close, ${pressed.length} larger tickets made ${gained(pressed)}${including(pressed, false)}.`
-            : `After a green close, ${pressed.length} larger tickets made ${gained(pressed)}${including(pressed, false)}. ${closer}`,
+            ? `${closer} After a green close, ${pressed.length} larger trades made ${gained(pressed)}${including(pressed, false)}.`
+            : `After a green close, ${pressed.length} larger trades made ${gained(pressed)}${including(pressed, false)}. ${closer}`,
         },
       ),
     );
@@ -141,13 +141,13 @@ function fomoHabits(trades: RoundTrip[]): Draft[] {
     out.push(
       draft("fomo", "negative", "FOMO", chased, {
         mark: "Bias",
-        detail: `After the entry, volume started dropping and market cap dropped on ${chased.length} fills. Those dropped ${money(chased)}${including(chased, true)}.`,
+        detail: `After the entry, volume started dropping and market cap dropped on ${chased.length} trades. Those dropped ${money(chased)}${including(chased, true)}.`,
       }),
     );
   } else if (worth("positive", chased, rest)) {
     out.push(
-      draft("fomo-paid", "positive", "Got paid after the tape faded", chased, {
-        detail: `After the entry, volume started dropping and market cap dropped on ${chased.length} fills. Those made ${gained(chased)}${including(chased, false)}.`,
+      draft("fomo-paid", "positive", "Got paid after volume faded", chased, {
+        detail: `After the entry, volume started dropping and market cap dropped on ${chased.length} trades. Those made ${gained(chased)}${including(chased, false)}.`,
       }),
     );
   }
@@ -207,14 +207,14 @@ function capHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   if (worth("negative", above, below)) {
     out.push(
       draft("mc-high", "negative", "Bought the higher caps", above, {
-        detail: `In this book, the paying entries clustered near ${fmtMc(ref)}. ${above.length} buys were above ${fmtMc(ref * 1.5)}, and those dropped ${money(above)}${including(above, true)}.`,
+        detail: `In your trades, the buys that paid landed near ${fmtMc(ref)}. ${above.length} buys were above ${fmtMc(ref * 1.5)}, and those dropped ${money(above)}${including(above, true)}.`,
       }),
     );
   }
   if (worth("positive", below, above)) {
     out.push(
       draft("mc-low", "positive", "Got paid at the smaller caps", below, {
-        detail: `In this book, ${below.length} buys were at or under ${fmtMc(ref * 1.1)}, near the ${fmtMc(ref)} entries that paid. Those made ${gained(below)}${including(below, false)}.`,
+        detail: `In your trades, ${below.length} buys were at or under ${fmtMc(ref * 1.1)}, near the ${fmtMc(ref)} entries that paid. Those made ${gained(below)}${including(below, false)}.`,
       }),
     );
   }
@@ -265,17 +265,17 @@ function sessionHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const day = trades.filter((trade) => sessionName(trade) !== "Overnight");
   const out: Draft[] = [];
   if (worth("negative", overnight, day)) {
-    const rule = bounds?.overnightRule ? `Your rule says “${bounds.overnightRule}”.` : net(day) > 0 ? `The daytime tickets finished ${fmtUsd(net(day))}.` : "";
+    const rule = bounds?.overnightRule ? `Your rule says “${bounds.overnightRule}”.` : net(day) > 0 ? `The daytime trades finished ${fmtUsd(net(day))}.` : "";
     out.push(
-      draft("overnight", "negative", "The overnight tickets lost", overnight, {
-        detail: `${overnight.length} entries landed in the overnight session and dropped ${money(overnight)}${including(overnight, true)}. ${rule}`,
+      draft("overnight", "negative", "Overnight trades lost", overnight, {
+        detail: `${overnight.length} buys were overnight, 10pm to 6am ET, and dropped ${money(overnight)}${including(overnight, true)}. ${rule}`,
       }),
     );
   }
   if (worth("positive", day, overnight)) {
     out.push(
-      draft("daytime", "positive", "The daytime tickets paid", day, {
-        detail: `${day.length} entries landed in the morning, midday, or evening and made ${gained(day)}${including(day, false)}.`,
+      draft("daytime", "positive", "Daytime trades paid", day, {
+        detail: `${day.length} buys were in the morning, midday, or evening and made ${gained(day)}${including(day, false)}.`,
       }),
     );
   }
@@ -293,18 +293,18 @@ function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const once = trades.filter((trade) => trade.averagedDown !== true);
   const out: Draft[] = [];
   if (worth("negative", down, once)) {
-    const rule = bounds?.onePerCoin ? `Your rule is one ticket per coin (“${bounds.onePerCoin}”).` : "";
+    const rule = bounds?.onePerCoin ? `Your rule is one trade per coin (“${bounds.onePerCoin}”).` : "";
     out.push(
       draft("adds", "negative", "Averaging down", down, {
         mark: "Bias",
-        detail: `Another buy in the open position, at least 10% under the average already held, after the coin was already down. ${down.length} tickets did that. ${rule} Those dropped ${money(down)}${including(down, true)}.`,
+        detail: `Another buy in the open position, at least 10% under the average already held, after the coin was already down. ${down.length} trades did that. ${rule} Those dropped ${money(down)}${including(down, true)}.`,
       }),
     );
   }
   if (worth("positive", once, multi) && multi.length >= 3) {
     const rule = bounds?.onePerCoin ? `That matches your rule “${bounds.onePerCoin}”.` : "";
     out.push(
-      draft("one-ticket", "positive", "One ticket per coin", once, {
+      draft("one-ticket", "positive", "One trade per coin", once, {
         detail: `${once.length} coins were bought once and made ${gained(once)}${including(once, false)}. ${rule}`,
       }),
     );
@@ -341,7 +341,7 @@ function reentryHabits(trades: RoundTrip[]): Draft[] {
   return [
     draft("reentry", "negative", "Break-even chase", again, {
       mark: "Repeat",
-      detail: `A later ticket in a coin that had already closed red. ${again.length} later tickets were that coin. Those dropped ${money(again)}${including(again, true)}.`,
+      detail: `A later trade in a coin that had already closed red. ${again.length} later trades were that coin. Those dropped ${money(again)}${including(again, true)}.`,
     }),
   ];
 }
@@ -359,7 +359,7 @@ function callerHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   if (tagged.length < 6) return [];
   const followed = tagged.filter((trade) => trade.kols.some((kol) => kol.timing === "before"));
   const rest = tagged.filter((trade) => !followed.includes(trade));
-  const closer = bounds && bounds.ticketUsd > 0 ? `The ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}` : "";
+  const closer = bounds && bounds.ticketUsd > 0 ? `The trade stays at ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}` : "";
   const out: Draft[] = [];
   if (worth("negative", followed, rest.length >= 3 ? rest : others(tagged, followed))) {
     const names = callerNames(followed, ["before"]);
@@ -410,14 +410,14 @@ function launchHabits(trades: RoundTrip[]): Draft[] {
 function sizeCloser(group: RoundTrip[], book: RoundTrip[], bounds?: BookBounds): string {
   if (!bounds || bounds.ticketUsd <= 0) return "";
   const ticket = fmtUsdPlain(bounds.ticketUsd);
-  const forward = `The next ticket stays at ${ticket}. ${ticketWhy(bounds)}`;
+  const forward = `The next trade stays at ${ticket}. ${ticketWhy(bounds)}`;
   if (portfolioSized(bounds)) {
     if (medianOverEntry(group, book, bounds, 1.05)) return forward;
     return "";
   }
   const mid = median(group.map((trade) => trade.amountUsd));
   if (mid > bounds.ticketUsd * 1.05) return forward;
-  if (bounds.ticketReason !== "winners") return `Those tickets sit inside ${ticket}. ${ticketWhy(bounds)}`;
+  if (bounds.ticketReason !== "winners") return `Those trades sit inside ${ticket}. ${ticketWhy(bounds)}`;
   return "";
 }
 

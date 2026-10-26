@@ -19,7 +19,7 @@ const plex = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "Extrapolate — memecoin trading desk",
   description:
-    "Connect a Solana wallet, reconstruct every memecoin round trip, and see what the winners shared that the losers did not.",
+    "Connect a Solana wallet, reconstruct every closed memecoin trade, and see what the winners shared that the losers did not.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -32,7 +32,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
       <GropyWalletCard />
 
       <p className="lede">
-        Gropy Trade copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
+        Gropy Trade copies KOL wallets from their own swaps. A wallet is copied only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied, and the bot stops copying them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
       </p>
 
       <p className={styles.stats}>
@@ -63,14 +63,14 @@ export function GropyBoard({ view }: { view: GropyView }) {
                   Verified realized {fmtResult(view.copyingRealized, view.unit)} across {view.copyingCloses} closed {view.copyingCloses === 1 ? "trade" : "trades"}.
                 </p>
               ) : null}
-              <div className={styles.meter} aria-label="Losing trades toward the fire line">
+              <div className={styles.meter} aria-label="Losing trades before copying stops">
                 {Array.from({ length: view.fireLossLimit + 1 }, (_, index) => {
                   const step = index + 1;
                   const hit = view.lossesTowardFire >= step;
                   const fire = step > view.fireLossLimit;
                   return (
                     <span key={step} className={`${styles.pip} ${hit ? styles.pipOn : ""} ${fire ? styles.pipFire : ""}`}>
-                      {fire ? "Third loss fires" : `Loss ${step}`}
+                      {fire ? "Stops copying" : `Loss ${step}`}
                     </span>
                   );
                 })}
@@ -86,9 +86,9 @@ export function GropyBoard({ view }: { view: GropyView }) {
         </section>
 
         <section className={styles.card}>
-          <p className="kicker">Fire rule</p>
+          <p className="kicker">Stop rule</p>
           <p className={styles.note}>
-            More than {view.fireLossLimit} losing trades fires the wallet being copied. {view.fireLossLimit} losses does not. The replacement is a different KOL wallet whose verified realized result is better than the one just fired. If nobody is ahead of them, the seat stays empty.
+            More than {view.fireLossLimit} losing trades and the bot stops copying that wallet. {view.fireLossLimit} losses does not. The next wallet is a different KOL whose verified result is better. If nobody is ahead, nobody else is copied.
           </p>
         </section>
       </div>
@@ -96,20 +96,20 @@ export function GropyBoard({ view }: { view: GropyView }) {
       <GropyCopyList copies={view.copies} unfunded={view.unfunded} balanceSol={view.balanceSol} skippedUnnamedBuys={view.skippedUnnamedBuys} />
 
       <section className={styles.section}>
-        <h2>Fired</h2>
+        <h2>Stopped copying</h2>
         {view.log.length > 0 ? (
           <ol className={styles.log}>
             {view.log.map((row) => (
               <li key={`${row.at}-${row.firedName}`}>
-                <span className={styles.when}>{fmtWhen(row.at)}</span> Fired {row.firedName} after {row.losses} losing trades. Verified result {fmtResult(row.firedRealized, view.unit)}.{" "}
+                <span className={styles.when}>{fmtWhen(row.at)}</span> Stopped copying {row.firedName} after {row.losses} losing trades. Verified result {fmtResult(row.firedRealized, view.unit)}.{" "}
                 {row.replacementName && typeof row.replacementRealized === "number"
-                  ? `${row.replacementName} took the seat with a better verified result (${fmtResult(row.replacementRealized, view.unit)}).`
-                  : "No other wallet has a better verified result, so the seat stays empty."}
+                  ? `${row.replacementName} is copied next, with a better verified result (${fmtResult(row.replacementRealized, view.unit)}).`
+                  : "No other wallet has a better verified result, so nobody else is copied."}
               </li>
             ))}
           </ol>
         ) : (
-          <p className={styles.note}>Nobody has been fired.</p>
+          <p className={styles.note}>The bot has not stopped copying anyone.</p>
         )}
       </section>
 
@@ -145,13 +145,13 @@ function fmtResult(value: number, unit: "sol" | "usd"): string {
 }
 
 function lossSentence(losses: number, limit: number): string {
-  if (losses === 0) return `No losing trades since this wallet was copied. Loss ${limit + 1} fires them.`;
+  if (losses === 0) return `No losing trades since this wallet was copied. On loss ${limit + 1}, the bot stops copying them.`;
   const noun = losses === 1 ? "losing trade" : "losing trades";
-  return `${losses} ${noun} since this wallet was copied. More than ${limit} fires them.`;
+  return `${losses} ${noun} since this wallet was copied. On the next loss past ${limit}, the bot stops copying them.`;
 }
 
 function emptySeat(view: GropyView): string {
-  if (view.log.length > 0) return "The last trader was fired, and no other wallet has a better verified result.";
+  if (view.log.length > 0) return "The bot stopped copying the last wallet, and no other wallet has a better verified result.";
   if (view.readCount === 0 && view.unreadableCount > 0) return "Those wallets' closed trades could not be read, so none are copied.";
   if (view.verifiedCloses === 0) return "No verified close has been read from these wallets' own swaps, so none are copied.";
   if (view.eligibleCount === 0) {

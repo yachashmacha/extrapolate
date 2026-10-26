@@ -32,16 +32,16 @@ describe("practice tips", () => {
     expect(tips[0].tip).toMatch(/Orangie/);
     expect(tips[0].tip).toMatch(/\$480,000/);
     expect(tips[0].tip).toMatch(/\$150/);
-    expect(tips[0].tip).toMatch(/In this book, the Animals winners got in near/i);
+    expect(tips[0].tip).toMatch(/In your trades, the Animals winners got in near/i);
     expect(tips[0].tip).toMatch(/not a confirmation/i);
     expect(tips[0].tip).not.toMatch(/Wait until|unconfirmed|Take the exit/i);
-    expect(tips[0].tip).toMatch(/ticket stays at \$150/i);
+    expect(tips[0].tip).toMatch(/trade stays at \$150/i);
   });
 
   it("sizes the next ticket from the account and the trader's rule", () => {
     const trades = [winner("a"), winner("b"), winner("c"), loss("roar")];
     const byAccount = practiceTips(trades, bookBounds({ trades, accountUsd: 400 }));
-    expect(byAccount[0].tip).toMatch(/next ticket at \$40(?!\d)/);
+    expect(byAccount[0].tip).toMatch(/next trade at \$40(?!\d)/);
     expect(byAccount[0].tip).toMatch(/10% of the \$400/);
     expect(byAccount[0].tip).toMatch(/10 percent of your portfolio/);
     expect(byAccount[0].tip).not.toMatch(/\$150/);
@@ -53,21 +53,21 @@ describe("practice tips", () => {
     expect(byRule[0].tip).toMatch(/\$10/);
     expect(byRule[0].tip).toMatch(/Next buy is \$10/);
     expect(byRule[0].tip).not.toMatch(/\$150/);
-    expect(byRule[0].tip).toMatch(/ticket stays at \$10/i);
+    expect(byRule[0].tip).toMatch(/trade stays at \$10/i);
 
     const small = practiceTips(trades, bookBounds({ trades, accountUsd: 9.9 }));
     expect(small[0].tip).toMatch(/\$0\.99/);
     expect(small[0].tip).toMatch(/10% of the \$9\.9/);
     expect(small[0].tip).toMatch(/10 percent of your portfolio/);
-    expect(small[0].tip).toMatch(/ticket stays at \$0\.99/i);
+    expect(small[0].tip).toMatch(/trade stays at \$0\.99/i);
     expect(small[0].tip).not.toMatch(/\$150/);
     expect(small[0].tip).not.toMatch(/\$0\.50/);
 
     const cashBound = practiceTips(trades, bookBounds({ trades, accountUsd: 100, cashUsd: 8 }));
-    expect(cashBound[0].tip).toMatch(/next ticket at \$8/i);
+    expect(cashBound[0].tip).toMatch(/next trade at \$8/i);
     expect(cashBound[0].tip).toMatch(/10 percent of your portfolio/);
     expect(cashBound[0].tip).toMatch(/cash on hand/);
-    expect(cashBound[0].tip).not.toMatch(/next ticket at \$10/i);
+    expect(cashBound[0].tip).not.toMatch(/next trade at \$10/i);
 
     const capped = practiceTips(
       trades,
@@ -95,7 +95,7 @@ describe("practice tips", () => {
     const small = practiceTips(trades, bounds).find((tip) => tip.symbol === "SMALL");
     expect(portfolioAtEntry("2026-10-24T15:00:00.000Z", trades, 98)).toBe(500);
     expect(bounds.ticketUsd).toBe(9.8);
-    expect(small?.tip).not.toMatch(/Keep the next ticket/);
+    expect(small?.tip).not.toMatch(/Keep the next trade/);
     expect(small?.tip ?? "").not.toMatch(/\$9\.80/);
   });
 
@@ -105,7 +105,7 @@ describe("practice tips", () => {
     const wide = practiceTips(trades, bounds).find((tip) => tip.symbol === "SMALL");
     expect(portfolioAtEntry("2026-10-24T15:00:00.000Z", trades, 100)).toBe(500);
     expect(bounds.ticketUsd).toBe(10);
-    expect(wide?.tip).toMatch(/Keep the next ticket at \$10(?!\d)/);
+    expect(wide?.tip).toMatch(/Keep the next trade at \$10(?!\d)/);
     expect(wide?.tip).toMatch(/10% of the \$100/);
     expect(wide?.tip).not.toMatch(/\$500/);
   });

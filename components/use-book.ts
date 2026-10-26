@@ -64,7 +64,7 @@ export function useBook() {
     if (source === "csv") {
       const raw = sessionStorage.getItem("extrapolate:csv");
       if (!raw) {
-        setError("The imported book is not in this tab anymore. Import the CSV again.");
+        setError("The imported trades are not in this tab anymore. Import the CSV again.");
         setBook(null);
         setLoading(false);
         return;
@@ -188,7 +188,7 @@ export function useBook() {
     localStorage.setItem(`extrapolate:overrides:${bookKey}`, JSON.stringify(next));
   }
 
-  const title = book?.source === "csv" ? "Imported book" : shortAddress(address || TRADER_WALLET);
+  const title = book?.source === "csv" ? "Imported trades" : shortAddress(address || TRADER_WALLET);
   const note = book
     ? `${terminalName(terminal)} · ${analysis.summary.trades} closed · ${analysis.summary.spanLabel}`
     : terminalName(terminal);

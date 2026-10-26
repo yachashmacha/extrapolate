@@ -105,9 +105,9 @@ function patterns(winners: RoundTrip[], losers: RoundTrip[]): Pattern[] {
   for (const trade of all) {
     const mc = mcBand(trade.entryMarketCapUsd);
     if (mc) add(trade, `mc:${mc}`, `Entry market cap ${mc}`);
-    add(trade, `size:${sizeBand(trade.amountUsd)}`, `Ticket ${sizeBand(trade.amountUsd)}`);
+    add(trade, `size:${sizeBand(trade.amountUsd)}`, `Size ${sizeBand(trade.amountUsd).toLowerCase()}`);
     add(trade, `hold:${holdBand(trade.holdMinutes)}`, `Held ${holdBand(trade.holdMinutes).toLowerCase()}`);
-    add(trade, `session:${sessionName(trade)}`, `${sessionName(trade)} session`);
+    add(trade, `session:${sessionName(trade)}`, sessionName(trade));
     add(trade, `kol:${kolMode(trade)}`, kolModeLabel(kolMode(trade)));
     for (const meta of trade.metas) add(trade, `meta:${meta}`, META_LABEL[meta]);
     for (const kol of trade.kols) {
@@ -243,13 +243,13 @@ function annotate(
 function lossNote(trade: RoundTrip, winners: RoundTrip[]): string {
   const peers = winners.filter((winner) => winner.metas.some((meta) => trade.metas.includes(meta)));
   const pool = peers.length >= 3 ? peers : winners;
-  if (pool.length === 0) return "There are no winning trades in this book to set beside this one yet.";
+  if (pool.length === 0) return "There are no winning trades to set beside this one yet.";
   const meta = META_LABEL[trade.metas[0] ?? "other"].toLowerCase();
   const scope = peers.length >= 3 ? `Winners in ${meta}` : "Winners";
   const kols = topNames(pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kolLabel(kol))), 2);
   const kolBit = kols.length > 0 ? `, with ${kols.join(" or ")} already in` : "";
   const yours = trade.kols.length === 0 ? "no tagged KOL" : trade.kols.map((kol) => `${kolLabel(kol)} ${kol.timing}`).join(", ");
-  return `${scope} in this book entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and were held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtCoin(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}. The hold is a comparison, not a target.`;
+  return `${scope} in your trades entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and were held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtCoin(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}. The hold is a comparison, not a target.`;
 }
 
 function winNote(trade: RoundTrip, winners: RoundTrip[], losers: RoundTrip[]): string {
@@ -259,7 +259,7 @@ function winNote(trade: RoundTrip, winners: RoundTrip[], losers: RoundTrip[]): s
     trade.entryMarketCapUsd > 0 && loserMc > trade.entryMarketCapUsd * 1.5
       ? ` The losing entries sat nearer ${fmtMc(loserMc)}.`
       : "";
-  return `Sits with the winning cluster in this book: ${fmtCoin(trade.entryMarketCapUsd)} entry, ${fmtUsdPlain(trade.amountUsd)} ticket, ${fmtHold(trade.holdMinutes)} hold, ${sessionName(trade).toLowerCase()}.${mcBit}`;
+  return `Sits with the winners: ${fmtCoin(trade.entryMarketCapUsd)} entry, ${fmtUsdPlain(trade.amountUsd)} size, ${fmtHold(trade.holdMinutes)} hold, ${sessionName(trade).toLowerCase()}.${mcBit}`;
 }
 
 function writeLede(
@@ -273,17 +273,17 @@ function writeLede(
       : "Every closed trade in this window is red. The desk needs some green trades before a repeatable habit shows up.";
   }
   const kols = winners.topKols.length > 0 ? ` ${winners.topKols.slice(0, 2).join(" and ")} show up on that side.` : "";
-  return `In this book, winners cluster near ${fmtMc(winners.medianEntryMc)} market cap, about ${fmtUsdPlain(winners.medianSize)} a ticket, held around ${fmtHold(winners.medianHold)}, mostly in the ${winners.topSession.toLowerCase()} session.${kols} Losers cluster near ${fmtMc(losers.medianEntryMc)}, about ${fmtUsdPlain(losers.medianSize)} a ticket, mostly in the ${losers.topSession.toLowerCase()} session, in ${losers.topMeta.toLowerCase()}. The book is ${fmtUsd(summary.netPnlUsd)} over ${summary.trades} closed trades. The notes below describe the gap between those two clusters. They are this book's record.`;
+  return `In your trades, winners landed near ${fmtMc(winners.medianEntryMc)} market cap, about ${fmtUsdPlain(winners.medianSize)} a trade, held around ${fmtHold(winners.medianHold)}, mostly ${winners.topSession.toLowerCase()}.${kols} Losers landed near ${fmtMc(losers.medianEntryMc)}, about ${fmtUsdPlain(losers.medianSize)} a trade, mostly ${losers.topSession.toLowerCase()}, in ${losers.topMeta.toLowerCase()}. Net is ${fmtUsd(summary.netPnlUsd)} over ${summary.trades} closed trades. The notes below are the gap between those two groups. That is your record.`;
 }
 
 function thinLede(count: number): string {
-  return `${count} closed round trip${count === 1 ? "" : "s"} so far. Comparisons start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Three base rules start on: exit under half the position, a base trade of at most 10% of the portfolio at the time of the trade, and no more than 50 closed trades in a day.`;
+  return `${count} closed trade${count === 1 ? "" : "s"} so far. Comparisons start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Three base rules start on: exit under half the position, a base trade of at most 10% of the portfolio at the time of the trade, and no more than 50 closed trades in a day.`;
 }
 
 function kolModeLabel(modeName: ReturnType<typeof kolMode>): string {
   if (modeName === "early") return "A KOL was already in";
   if (modeName === "late") return "A KOL showed up only after";
-  return "No KOL tagged";
+  return "No KOL";
 }
 
 function topNames(names: string[], limit: number): string[] {

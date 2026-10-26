@@ -28,12 +28,12 @@ export default function HomePage() {
           <p className="kicker">Memecoin trading desk</p>
           <h1>See the trade you keep repeating.</h1>
           <p className="lede">
-            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin round trip. It lines the winners up against the losers in this book: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL. Three rules start on: exit if price falls below half the position, keep the base trade to 10% of the portfolio at the time of the trade, and stop at 50 closed trades in a day.
+            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin trade. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL. Three rules start on: exit if price falls below half the position, keep the base trade to 10% of the portfolio at the time of the trade, and stop at 50 closed trades in a day.
           </p>
           <ul className="facts">
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
-            <li><b>Reading</b><span>What the green trades shared. What the red trades shared. The comparison in this book.</span></li>
-            <li><b>News</b><span>The wires, the Solana pairs being boosted, and the X posts those coins link.</span></li>
+            <li><b>Reading</b><span>What the green trades shared. What the red trades shared.</span></li>
+            <li><b>News</b><span>Headlines, the Solana pairs being boosted, and the X posts those coins link.</span></li>
           </ul>
         </div>
         <ConnectCard />
@@ -42,7 +42,7 @@ export default function HomePage() {
         <LiveHome />
       </Suspense>
       <footer className="footer">
-        <span>Extrapolate mirrors this wallet’s fills. It is not a signal service.</span>
+        <span>Extrapolate mirrors this wallet’s trades. It is not a signal service.</span>
         <span>Three base rules start on. Add your own, or turn those off.</span>
       </footer>
     </main>
@@ -59,7 +59,7 @@ async function LiveHome() {
       <HomePreview
         analysis={analysis}
         kicker={shortAddress(TRADER_WALLET)}
-        detail={`${analysis.summary.trades} closed fills from this wallet, ${analysis.summary.spanLabel}. Entry market cap is the fill price times the supply now.${cash}`}
+        detail={`${analysis.summary.trades} closed trades from this wallet, ${analysis.summary.spanLabel}. Entry market cap is the buy price times the supply now.${cash}`}
         ticketUsd={bounds.ticketUsd}
       />
     );

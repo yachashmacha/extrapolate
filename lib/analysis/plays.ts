@@ -62,10 +62,10 @@ export function buildKeeps(trades: RoundTrip[], _terminal: TerminalId): PlayCard
       title: "The entry range that paid",
       shortLabel: `Under ${fmtMc(mc.cut)}`,
       evidence: portrait(mc.good, `Entries under ${fmtMc(mc.cut)} market cap`),
-      rule: `In this book, the winners clustered near ${fmtMc(medianMc)} market cap and under ${fmtMc(mc.cut)}.`,
+      rule: `In your trades, the winners landed near ${fmtMc(medianMc)} market cap and under ${fmtMc(mc.cut)}.`,
       steps: [
-        `The paying range in this book is under ${fmtMc(mc.cut)}. That line is this book's.`,
-        "When a coin leaves that range, the comparison above is what this book shows. The paying entries were the smaller ones.",
+        `The range that paid in your trades is under ${fmtMc(mc.cut)}. That line comes from your trades.`,
+        "When a coin leaves that range, the comparison above is what your trades show. The entries that paid were the smaller ones.",
       ],
       trades: mc.good,
       damage: net(mc.good),
@@ -77,13 +77,13 @@ export function buildKeeps(trades: RoundTrip[], _terminal: TerminalId): PlayCard
     keeps.push({
       id: "keep-size",
       category: "size",
-      title: "The ticket size that paid",
+      title: "The trade size that paid",
       shortLabel: `About ${fmtUsdPlain(medianSize)}`,
-      evidence: portrait(size.good, `Tickets under ${fmtUsdPlain(size.cut)}`),
-      rule: `In this book, the winning tickets sat near ${fmtUsdPlain(medianSize)}. That is the size they actually used.`,
+      evidence: portrait(size.good, `Trades under ${fmtUsdPlain(size.cut)}`),
+      rule: `In your trades, the winning trades sat near ${fmtUsdPlain(medianSize)}. That is the size they actually used.`,
       steps: [
-        `The preset that matches those tickets is ${fmtUsdPlain(medianSize)}.`,
-        "A stronger setup in this book did not get a larger ticket. Size stayed put.",
+        `The size that matches those trades is ${fmtUsdPlain(medianSize)}.`,
+        "A stronger setup in your trades did not get a larger trade. Size stayed put.",
       ],
       trades: size.good,
       damage: net(size.good),
@@ -100,11 +100,11 @@ export function buildKeeps(trades: RoundTrip[], _terminal: TerminalId): PlayCard
       evidence: portrait(early, "Trades with a KOL already in"),
       rule:
         names.length > 0
-          ? `In this book, the trades where ${joinOr(names)} was already in the coin finished green, at the base size. That order is not a confirmation, and it does not change the size.`
-          : "In this book, trades with a tagged wallet already in finished green, at the base size. That order is not a confirmation, and it does not change the size.",
+          ? `In your trades, the trades where ${joinOr(names)} was already in the coin finished green, at the base size. That order is not a confirmation, and it does not change the size.`
+          : "In your trades, trades with a tracked wallet already in finished green, at the base size. That order is not a confirmation, and it does not change the size.",
       steps: [
-        "Tag the wallet on the fill the same day, with the timing: before you, with you, or after you.",
-        "A wallet already in is a sequence this book can count. It does not confirm the trade, and it does not change the size.",
+        "Tag the wallet on the trade the same day, with the timing: before you, with you, or after you.",
+        "A wallet already in is an order your trades can count. It does not confirm the trade, and it does not change the size.",
       ],
       trades: early,
       damage: net(early),
@@ -132,11 +132,11 @@ function entryCandidate(mc: Split, desk: string, size: Split | null): Candidate 
     title: `Cap new buys at ${fmtMc(mc.cut)}`,
     shortLabel: `Above ${fmtMc(mc.cut)}`,
     evidence: `${portrait(mc.bad, `Entries at ${fmtMc(mc.cut)} market cap and above`)} ${portrait(mc.good, `Entries under ${fmtMc(mc.cut)}`)}`,
-    rule: `In this book, entries at or above ${fmtMc(mc.cut)} market cap lost. The tickets that paid sat near ${fmtUsdPlain(winnerSize)}, under that cap.`,
+    rule: `In your trades, entries at or above ${fmtMc(mc.cut)} market cap lost. The trades that paid sat near ${fmtUsdPlain(winnerSize)}, under that cap.`,
     steps: [
-      `On ${desk}, the losing band in this book starts at ${fmtMc(mc.cut)}. Read the market cap before the buy click.`,
-      `The paying tickets sat near ${fmtUsdPlain(winnerSize)}. A higher market cap does not earn a larger ticket.`,
-      "After ten sessions, open this desk again. The line is this book's, and it stays only while that upper band is still red.",
+      `On ${desk}, the losing range in your trades starts at ${fmtMc(mc.cut)}. Read the market cap before you buy.`,
+      `The trades that paid sat near ${fmtUsdPlain(winnerSize)}. A higher market cap does not earn a larger size.`,
+      "After ten days, open this desk again. The line comes from your trades, and it stays only while that higher range is still red.",
     ],
     trades: mc.bad,
     damage: mc.damage,
@@ -148,14 +148,14 @@ function sizeCandidate(size: Split, desk: string): Candidate {
   return {
     id: "fix-size",
     category: "size",
-    title: `Preset the ticket at ${fmtUsdPlain(base)}`,
-    shortLabel: `Ticket over ${fmtUsdPlain(size.cut)}`,
-    evidence: `${portrait(size.bad, `Tickets of ${fmtUsdPlain(size.cut)} and up`)} ${portrait(size.good, `Tickets under ${fmtUsdPlain(size.cut)}`)}`,
-    rule: `In this book, the tickets that paid sat near ${fmtUsdPlain(base)}. Tickets at ${fmtUsdPlain(size.cut)} or above are the ones that lost.`,
+    title: `Set the size at ${fmtUsdPlain(base)}`,
+    shortLabel: `Size over ${fmtUsdPlain(size.cut)}`,
+    evidence: `${portrait(size.bad, `Trades of ${fmtUsdPlain(size.cut)} and up`)} ${portrait(size.good, `Trades under ${fmtUsdPlain(size.cut)}`)}`,
+    rule: `In your trades, the trades that paid sat near ${fmtUsdPlain(base)}. Trades at ${fmtUsdPlain(size.cut)} or above are the ones that lost.`,
     steps: [
-      `On ${desk}, the preset that matches the paying tickets in this book is ${fmtUsdPlain(base)}.`,
-      "The same preset on the next trade after a win keeps the size. A good read does not raise it.",
-      "After ten sessions, compare the preset with the new median winner in this book. Move it only if the winners moved.",
+      `On ${desk}, the size that matches the trades that paid is ${fmtUsdPlain(base)}.`,
+      "The same size on the next trade after a win keeps the size. A good read does not raise it.",
+      "After ten days, compare that size with the new median winner. Move it only if the winners moved.",
     ],
     trades: size.bad,
     damage: size.damage,
@@ -178,19 +178,19 @@ function callerCandidate(
   const who = names.length > 0 ? names.join(" or ") : "one tagged KOL";
     const late =
     lateNames.length > 0
-      ? ` ${joinAnd(lateNames)} showed up after entries that lost. A late post is not a reason to stay in or to add.`
+      ? ` ${joinAnd(lateNames)} showed up after entries that lost. A late post is not a reason to stay in or to add size.`
       : "";
   return {
     id: "fix-callers",
     category: "callers",
-    title: names.length > 0 ? `In this book, ${joinOr(names)} was in before the winners` : "In this book, a tracked wallet was in before the winners",
+    title: names.length > 0 ? `In your trades, ${joinOr(names)} was in before the winners` : "In your trades, a tracked wallet was in before the winners",
     shortLabel: "No early wallet",
     evidence: `${portrait(quiet, "Trades with no tracked wallet in before you")}${late} ${portrait(early, "Trades with a tracked wallet already in")}`,
-    rule: `In this book, trades with ${joinOr(names.length > 0 ? names : [who])} already in finished ahead of trades with nobody in before the entry. The buy still has to sit under ${cap} at the base size. A tracked wallet is not a confirmation.`,
+    rule: `In your trades, trades with ${joinOr(names.length > 0 ? names : [who])} already in finished ahead of trades with nobody in before the entry. The buy still has to sit under ${cap} at the base size. A tracked wallet is not a confirmation.`,
     steps: [
-      `The desk checks the tracked wallets on each coin and shows the name. Add anyone still missing from a ${desk} fill on the tape, with the timing.`,
-      `A wallet that posts after the fill is a later print. It does not confirm the entry, and it is not a reason to add.`,
-      "Re-read the table after two weeks. The names that still sit on the green side are this book's record.",
+      `The desk checks the tracked wallets on each coin and shows the name. Add anyone still missing from a ${desk} trade, with the timing.`,
+      `A wallet that posts after the buy is a later buy. It does not confirm the entry, and it is not a reason to add size.`,
+      "Re-read the table after two weeks. The names that still sit on the green side are your record.",
     ],
     trades: quiet,
     damage: -net(quiet),
@@ -214,10 +214,10 @@ function narrativeCandidates(trades: RoundTrip[], desk: string, mc: Split | null
         title: `${label} only under ${fmtMc(split.cut)}`,
         shortLabel: `${label} above ${fmtMc(split.cut)}`,
         evidence: `${portrait(split.bad, `${label} at ${fmtMc(split.cut)} and above`)} ${portrait(split.good, `${label} under ${fmtMc(split.cut)}`)}`,
-        rule: `In this book, ${label} was green under ${fmtMc(split.cut)} market cap, at the base size. Above that, it was red. A tracked wallet does not move that line or the size.`,
+        rule: `In your trades, ${label} was green under ${fmtMc(split.cut)} market cap, at the base size. Above that, it was red. A tracked wallet does not move that line or the size.`,
         steps: [
-          `When the narrative is ${label.toLowerCase()}, the market-cap check comes before the ticker. ${fmtMc(split.cut)} is the line on this book.`,
-          `On ${desk}, this book's line for ${label.toLowerCase()} is ${fmtMc(split.cut)}. A loud timeline does not move it.`,
+          `When the narrative is ${label.toLowerCase()}, check the market cap before the ticker. ${fmtMc(split.cut)} is the line in your trades.`,
+          `On ${desk}, your line for ${label.toLowerCase()} is ${fmtMc(split.cut)}. A loud timeline does not move it.`,
         ],
         trades: split.bad,
         damage: split.damage,
@@ -229,14 +229,14 @@ function narrativeCandidates(trades: RoundTrip[], desk: string, mc: Split | null
       blunts.push({
         id: `fix-meta-${meta}`,
         category: "narrative",
-        title: `${label} is a leak in this book`,
+        title: `${label} is losing in your trades`,
         shortLabel: label,
         evidence: portrait(subset, label),
-        rule: `${label} lost in this book. A later look, if any, stays at half the base size and under ${mc ? fmtMc(mc.cut) : "the market-cap line in this book"}. A tracked wallet does not raise that size.`,
+        rule: `${label} lost in your trades. A later look, if any, stays at half the base size and under ${mc ? fmtMc(mc.cut) : "the market-cap line in your trades"}. A tracked wallet does not raise that size.`,
         steps: [
-          `${label} is a narrative this book already lost. Extended means the coin is already up the range this book measured.`,
-          "A later ticket, if any, stays at half the base size. This book does not show a full-size ticket working there.",
-          "If the next ten in this book are still red, the comparison stands.",
+          `${label} is a narrative you already lost. That means the coin is already up the range your trades measured.`,
+          "A later trade, if any, stays at half the base size. Your trades do not show a full-size trade working there.",
+          "If the next ten trades are still red, the comparison stands.",
         ],
         trades: subset,
         damage: -net(subset),
@@ -280,16 +280,16 @@ function behaviorCandidate(
     options.push({
       id: "fix-overnight",
       category: "behavior",
-      title: "Overnight lost in this book",
+      title: "Overnight lost",
       shortLabel: "Overnight",
-      evidence: `${portrait(overnight, "Overnight entries, 10pm–6am ET")} ${portrait(day, "Entries from 6am–10pm ET")}`,
-      rule: "In this book, entries from 10pm to 6am ET lost against the daytime entries. The split is this book's.",
+      evidence: `${portrait(overnight, "Overnight buys, 10pm–6am ET")} ${portrait(day, "Buys from 6am–10pm ET")}`,
+      rule: "In your trades, buys from 10pm to 6am ET lost against the daytime buys. The split comes from your trades.",
       steps: [
-        "The overnight entries in this book are the ones that lost. A coin still open in the morning can be judged against the market-cap line.",
-        holdNote ?? "In this book, the daytime entries are the ones that paid. An overnight print is not a separate edge.",
+        "The overnight buys are the ones that lost. A coin still open in the morning can be judged against the market-cap line.",
+        holdNote ?? "In your trades, the daytime buys are the ones that paid. An overnight buy is not a separate edge.",
         revenge.length >= 4 && net(revenge) < 0
-          ? `After a red close, the next ticket in this book that paid stayed near ${fmtUsdPlain(size ? median(size.good.map((trade) => trade.amountUsd)) : median(day.map((trade) => trade.amountUsd)))}. A larger ticket is not what those closes show.`
-          : "After a red close, the next ticket stays on the same preset. This book does not show a larger ticket working there.",
+          ? `After a red close, the next trade that paid stayed near ${fmtUsdPlain(size ? median(size.good.map((trade) => trade.amountUsd)) : median(day.map((trade) => trade.amountUsd)))}. A larger trade is not what those closes show.`
+          : "After a red close, the next trade stays the same size. Your trades do not show a larger trade working there.",
       ],
       trades: overnight,
       damage: -net(overnight),
@@ -303,11 +303,11 @@ function behaviorCandidate(
       category: "behavior",
       title: "The trade after a loss stays small",
       shortLabel: "Revenge size",
-      evidence: portrait(revenge, "The next ticket within 30 minutes of a loss that was about your usual size, when it was at least 1.5× your median and at least 1.5× that losing ticket"),
-      rule: `After a red close, the next ticket that paid in this book sat near ${fmtUsdPlain(base)}. A larger ticket is not what those closes show.`,
+      evidence: portrait(revenge, "The next trade within 30 minutes of a loss that was about your usual size, when it was at least 1.5× your median and at least 1.5× that losing trade"),
+      rule: `After a red close, the next trade that paid sat near ${fmtUsdPlain(base)}. A larger trade is not what those closes show.`,
       steps: [
-        `When a trade closes red, the preset that matches this book is ${fmtUsdPlain(base)} until the next green close.`,
-        "The size stays there. This book does not show a larger ticket working after that red close.",
+        `When a trade closes red, the size that matches your trades is ${fmtUsdPlain(base)} until the next green close.`,
+        "The size stays there. Your trades do not show a larger trade working after that red close.",
       ],
       trades: revenge,
       damage: -net(revenge),
@@ -341,9 +341,9 @@ function bestMetaKeep(trades: RoundTrip[]): Candidate | null {
       title: `${label} paid`,
       shortLabel: label,
       evidence: portrait(subset, label),
-      rule: `In this book, ${label.toLowerCase()} finished green. Median entry in this set was ${fmtMc(median(subset.map((trade) => trade.entryMarketCapUsd)))}. A tracked wallet does not raise the size.`,
+      rule: `In your trades, ${label.toLowerCase()} finished green. Median entry in this set was ${fmtMc(median(subset.map((trade) => trade.entryMarketCapUsd)))}. A tracked wallet does not raise the size.`,
       steps: [
-        `A ${label.toLowerCase()} coin inside that entry range is what this book already shows.`,
+        `A ${label.toLowerCase()} coin inside that entry range is what your trades already show.`,
         "The narrative is a tag on the coin. It is not a reason to raise size.",
       ],
       trades: subset,
@@ -363,7 +363,7 @@ function holdSentence(trades: RoundTrip[]): string {
   const good = bands.filter((band) => band.trades.length >= 4 && net(band.trades) > 0).sort((a, b) => net(b.trades) - net(a.trades))[0];
   const bad = bands.filter((band) => band.trades.length >= 4 && net(band.trades) < 0).sort((a, b) => net(a.trades) - net(b.trades))[0];
   if (!good || !bad) return "";
-  return `In this book, holds of ${good.label} went ${record(good.trades)}. Holds ${bad.label} went ${record(bad.trades)}. That is this book's record, not a hold to copy.`;
+  return `In your trades, holds of ${good.label} went ${record(good.trades)}. Holds ${bad.label} went ${record(bad.trades)}. That is your record, not a hold to copy.`;
 }
 
 function joinOr(names: string[]): string {
@@ -421,7 +421,7 @@ function jaccard(left: string[], right: string[]): number {
 }
 
 function portrait(trades: RoundTrip[], label: string): string {
-  return `${label}: ${record(trades)}, net ${fmtUsd(net(trades))}, median entry ${fmtMc(median(trades.map((trade) => trade.entryMarketCapUsd)))}, median ticket ${fmtUsdPlain(median(trades.map((trade) => trade.amountUsd)))}.`;
+  return `${label}: ${record(trades)}, net ${fmtUsd(net(trades))}, median entry ${fmtMc(median(trades.map((trade) => trade.entryMarketCapUsd)))}, median size ${fmtUsdPlain(median(trades.map((trade) => trade.amountUsd)))}.`;
 }
 
 function record(trades: RoundTrip[]): string {

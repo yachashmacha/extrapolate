@@ -227,7 +227,7 @@ describe("trading habits", () => {
     ];
     const habits = tradingHabits(trades);
     const pressed = habits.negative.find((item) => item.id === "size-after-win");
-    expect(pressed?.title).toBe("House-money effect");
+    expect(pressed?.title).toBe("Sized up after a win");
     expect(pressed?.mark).toBe("Bias");
     expect(pressed?.detail).toMatch(/Pressing the last win/);
     expect(pressed?.detail).toMatch(/30 minutes/);
@@ -248,7 +248,7 @@ describe("trading habits", () => {
         }),
       ];
     });
-    expect(tradingHabits(trades).negative.some((item) => item.title === "House-money effect")).toBe(false);
+    expect(tradingHabits(trades).negative.some((item) => item.title === "Sized up after a win")).toBe(false);
   });
 
   it("names the disposition effect only when the red trades were held longer", () => {
@@ -312,7 +312,7 @@ describe("trading habits", () => {
       ),
     ];
     const habit = tradingHabits(trades).negative.find((item) => item.id === "size-above-usual");
-    expect(habit?.title).toBe("The ticket was well above your usual size");
+    expect(habit?.title).toBe("The trade was well above your usual size");
     expect(habit?.mark).toBe("Bias");
     expect(habit?.detail).toMatch(/at least 1\.5× your usual \$20/);
     expect(habit?.detail).toMatch(/4×/);
@@ -367,7 +367,7 @@ describe("trading habits", () => {
     expect(bounds.ticketUsd).toBe(10);
     expect(habit?.detail).toMatch(/Within 30 minutes of a red close/);
     expect(habit?.detail).not.toMatch(/loss-chasing/i);
-    expect(habit?.detail ?? "").not.toMatch(/next ticket stays at/);
+    expect(habit?.detail ?? "").not.toMatch(/next trade stays at/);
     expect(habit?.detail ?? "").not.toMatch(/sit inside/);
   });
 });

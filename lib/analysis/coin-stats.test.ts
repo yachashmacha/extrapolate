@@ -93,7 +93,7 @@ describe("verified coin tape", () => {
     const shown = applyVerifiedTape(trade(), tape);
     const line = describeVerifiedTape(shown);
     expect(line).toBe(
-      `Volume ${fmtCoin(VOLUME_A + VOLUME_B)} across 2 daily candles, Oct 23, 2026–Oct 25, 2026. Pool close went from ${fmtCoin(stats.firstMarketCapUsd ?? 0)} to ${fmtCoin(stats.lastMarketCapUsd ?? 0)} on those candles.`,
+      `Volume ${fmtCoin(VOLUME_A + VOLUME_B)} across 2 daily candles, Oct 23, 2026–Oct 25, 2026. Market cap went from ${fmtCoin(stats.firstMarketCapUsd ?? 0)} to ${fmtCoin(stats.lastMarketCapUsd ?? 0)} on those candles.`,
     );
     expect(line).not.toMatch(/76,500|1,200|\$20k|whole life|throughout its life/i);
   });

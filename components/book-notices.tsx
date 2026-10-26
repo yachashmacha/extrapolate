@@ -7,7 +7,7 @@ export function BookNotices({ book }: { book: Book }) {
   return (
     <>
       {book.source === "sample" ? (
-        <p className="banner">Sample book of invented coins. The arithmetic is real. Your wallet is not in these numbers.</p>
+        <p className="banner">Sample trades on invented coins. The arithmetic is real. Your wallet is not in these numbers.</p>
       ) : null}
       {book.warnings.map((warning) => (
         <p key={warning} className="warn">

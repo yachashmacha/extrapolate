@@ -212,7 +212,7 @@ export function describeVerifiedTape(trade: Pick<
   const fromMc = trade.poolCloseFromUsd;
   const toMc = trade.poolCloseToUsd;
   if (fromMc != null && fromMc > 0 && toMc != null && toMc > 0) {
-    line += ` Pool close went from ${fmtCoin(fromMc)} to ${fmtCoin(toMc)} on those candles.`;
+    line += ` Market cap went from ${fmtCoin(fromMc)} to ${fmtCoin(toMc)} on those candles.`;
   }
   return line;
 }

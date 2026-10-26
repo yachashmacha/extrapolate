@@ -143,15 +143,15 @@ export function Portfolio() {
           <Suggestions analysis={analysis} bounds={bounds} onShowTrades={showSuggestion} />
           <section className="section" id="feeds">
             <div className="section-head">
-              <h2>The tape</h2>
-              <p>Winners on one side, losers on the other. Pick a day to review that session.</p>
+              <h2>Trades</h2>
+              <p>Winners on one side, losers on the other. Pick a day to review that day's trades.</p>
             </div>
             <div className="filter-row">
               <button type="button" className="chip" aria-pressed={scope.kind === "month"} onClick={() => setScope({ kind: "month" })}>
                 This month
               </button>
               <button type="button" className="chip" aria-pressed={scope.kind === "book"} onClick={() => setScope({ kind: "book" })}>
-                Whole book
+                All trades
               </button>
               {scope.kind === "day" ? (
                 <button type="button" className="chip" aria-pressed="true" onClick={() => setScope({ kind: "month" })}>

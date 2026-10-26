@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "News — extrapolate",
-  description: "Crypto and memecoin headlines from the wires, the Solana pairs DexScreener is boosting, and the X posts those coins link when the text is about the market.",
+  description: "Crypto and memecoin headlines, the Solana pairs DexScreener is boosting, and the X posts those coins link when the text is about the market.",
 };
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ lane?: string }> }) {

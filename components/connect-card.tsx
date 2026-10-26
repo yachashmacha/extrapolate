@@ -89,7 +89,7 @@ export function ConnectCard() {
       </div>
       <details className="csv">
         <summary>Import a CSV of closed trades</summary>
-        <p className="note">Use this when you already export fills, or when a public RPC cannot see far enough back.</p>
+        <p className="note">Use this when you already export your trades, or when a public RPC cannot see far enough back.</p>
         <label className="field">
           <span>CSV file</span>
           <input

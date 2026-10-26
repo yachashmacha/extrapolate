@@ -101,13 +101,13 @@ describe("end of day report", () => {
     expect(report.score).toBeLessThan(100);
     expect(report.rational).toBe(false);
     expect(report.biases).toEqual([]);
-    expect(report.lead).toMatch(/tickets stayed small/);
+    expect(report.lead).toMatch(/trades stayed small/);
     expect(report.lead).toMatch(/nothing sized up after a loss/);
     expect(report.lead).not.toMatch(/more rationally/);
     expect(report.why).toMatch(/did not repeat a costly pattern/);
     expect(report.why).toMatch(/nothing sized up after a loss/);
     expect(report.why).toMatch(/red close keeps the percent under 100/);
-    expect(RATIONALITY_NOTE).toMatch(/100% is a day the fills did not repeat the costly patterns/);
+    expect(RATIONALITY_NOTE).toMatch(/100% is a day the trades did not repeat the costly patterns/);
     expect(RATIONALITY_NOTE).toMatch(/red day cannot be 100%/);
     expect(RATIONALITY_NOTE).not.toMatch(/10 is a day/);
   });
@@ -171,7 +171,7 @@ describe("end of day report", () => {
     const report = endOfDayReport([...earlier, ...day], "2026-10-24");
     expect(report.biases.map((bias) => bias.title)).not.toContain("Revenge trading");
     expect(report.lead).not.toMatch(/revenge trading/i);
-    expect(report.biases.map((bias) => bias.title)).toContain("The ticket was well above your usual size");
+    expect(report.biases.map((bias) => bias.title)).toContain("The trade was well above your usual size");
     expect(report.lead).toMatch(/1\.5×/);
     expect(report.lead).not.toMatch(/pool|% of the coin|% of supply/i);
   });
@@ -190,7 +190,7 @@ describe("end of day report", () => {
     expect(report.score).toBeLessThan(100);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).not.toContain("Revenge trading");
-    expect(report.lead).toMatch(/tickets stayed small/);
+    expect(report.lead).toMatch(/trades stayed small/);
     expect(report.lead).not.toMatch(/more rationally/);
   });
 
@@ -250,11 +250,11 @@ describe("end of day report", () => {
     expect(report.score).toBeLessThan(100);
     expect(report.rational).toBe(false);
     expect(report.biases.map((bias) => bias.title)).not.toContain("FOMO");
-    expect(report.lead).toMatch(/tickets stayed small/);
+    expect(report.lead).toMatch(/trades stayed small/);
     expect(report.lead).not.toMatch(/FOMO|75%|more rationally/);
     expect(report.why).not.toMatch(/near the high|graduation|bond/i);
     expect(report.why).toMatch(/did not repeat a costly pattern/);
-    expect(report.why).toMatch(/no entry faded after the fill/);
+    expect(report.why).toMatch(/no trade faded after the entry/);
   });
 
   it("does not call a missing post-entry read a fade", () => {
@@ -390,7 +390,7 @@ describe("end of day report", () => {
     const report = endOfDayReport([...earlier, ...day], "2026-10-24");
     const copy = `${report.lead} ${report.why} ${report.biases.map((bias) => bias.sentence).join(" ")}`;
     expect(report.score).toBe(45);
-    expect(report.biases.map((bias) => bias.title)).toContain("The ticket was well above your usual size");
+    expect(report.biases.map((bias) => bias.title)).toContain("The trade was well above your usual size");
     expect(report.lead).toMatch(/1\.5×/);
     expect(report.lead).toMatch(/4×/);
     expect(report.lead).toMatch(/\$20/);
@@ -573,7 +573,7 @@ describe("end of day report", () => {
     });
     expect(report.pnlUsd).toBeGreaterThan(0);
     expect(report.score).toBeLessThan(off.score ?? 100);
-    expect(report.lead).toMatch(/\$60 ticket was over the \$50 line/);
+    expect(report.lead).toMatch(/\$60 trade was over the \$50 line/);
     expect(report.lead).toMatch(/\$500 portfolio at that entry/);
     expect(report.lead).not.toMatch(/\$700/);
     expect(report.best[0]?.note).toMatch(/\$60 against a \$50 line on a \$500 portfolio/);

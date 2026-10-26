@@ -62,7 +62,7 @@ export function GropyControls() {
             rows={3}
             maxLength={PROMPT_LIMIT}
             value={prompt}
-            placeholder="Only copy wallets buying under $50k. Skip a coin you already fired today. Size down after two red copies."
+            placeholder="Only copy wallets buying under $50k. Skip a coin you already stopped copying today. Size down after two red copies."
             onChange={(event) => setPrompt(event.target.value.slice(0, PROMPT_LIMIT))}
           />
         </label>

@@ -41,7 +41,7 @@ export function practiceTips(trades: AnnotatedTrade[], bounds?: BookBounds): Pra
 }
 
 export function kolBoughtLine(kols: KolTag[]): string {
-  if (kols.length === 0) return "No KOL tagged";
+  if (kols.length === 0) return "No KOL";
   const shown = kols.slice(0, 4).map((kol) => `${kolLabel(kol)}, ${timingLabel(kol.timing)}`);
   const more = kols.length > 4 ? ` · +${kols.length - 4} more` : "";
   return `${shown.join(" · ")}${more}`;
@@ -75,25 +75,25 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
 
   const actions: string[] = [];
   if (pastTicketOverCeiling(trade, book, bounds)) {
-    actions.push(`Keep the next ticket at ${fmtUsdPlain(ticket)}. ${ticketWhy(bounds)}`);
+    actions.push(`Keep the next trade at ${fmtUsdPlain(ticket)}. ${ticketWhy(bounds)}`);
   }
   if (trade.entryMarketCapUsd > 0 && passMc > 0 && trade.entryMarketCapUsd > passMc * (mcFromRule ? 1.05 : 1.5)) {
     actions.push(
       mcFromRule
         ? `Your rule “${bounds.mcRule}” draws the line at ${fmtMc(passMc)}. ${trade.symbol} was entered above it.`
-        : `In this book, the ${where} got in near ${fmtMc(passMc)}. ${trade.symbol} was entered above that.`,
+        : `In your trades, the ${where} got in near ${fmtMc(passMc)}. ${trade.symbol} was entered above that.`,
     );
   }
   const mode = kolMode(trade);
   if (mode !== "early" && earlyNames.length > 0 && ticket > 0) {
     const wait =
       mode === "late"
-        ? `In this book, the ${where} more often had ${joinOr(earlyNames)} in before the fill. A caller who arrives after ${trade.symbol} is a later print, not a confirmation.`
-        : `In this book, the ${where} more often had ${joinOr(earlyNames)} in before the fill. That sequence is not a confirmation.`;
+        ? `In your trades, the ${where} more often had ${joinOr(earlyNames)} in before the buy. A caller who shows up after ${trade.symbol} is a later buy, not a confirmation.`
+        : `In your trades, the ${where} more often had ${joinOr(earlyNames)} in before the buy. That order is not a confirmation.`;
     const sized =
       bounds.ticketReason === "account" || bounds.ticketReason === "account-rule"
-        ? `The ticket stays at ${fmtUsdPlain(ticket)} for this wallet.`
-        : `The ticket stays at ${fmtUsdPlain(ticket)}.`;
+        ? `The trade stays at ${fmtUsdPlain(ticket)} for this wallet.`
+        : `The trade stays at ${fmtUsdPlain(ticket)}.`;
     actions.push(`${wait} ${sized}`);
   }
   if (trade.revenge && ticket > 0) {
@@ -106,15 +106,15 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
     actions.push(
       bounds.overnightRule
         ? `Your rule says “${bounds.overnightRule}”. ${trade.symbol} was an overnight entry.`
-        : `In this book, the ${where} closed in the daytime sessions. ${trade.symbol} was an overnight entry.`,
+        : `In your trades, the ${where} closed during the day. ${trade.symbol} was an overnight buy.`,
     );
   }
   if (bounds.onePerCoin && trade.buys > 1) {
-    actions.push(`Your rule is one ticket per coin (“${bounds.onePerCoin}”). ${trade.symbol} was bought ${trade.buys} times.`);
+    actions.push(`Your rule is one trade per coin (“${bounds.onePerCoin}”). ${trade.symbol} was bought ${trade.buys} times.`);
   }
   if (actions.length === 0) {
     actions.push(
-      `Nothing else in this book separates ${trade.symbol} on size, cap, or session. The ${where} were held about ${fmtHold(winHold)}. ${trade.symbol} was held ${fmtHold(trade.holdMinutes)}. That hold is this book's record, not a target.`,
+      `Nothing else in your trades separates ${trade.symbol} on size, market cap, or time of day. The ${where} were held about ${fmtHold(winHold)}. ${trade.symbol} was held ${fmtHold(trade.holdMinutes)}. That hold is your record, not a target.`,
     );
   }
 
@@ -163,7 +163,7 @@ export function ticketWhy(bounds: BookBounds): string {
   if (bounds.ticketReason === "rule" && bounds.sizeRule) {
     return `Your rule sets it: “${bounds.sizeRule}”.`;
   }
-  return "That is the winning ticket in this book.";
+  return "That is the size the winning trades used.";
 }
 
 /** The day report quotes this whenever the portfolio and the size rule are both known. */
@@ -173,16 +173,16 @@ export function baseTicketSentence(bounds: BookBounds): string {
   const cap = fmtUsdPlain(bounds.accountUsd * bounds.portfolioShare);
   if (bounds.cashBinds) {
     const cash = bounds.cashUsd ?? bounds.accountUsd;
-    return `The base ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}, the cash on hand. Your rule “${bounds.portfolioRule}” is ${pct} of the portfolio (${cap}), and that is more than the ${fmtUsdPlain(cash)} you can spend.`;
+    return `The base trade stays at ${fmtUsdPlain(bounds.ticketUsd)}, the cash on hand. Your rule “${bounds.portfolioRule}” is ${pct} of the portfolio (${cap}), and that is more than the ${fmtUsdPlain(cash)} you can spend.`;
   }
   if (bounds.ticketReason === "account" || bounds.ticketReason === "account-rule") {
-    return `The base ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}, ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} portfolio. Your rule says “${bounds.portfolioRule}”.`;
+    return `The base trade stays at ${fmtUsdPlain(bounds.ticketUsd)}, ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} portfolio. Your rule says “${bounds.portfolioRule}”.`;
   }
-  return `The base ticket stays at ${fmtUsdPlain(bounds.ticketUsd)}, inside the ${cap} ceiling, ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} portfolio. Your rule says “${bounds.portfolioRule}”.`;
+  return `The base trade stays at ${fmtUsdPlain(bounds.ticketUsd)}, inside the ${cap} cap, ${pct} of the ${fmtUsdPlain(bounds.accountUsd)} portfolio. Your rule says “${bounds.portfolioRule}”.`;
 }
 
 function kolSentence(trade: AnnotatedTrade): string {
-  if (trade.kols.length === 0) return "No KOL was tagged on it.";
+  if (trade.kols.length === 0) return "No KOL was in the coin.";
   const bits = trade.kols.slice(0, 3).map((kol) => `${kolLabel(kol)} (${timingLabel(kol.timing)})`);
   const rest = trade.kols.length - bits.length;
   if (rest > 0) bits.push(`${rest} more tracked ${rest === 1 ? "wallet" : "wallets"}`);

@@ -19,7 +19,7 @@ export function TipFeed({
 }) {
   const sized = bounds.accountUsd
     ? `the ${fmtUsdPlain(bounds.accountUsd)} in this wallet`
-    : "the winning tickets in this book";
+    : "the winning trades";
   const rules =
     activeRules > 0
       ? ` Your ${activeRules} active ${activeRules === 1 ? "rule is" : "rules are"} part of the size.`
@@ -29,10 +29,10 @@ export function TipFeed({
       <div className="section-head">
         <h2>Tips</h2>
         <p>
-          One note for each losing trade. The size it names comes from {sized}.{rules} A caller in the coin leaves that size where it is. A comparison with the winners is this book's record.
+          One note for each losing trade. The size it names comes from {sized}.{rules} A caller in the coin leaves that size where it is. A comparison with the winners is your record.
         </p>
       </div>
-      {tips.length === 0 ? <p className="note">No losing trades in this book yet.</p> : null}
+      {tips.length === 0 ? <p className="note">No losing trades yet.</p> : null}
       <div className="feed-scroll">
         {tips.map((tip) => (
           <article key={tip.id} className={selectedId === tip.tradeId ? "trade panel picked" : "trade panel tip-card"}>
@@ -60,7 +60,7 @@ export function TipFeed({
             <p>{tip.tip}</p>
             <p className="note">{fmtWhen(tip.entryAt)} ET</p>
             <button type="button" className="ghost" onClick={() => onSelect(tip)} aria-pressed={selectedId === tip.tradeId}>
-              Show {tip.symbol} on the tape
+              Show {tip.symbol}
             </button>
           </article>
         ))}

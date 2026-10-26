@@ -43,7 +43,7 @@ export function bookBounds(input: {
   for (const rule of active) {
     const text = rule.text.trim();
     const lower = text.toLowerCase();
-    if (/one ticket|one coin|per coin|single ticket/.test(lower)) onePerCoin = text;
+    if (/one ticket|one trade per coin|one coin|per coin|single ticket/.test(lower)) onePerCoin = text;
     if (/overnight|10\s*pm|after 10|flat at night/.test(lower)) overnightRule = text;
     for (const found of findAmounts(text)) {
       if (found.kind === "mc") {

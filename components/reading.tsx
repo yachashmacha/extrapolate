@@ -12,7 +12,7 @@ const CATEGORY: Record<PlayCard["category"], string> = {
   size: "Size",
   callers: "KOLs",
   narrative: "Narrative",
-  behavior: "Session",
+  behavior: "Time of day",
 };
 
 export function Reading({
@@ -34,7 +34,7 @@ export function Reading({
         <Stat label="Net" value={fmtUsd(summary.netPnlUsd)} tone={summary.netPnlUsd >= 0 ? "good" : "bad"} />
         <Stat label="Win rate" value={`${summary.wins}/${summary.trades} · ${fmtRate(summary.winRate)}`} />
         <Stat label="Profit factor" value={summary.profitFactor === null ? "No red" : summary.profitFactor.toFixed(2)} />
-        <Stat label="Expectancy" value={fmtUsd(summary.expectancyUsd)} tone={summary.expectancyUsd >= 0 ? "good" : "bad"} />
+        <Stat label="Per trade" value={fmtUsd(summary.expectancyUsd)} tone={summary.expectancyUsd >= 0 ? "good" : "bad"} />
         <Stat label="Median hold" value={fmtHold(summary.medianHold)} />
       </div>
 
@@ -55,11 +55,11 @@ export function Reading({
             <tbody>
               <Row label="Net" win={fmtUsd(analysis.comparison.winners.netPnlUsd)} loss={fmtUsd(analysis.comparison.losers.netPnlUsd)} />
               <Row label="Median entry market cap" win={fmtMc(analysis.comparison.winners.medianEntryMc)} loss={fmtMc(analysis.comparison.losers.medianEntryMc)} />
-              <Row label="Median ticket" win={fmtUsdPlain(analysis.comparison.winners.medianSize)} loss={fmtUsdPlain(analysis.comparison.losers.medianSize)} />
+              <Row label="Median size" win={fmtUsdPlain(analysis.comparison.winners.medianSize)} loss={fmtUsdPlain(analysis.comparison.losers.medianSize)} />
               <Row label="Median hold" win={fmtHold(analysis.comparison.winners.medianHold)} loss={fmtHold(analysis.comparison.losers.medianHold)} />
-              <Row label="KOLs tagged per trade" win={analysis.comparison.winners.avgKols.toFixed(1)} loss={analysis.comparison.losers.avgKols.toFixed(1)} />
+              <Row label="KOLs per trade" win={analysis.comparison.winners.avgKols.toFixed(1)} loss={analysis.comparison.losers.avgKols.toFixed(1)} />
               <Row label="Usual narrative" win={analysis.comparison.winners.topMeta} loss={analysis.comparison.losers.topMeta} />
-              <Row label="Usual session" win={analysis.comparison.winners.topSession} loss={analysis.comparison.losers.topSession} />
+              <Row label="Usual time" win={analysis.comparison.winners.topSession} loss={analysis.comparison.losers.topSession} />
               <Row label="Names that show up" win={names(analysis.comparison.winners)} loss={names(analysis.comparison.losers)} />
               <Row label="Median liquidity now" win={fmtMc(analysis.comparison.winners.medianLiquidity)} loss={fmtMc(analysis.comparison.losers.medianLiquidity)} />
               {analysis.comparison.winners.medianLaunchMin >= 0 || analysis.comparison.losers.medianLaunchMin >= 0 ? (
@@ -73,7 +73,7 @@ export function Reading({
       <section className="section" id="curve">
         <div className="section-head">
           <h2>Closed equity</h2>
-          <p>Running PnL after each round trip. Open coins stay off this line.</p>
+          <p>Running PnL after each closed trade. Open coins stay off this line.</p>
         </div>
         <div className="panel">
           <EquityChart points={analysis.equity} />
@@ -83,7 +83,7 @@ export function Reading({
       <section className="section" id="patterns">
         <div className="section-head">
           <h2>What they shared</h2>
-          <p>A condition earns a place here when it covers the winners and skips the losers, or the other way around. Eighteen points of separation, minimum, and at least four trades.</p>
+          <p>A pattern shows up here when it covers the winners and skips the losers, or the other way around. The gap has to be at least 18 points, across at least four trades.</p>
         </div>
         {analysis.patterns.length === 0 ? (
           <p className="note">Not enough separation yet. Tag KOLs and narratives, or wait for more closed trades.</p>
@@ -99,10 +99,10 @@ export function Reading({
       <section className="section" id="fixes">
         <div className="section-head">
           <h2>Where it goes wrong</h2>
-          <p>Suggestions from the losing trades: entry, size, KOLs, narrative, and the session. Each one names the trades it came from. Your rules live on Portfolio. Two start on, and you can add, edit, or turn them off.</p>
+          <p>Suggestions from the losing trades: entry, size, KOLs, narrative, and time of day. Each one names the trades it came from. Your rules live on Portfolio. Three start on, and you can add, edit, or turn them off.</p>
         </div>
         {analysis.fixes.length === 0 ? (
-          <p className="note">{analysis.thin ? "Suggestions wait for 8 closed trades." : "No leak cleared the sample bar."}</p>
+          <p className="note">{analysis.thin ? "Suggestions wait for 8 closed trades." : "Nothing in the losing trades stands out yet."}</p>
         ) : (
           <div className="play-grid">
             {analysis.fixes.map((play) => (
@@ -115,10 +115,10 @@ export function Reading({
       <section className="section" id="keeps">
         <div className="section-head">
           <h2>Where it goes right</h2>
-          <p>Protect these. They are the conditions already paying for the leaks above.</p>
+          <p>Keep doing these. They are what already made money next to the losses above.</p>
         </div>
         {analysis.keeps.length === 0 ? (
-          <p className="note">No winning cluster is large enough to protect yet.</p>
+          <p className="note">Not enough winning trades to lean on yet.</p>
         ) : (
           <div className="play-grid">
             {analysis.keeps.map((play) => (

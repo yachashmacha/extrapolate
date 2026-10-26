@@ -75,8 +75,8 @@ describe("book bounds", () => {
   });
 
   it("clamps instruction dollars and leaves market caps alone", () => {
-    expect(clampTicketAmounts("Preset the ticket at $150. Pass above $60k.", 10)).toBe(
-      "Preset the ticket at $10. Pass above $60k.",
+    expect(clampTicketAmounts("Set the size at $150. Pass above $60k.", 10)).toBe(
+      "Set the size at $10. Pass above $60k.",
     );
   });
 });

@@ -199,12 +199,12 @@ function recordPoints(priors: RoundTrip[]): number {
 
 function recordText(meta: MetaId, priors: RoundTrip[]): string {
   const label = META_LABEL[meta];
-  if (priors.length === 0) return `No earlier ${label} coin in this book.`;
+  if (priors.length === 0) return `No earlier ${label} coin in your trades.`;
   const wins = priors.filter((prior) => prior.pnlUsd > 0).length;
   const pnl = net(priors);
   const outcome = pnl > 0 ? `up ${fmtUsdPlain(pnl)}` : pnl < 0 ? `down ${fmtUsdPlain(Math.abs(pnl))}` : "flat";
-  if (priors.length === 1) return `The earlier ${label} coin in this book finished ${outcome}.`;
-  return `${label} is ${wins} of ${priors.length} in this book, ${outcome}.`;
+  if (priors.length === 1) return `The earlier ${label} coin in your trades finished ${outcome}.`;
+  return `${label} is ${wins} of ${priors.length} in your trades, ${outcome}.`;
 }
 
 function earlierInNarrative(trade: RoundTrip, book: RoundTrip[], meta: MetaId): RoundTrip[] {
