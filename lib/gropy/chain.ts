@@ -57,6 +57,7 @@ export async function loadKolRecords(options?: {
   const cache = readCache(cachePath);
   const started = now();
   const deadline = started + (options?.budgetMs ?? 8_000);
+  await nameCachedOpenLots(cache, rpc, deadline);
   let index = list.length === 0 ? 0 : cache.cursor % list.length;
   let steps = 0;
   while (list.length > 0 && steps < list.length && now() < deadline) {
@@ -99,31 +100,78 @@ async function readWallet(wallet: string, rpc: Rpc, deadline: number, signatureL
     if (leg) legs.push(leg);
   }
   const books = booksFromLegs(legs);
-  await attachNames(books.buys, rpc, deadline);
+  await attachNames(books.buys, books.open, rpc, deadline);
   return books;
 }
 
-async function attachNames(buys: BuySignal[], rpc: Rpc, deadline: number): Promise<void> {
-  const mints = [...new Set(buys.map((buy) => buy.mint))].slice(0, 6);
-  for (const mint of mints) {
-    if (Date.now() > deadline) return;
-    try {
-      const pda = metadataAddress(mint);
-      const result = await rpc("getAccountInfo", [pda, { encoding: "base64" }]);
-      const decoded = decodeAccount(result);
-      if (!decoded) continue;
-      const symbol = cleanLabel(decoded.symbol);
-      const name = cleanLabel(decoded.name);
-      const label = symbol || name;
-      if (!label) continue;
-      for (const buy of buys) {
-        if (buy.mint !== mint) continue;
-        buy.symbol = label;
-        if (name) buy.coinName = name;
-      }
-    } catch {
-      // A missing name skips the copy later. The close still counts.
+const NAME_LIMIT = 6;
+const OPEN_NAME_LIMIT = 12;
+
+/**
+ * Unnamed mints worth a metadata read. A coin still held is named before older buys,
+ * and a name already on the buy does not take a slot.
+ */
+export function mintsForNames(
+  buys: readonly { mint: string; symbol?: string }[],
+  open: readonly { mint: string }[],
+  limit = NAME_LIMIT,
+): string[] {
+  const openMints = new Set(open.map((lot) => lot.mint));
+  const unnamed = [...new Set(buys.filter((buy) => !buy.symbol?.trim()).map((buy) => buy.mint))];
+  const held = unnamed.filter((mint) => openMints.has(mint)).slice(0, OPEN_NAME_LIMIT);
+  const rest = unnamed.filter((mint) => !openMints.has(mint));
+  return [...held, ...rest.slice(0, Math.max(limit - held.length, 0))];
+}
+
+async function nameCachedOpenLots(cache: CacheFile, rpc: Rpc, deadline: number): Promise<void> {
+  const buysByMint = new Map<string, BuySignal[]>();
+  for (const row of Object.values(cache.wallets)) {
+    if (row.unreadable) continue;
+    const held = new Set(row.open.map((lot) => lot.mint));
+    for (const buy of row.buys) {
+      if (!held.has(buy.mint) || buy.symbol?.trim()) continue;
+      const list = buysByMint.get(buy.mint) ?? [];
+      list.push(buy);
+      buysByMint.set(buy.mint, list);
     }
+  }
+  for (const mint of [...buysByMint.keys()].slice(0, 24)) {
+    if (Date.now() > deadline) return;
+    const labeled = await labelMint(mint, rpc);
+    if (!labeled) continue;
+    for (const buy of buysByMint.get(mint) ?? []) {
+      buy.symbol = labeled.symbol;
+      if (labeled.name) buy.coinName = labeled.name;
+    }
+  }
+}
+
+async function attachNames(buys: BuySignal[], open: readonly OpenLot[], rpc: Rpc, deadline: number): Promise<void> {
+  for (const mint of mintsForNames(buys, open)) {
+    if (Date.now() > deadline) return;
+    const labeled = await labelMint(mint, rpc);
+    if (!labeled) continue;
+    for (const buy of buys) {
+      if (buy.mint !== mint) continue;
+      buy.symbol = labeled.symbol;
+      if (labeled.name) buy.coinName = labeled.name;
+    }
+  }
+}
+
+async function labelMint(mint: string, rpc: Rpc): Promise<{ symbol: string; name: string } | null> {
+  try {
+    const result = await rpc("getAccountInfo", [metadataAddress(mint), { encoding: "base64" }]);
+    const decoded = decodeAccount(result);
+    if (!decoded) return null;
+    const symbol = cleanLabel(decoded.symbol);
+    const name = cleanLabel(decoded.name);
+    const label = symbol || name;
+    if (!label) return null;
+    return { symbol: label, name };
+  } catch {
+    // A missing name skips the copy later. The close still counts.
+    return null;
   }
 }
 
