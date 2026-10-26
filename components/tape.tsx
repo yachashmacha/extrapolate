@@ -56,9 +56,9 @@ export function Tape({
             {activeLabel} · clear
           </button>
         ) : null}
-        <span className="note">{visible.length} shown</span>
+        <span className="note">{visible.length === 1 ? "1 trade" : `${visible.length} trades`}</span>
       </div>
-      {visible.length === 0 ? <p className="note">Nothing in this slice.</p> : null}
+      {visible.length === 0 ? <p className="note">No trades here.</p> : null}
       {visible.map((trade) => {
         const narrative = narrativeScore(trade, allTrades ?? trades);
         const tapeLine = describeVerifiedTape(trade);
