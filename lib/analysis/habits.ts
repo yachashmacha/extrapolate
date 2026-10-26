@@ -26,16 +26,17 @@ interface Draft extends Habit {
 
 const OFF_ATH = 0.45;
 
-export function tradingHabits(trades: RoundTrip[], bounds?: BookBounds): { positive: Habit[]; negative: Habit[] } {
+export function tradingHabits(trades: RoundTrip[], bounds?: BookBounds, history?: RoundTrip[]): { positive: Habit[]; negative: Habit[] } {
+  const book = history ?? trades;
   const drafts: Draft[] = [];
-  drafts.push(...sizeHabits(trades, bounds));
+  drafts.push(...sizeHabits(trades, bounds, book));
   drafts.push(...fomoHabits(trades));
   drafts.push(...athHabits(trades));
   drafts.push(...capHabits(trades, bounds));
   drafts.push(...holdHabits(trades));
   drafts.push(...sessionHabits(trades, bounds));
   drafts.push(...addHabits(trades, bounds));
-  drafts.push(...reentryHabits(trades));
+  drafts.push(...reentryHabits(trades, book));
   drafts.push(...callerHabits(trades, bounds));
   drafts.push(...launchHabits(trades));
 
@@ -52,7 +53,7 @@ export function tradingHabits(trades: RoundTrip[], bounds?: BookBounds): { posit
   return { positive, negative };
 }
 
-function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
+function sizeHabits(trades: RoundTrip[], bounds: BookBounds | undefined, portfolioBook: RoundTrip[]): Draft[] {
   const ordered = chronological(trades);
   const usual = median(ordered.map((trade) => trade.amountUsd).filter((value) => value > 0));
   if (usual <= 0) return [];
@@ -76,14 +77,14 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
         mark: "Bias",
-        detail: `Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next trades were at least 1.5× that size and at least 1.5× the trade that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, trades, bounds)}`,
+        detail: `Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next trades were at least 1.5× that size and at least 1.5× the trade that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, portfolioBook, bounds)}`,
       }),
     );
   }
   if (worth("positive", kept, sizedUp.length >= 3 ? sizedUp : others(ordered, kept))) {
     out.push(
       draft("size-flat-after-loss", "positive", "Kept the size the same after a loss", kept, {
-        detail: `After a red close, ${kept.length} of the next trades stayed at or under the usual ${usualLabel}. Those made ${gained(kept)}${including(kept, false)}. ${sizeCloser(kept, trades, bounds)}`,
+        detail: `After a red close, ${kept.length} of the next trades stayed at or under the usual ${usualLabel}. Those made ${gained(kept)}${including(kept, false)}. ${sizeCloser(kept, portfolioBook, bounds)}`,
       }),
     );
   }
@@ -91,7 +92,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-win", "negative", "Sized up after a win", pressed, {
         mark: "Bias",
-        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next trades were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning trade. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, trades, bounds)}`,
+        detail: `Pressing the last win. Within 30 minutes of a green close, ${pressed.length} of the next trades were at least 1.5× the usual ${usualLabel} and at least 1.5× the winning trade. Those dropped ${money(pressed)}${including(pressed, true)}. ${sizeCloser(pressed, portfolioBook, bounds)}`,
       }),
     );
   }
@@ -102,13 +103,13 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-above-usual", "negative", "The trade was well above your usual size", above, {
         mark: "Bias",
-        detail: `Considerably bigger than your usual size. ${above.length} trades were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, trades, bounds)}`,
+        detail: `Considerably bigger than your usual size. ${above.length} trades were at least 1.5× your usual ${usualLabel}. The median of those was ${multiple} that size. Those dropped ${money(above)}${including(above, true)}. ${sizeCloser(above, portfolioBook, bounds)}`,
       }),
     );
   }
   if (worth("positive", pressed, others(ordered, pressed)) && net(pressed) > 0) {
-    const closer = sizeCloser(pressed, trades, bounds);
-    const capped = pressedOverCeiling(pressed, trades, bounds);
+    const closer = sizeCloser(pressed, portfolioBook, bounds);
+    const capped = pressedOverCeiling(pressed, portfolioBook, bounds);
     out.push(
       draft(
         "size-press-paid",
@@ -320,8 +321,8 @@ function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
  * continuing an endeavor already invested in. That is closer to averaging down,
  * above, and this re-entry is not labeled sunk cost.
  */
-function reentryHabits(trades: RoundTrip[]): Draft[] {
-  const ordered = chronological(trades);
+function reentryHabits(trades: RoundTrip[], history: RoundTrip[]): Draft[] {
+  const ordered = chronological(history);
   const lostExits = new Map<string, number[]>();
   const again: RoundTrip[] = [];
   for (const trade of ordered) {
@@ -336,12 +337,14 @@ function reentryHabits(trades: RoundTrip[]): Draft[] {
       }
     }
   }
-  if (again.length < 2 || net(again) >= 0) return [];
-  if (again.length < 3 && again.some((trade) => trade.pnlUsd >= 0)) return [];
+  const inWindow = new Set(trades.map((trade) => trade.id));
+  const day = again.filter((trade) => inWindow.has(trade.id));
+  if (day.length < 2 || net(day) >= 0) return [];
+  if (day.length < 3 && day.some((trade) => trade.pnlUsd >= 0)) return [];
   return [
-    draft("reentry", "negative", "Break-even chase", again, {
+    draft("reentry", "negative", "Break-even chase", day, {
       mark: "Repeat",
-      detail: `A later trade in a coin that had already closed red. ${again.length} later trades were that coin. Those dropped ${money(again)}${including(again, true)}.`,
+      detail: `A later trade in a coin that had already closed red. ${day.length} later trades were that coin. Those dropped ${money(day)}${including(day, true)}.`,
     }),
   ];
 }
