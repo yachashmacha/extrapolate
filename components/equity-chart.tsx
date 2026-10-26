@@ -34,6 +34,8 @@ export function EquityChart({ points }: { points: EquityPoint[] }) {
           ))}
           <path className="area" d={model.area} />
           <path
+            className="equity-line"
+            pathLength={1}
             d={model.line}
             fill="none"
             stroke={tone === "good" ? "var(--sage)" : "var(--clay)"}

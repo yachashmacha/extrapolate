@@ -46,7 +46,7 @@ export function GropyControls() {
   const promptDirty = prompt !== savedPrompt;
 
   return (
-    <div className={styles.controls}>
+    <div className={`${styles.controls} desk-block`}>
       <form
         className={styles.card}
         onSubmit={(event) => {

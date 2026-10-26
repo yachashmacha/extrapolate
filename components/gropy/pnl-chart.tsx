@@ -12,7 +12,7 @@ export function GropyPnlChart({ points }: { points: readonly PnlPoint[] }) {
   const end = etStamp(model.endAt, withYear);
 
   return (
-    <figure className={styles.chartCard}>
+    <figure className={`${styles.chartCard} desk-block`}>
       <div className={styles.chartHead}>
         <div>
           <p className="kicker">Bot PnL</p>
@@ -40,7 +40,7 @@ export function GropyPnlChart({ points }: { points: readonly PnlPoint[] }) {
             />
           ))}
           <path d={model.area} className={`${styles.area} ${tone}`} />
-          <path d={model.line} className={`${styles.line} ${tone}`} />
+          <path d={model.line} pathLength={1} className={`${styles.line} ${tone} equity-line`} />
         </svg>
       </div>
       <div className={styles.times} aria-hidden="true">
