@@ -118,7 +118,8 @@ describe("trading habits", () => {
     const sized = tradingHabits(trades, bounds).negative.find((habit) => habit.id === "size-after-loss");
     expect(sized?.title).toBe("Revenge trading");
     expect(sized?.mark).toBe("Bias");
-    expect(sized?.detail).toMatch(/Loss-chasing/);
+    expect(sized?.detail).toMatch(/Within 30 minutes of a red close/);
+    expect(sized?.detail).not.toMatch(/loss-chasing/i);
     expect(sized?.detail).toMatch(/30 minutes/);
     expect(sized?.detail).toMatch(/about the usual/);
     expect(sized?.detail).toMatch(/1\.5×/);
@@ -169,7 +170,7 @@ describe("trading habits", () => {
     expect(habit?.tradeIds).toHaveLength(4);
   });
 
-  it("names the sunk-cost fallacy only on a re-entry after a red close", () => {
+  it("names a break-even chase only on a re-entry after a red close", () => {
     const trades = [
       row("a1", 1, { pnl: -20, symbol: "AGAIN", mint: "mint-again" }),
       row("a2", 2, { pnl: -15, symbol: "AGAIN", mint: "mint-again" }),
@@ -180,16 +181,16 @@ describe("trading habits", () => {
       row("b3", 7, { pnl: 16, symbol: "ONCE3" }),
     ];
     const habit = tradingHabits(trades).negative.find((item) => item.id === "reentry");
-    expect(habit?.title).toBe("Sunk-cost fallacy");
-    expect(habit?.mark).toBe("Fallacy");
-    expect(habit?.detail).toMatch(/Trying to get back to even/);
-    expect(habit?.detail).toMatch(/after a red close/);
+    expect(habit?.title).toBe("Break-even chase");
+    expect(habit?.mark).toBe("Repeat");
+    expect(habit?.detail).toMatch(/already closed red/);
+    expect(habit?.detail).not.toMatch(/trying to get back to even|sunk/i);
     expect(habit?.detail).toMatch(/AGAIN/);
     expect(habit?.tradeIds).toEqual(["a2", "a3", "a4"]);
     expect(habit?.stat).toMatch(/3 trades/);
   });
 
-  it("names confirmation bias only when the entry followed the caller", () => {
+  it("names the order of the buys when a tracked wallet was already in", () => {
     const followed = Array.from({ length: 4 }, (_, index) =>
       row(`follow-${index}`, index, { pnl: -30, amount: 80, kol: kol("Cented", "before"), symbol: `FOLLOW${index}` }),
     );
@@ -200,9 +201,10 @@ describe("trading habits", () => {
     const bounds = bookBounds({ trades, accountUsd: 9.9 });
     const habits = tradingHabits(trades, bounds);
     const confirmation = habits.negative.find((item) => item.id === "confirmation");
-    expect(confirmation?.title).toBe("Confirmation bias");
-    expect(confirmation?.mark).toBe("Bias");
-    expect(confirmation?.detail).toMatch(/followed that buy/);
+    expect(confirmation?.title).toBe("Entered after a tracked wallet");
+    expect(confirmation?.mark).toBe("Repeat");
+    expect(confirmation?.detail).toMatch(/came after that buy/);
+    expect(confirmation?.detail).not.toMatch(/followed|confirmation bias|copied/i);
     expect(confirmation?.detail).toMatch(/stays at \$0\.99/);
     expect(confirmation?.detail).toMatch(/10% of the \$9\.90/);
     expect(confirmation?.detail).toMatch(/10 percent of your portfolio/);
@@ -258,6 +260,8 @@ describe("trading habits", () => {
     expect(habit?.title).toBe("Disposition effect");
     expect(habit?.mark).toBe("Bias");
     expect(habit?.detail).toMatch(/Holding the red trades longer/);
+    expect(habit?.detail).toMatch(/closed trades/);
+    expect(habit?.detail).toMatch(/still open is not in the count/);
     expect(habit?.tradeIds).toHaveLength(4);
 
     const even = [
@@ -361,7 +365,8 @@ describe("trading habits", () => {
     expect(portfolio).not.toBeNull();
     expect(40 / (portfolio ?? 1)).toBeLessThan(0.1);
     expect(bounds.ticketUsd).toBe(10);
-    expect(habit?.detail).toMatch(/Loss-chasing/);
+    expect(habit?.detail).toMatch(/Within 30 minutes of a red close/);
+    expect(habit?.detail).not.toMatch(/loss-chasing/i);
     expect(habit?.detail ?? "").not.toMatch(/next ticket stays at/);
     expect(habit?.detail ?? "").not.toMatch(/sit inside/);
   });

@@ -321,7 +321,7 @@ describe("end of day report", () => {
     expect(report.lead).toMatch(/45% of that coin's high/);
   });
 
-  it("names the sunk-cost fallacy only for a re-entry after a red close", () => {
+  it("names a break-even chase only for a re-entry after a red close", () => {
     const trades = [0, 1, 2, 3].map((minute) =>
       row(`again-${minute}`, "2026-10-24", minute, {
         pnl: -12,
@@ -332,8 +332,10 @@ describe("end of day report", () => {
     );
     const report = endOfDayReport(trades, "2026-10-24");
     expect(report.score).toBe(29);
-    expect(report.biases.map((bias) => bias.title)).toEqual(["Sunk-cost fallacy"]);
+    expect(report.biases.map((bias) => bias.title)).toEqual(["Break-even chase"]);
+    expect(report.lead).toMatch(/pattern in the closes/);
     expect(report.lead).toMatch(/after a red close/);
+    expect(report.lead).not.toMatch(/sunk-cost|trying to get back/i);
     expect(report.lead).not.toMatch(/more rationally/);
     expect(report.why).toMatch(/re-entering losers/);
   });
@@ -342,7 +344,7 @@ describe("end of day report", () => {
     const first = row("first", "2026-10-24", 0, { pnl: -20, mint: "same-mint", symbol: "SAME", exitMinute: 40 });
     const during = row("during", "2026-10-24", 10, { pnl: -8, mint: "same-mint", symbol: "SAME", exitMinute: 15 });
     const report = endOfDayReport([first, during], "2026-10-24");
-    expect(report.biases.map((bias) => bias.title)).not.toContain("Sunk-cost fallacy");
+    expect(report.biases.map((bias) => bias.title)).not.toContain("Break-even chase");
   });
 
   it("names averaging down, and does not treat a normal share of the pool as a bias", () => {
@@ -423,7 +425,7 @@ describe("end of day report", () => {
     expect(largerReport.score).toBeLessThan(smallReport.score!);
     expect(smallReport.score).toBeLessThan(100);
     expect(largerReport.score).toBeLessThan(100);
-    expect(patternedReport.biases.map((bias) => bias.title)).toContain("Sunk-cost fallacy");
+    expect(patternedReport.biases.map((bias) => bias.title)).toContain("Break-even chase");
     expect(patternedReport.score).toBeLessThan(60);
     expect(patternedReport.score!).toBeLessThan(smallReport.score! - 30);
     expect(greenReport.pnlUsd).toBeGreaterThan(0);

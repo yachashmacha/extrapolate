@@ -80,16 +80,16 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
   if (trade.entryMarketCapUsd > 0 && passMc > 0 && trade.entryMarketCapUsd > passMc * (mcFromRule ? 1.05 : 1.5)) {
     actions.push(
       mcFromRule
-        ? `Pass once the coin clears ${fmtMc(passMc)}, the line in your rule “${bounds.mcRule}”.`
-        : `Pass once the coin clears ${fmtMc(passMc)}, where the ${where} got in.`,
+        ? `Your rule “${bounds.mcRule}” draws the line at ${fmtMc(passMc)}. ${trade.symbol} was entered above it.`
+        : `In this book, the ${where} got in near ${fmtMc(passMc)}. ${trade.symbol} was entered above that.`,
     );
   }
   const mode = kolMode(trade);
   if (mode !== "early" && earlyNames.length > 0 && ticket > 0) {
     const wait =
       mode === "late"
-        ? `Wait until ${joinOr(earlyNames)} is already in. A caller who arrives after ${trade.symbol} leaves the buy unconfirmed.`
-        : `Wait until ${joinOr(earlyNames)} is already in before a buy like ${trade.symbol}.`;
+        ? `In this book, the ${where} more often had ${joinOr(earlyNames)} in before the fill. A caller who arrives after ${trade.symbol} is a later print, not a confirmation.`
+        : `In this book, the ${where} more often had ${joinOr(earlyNames)} in before the fill. That sequence is not a confirmation.`;
     const sized =
       bounds.ticketReason === "account" || bounds.ticketReason === "account-rule"
         ? `The ticket stays at ${fmtUsdPlain(ticket)} for this wallet.`
@@ -105,15 +105,17 @@ function writeTip(trade: AnnotatedTrade, winners: AnnotatedTrade[], bounds: Book
   ) {
     actions.push(
       bounds.overnightRule
-        ? `Skip the overnight window. Your rule says “${bounds.overnightRule}”.`
-        : `Skip the overnight window. The ${where} closed in the daytime sessions.`,
+        ? `Your rule says “${bounds.overnightRule}”. ${trade.symbol} was an overnight entry.`
+        : `In this book, the ${where} closed in the daytime sessions. ${trade.symbol} was an overnight entry.`,
     );
   }
   if (bounds.onePerCoin && trade.buys > 1) {
     actions.push(`Your rule is one ticket per coin (“${bounds.onePerCoin}”). ${trade.symbol} was bought ${trade.buys} times.`);
   }
   if (actions.length === 0) {
-    actions.push(`Take the exit the ${where} used, about ${fmtHold(winHold)}. ${trade.symbol} was held ${fmtHold(trade.holdMinutes)}.`);
+    actions.push(
+      `Nothing else in this book separates ${trade.symbol} on size, cap, or session. The ${where} were held about ${fmtHold(winHold)}. ${trade.symbol} was held ${fmtHold(trade.holdMinutes)}. That hold is this book's record, not a target.`,
+    );
   }
 
   return `${loss} ${who} ${actions.slice(0, 4).join(" ")}`;

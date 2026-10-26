@@ -20,7 +20,7 @@ describe("practice tips", () => {
     expect(roar?.tip).toMatch(/bought at/i);
   });
 
-  it("tells a high-cap loss to wait for the KOL the winners had", () => {
+  it("compares a high-cap loss with this book's winners without treating a caller as confirmation", () => {
     const tips = practiceTips([
       winner("a"),
       winner("b"),
@@ -32,7 +32,9 @@ describe("practice tips", () => {
     expect(tips[0].tip).toMatch(/Orangie/);
     expect(tips[0].tip).toMatch(/\$480,000/);
     expect(tips[0].tip).toMatch(/\$150/);
-    expect(tips[0].tip).toMatch(/Pass once the coin clears/i);
+    expect(tips[0].tip).toMatch(/In this book, the Animals winners got in near/i);
+    expect(tips[0].tip).toMatch(/not a confirmation/i);
+    expect(tips[0].tip).not.toMatch(/Wait until|unconfirmed|Take the exit/i);
     expect(tips[0].tip).toMatch(/ticket stays at \$150/i);
   });
 

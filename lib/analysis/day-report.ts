@@ -13,7 +13,7 @@ import type { RoundTrip } from "@/lib/types";
 const UNDER_HIGH = 0.45;
 
 export const RATIONALITY_NOTE =
-  "100% is a day the fills did not repeat the costly patterns and the close was not negative. A red day cannot be 100%. The score reads this day's behavior. It is not a prediction.";
+  "100% is a day the fills did not repeat the costly patterns, no active rule was broken, and the close was not negative. A red day cannot be 100%. The score reads this day's behavior. It is not a prediction.";
 
 export interface DayFill {
   id: string;
@@ -330,7 +330,7 @@ function behaviorWeight(marks: number[], clusters: { active: boolean; share: num
 }
 
 /**
- * 100% means the day was not negative and every close avoided the costly patterns.
+ * 100% means the day was not negative, every close avoided the costly patterns, and no active rule was broken.
  * The percent is not a 1–10 score times ten. It follows which fills were costly and how many
  * dollars those fills lost. The coin scores are applied later, in applyNarrativeNudge, and
  * they move this by at most 3 points.
@@ -435,8 +435,8 @@ function biasFindings(input: {
     out.push(
       built(
         "reentry",
-        "Sunk-cost fallacy",
-        "the sunk-cost fallacy",
+        "Break-even chase",
+        "a break-even chase",
         `${noun(reentryTrades.length, "later close", "later closes")} were the same coin after a red close, and those dropped ${money(reentryTrades)}${including(reentryTrades, true)}`,
         reentryTrades,
       ),
@@ -548,7 +548,11 @@ function leadLine(input: {
   if (biases.length > 0) {
     return biases
       .map((bias, index) =>
-        index === 0 ? `The dominant bias was ${bias.phrase}: ${bias.body}.` : `${bias.title}: ${bias.body}.`,
+        index === 0
+          ? bias.id === "reentry"
+            ? `The pattern in the closes was ${bias.phrase}: ${bias.body}.`
+            : `The dominant bias was ${bias.phrase}: ${bias.body}.`
+          : `${bias.title}: ${bias.body}.`,
       )
       .join(" ");
   }

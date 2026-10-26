@@ -29,7 +29,7 @@ export function TipFeed({
       <div className="section-head">
         <h2>Tips</h2>
         <p>
-          One practice for each losing trade, sized from {sized}.{rules} A caller in the coin leaves that size where it is.
+          One note for each losing trade. The size it names comes from {sized}.{rules} A caller in the coin leaves that size where it is. A comparison with the winners is this book's record.
         </p>
       </div>
       {tips.length === 0 ? <p className="note">No losing trades in this book yet.</p> : null}

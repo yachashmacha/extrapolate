@@ -31,11 +31,11 @@ export default function HomePage() {
           <p className="kicker">Memecoin trading desk</p>
           <h1>See the trade you keep repeating.</h1>
           <p className="lede">
-            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin round trip. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Losing trades get specific suggestions. Portfolio keeps the daily PnL. Two rules start on: exit if price falls below half the position, and keep the base trade to 10% of the portfolio.
+            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin round trip. It lines the winners up against the losers in this book: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL. Three rules start on: exit if price falls below half the position, keep the base trade to 10% of the portfolio at the time of the trade, and stop at 50 closed trades in a day.
           </p>
           <ul className="facts">
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
-            <li><b>Reading</b><span>What the green trades shared. What the red trades shared. The practice that follows from the difference.</span></li>
+            <li><b>Reading</b><span>What the green trades shared. What the red trades shared. The comparison in this book.</span></li>
           </ul>
         </div>
         <ConnectCard />
@@ -45,7 +45,7 @@ export default function HomePage() {
       </Suspense>
       <footer className="footer">
         <span>Extrapolate mirrors this wallet’s fills. It is not a signal service.</span>
-        <span>Two base rules start on. Add your own, or turn those off.</span>
+        <span>Three base rules start on. Add your own, or turn those off.</span>
       </footer>
     </main>
   );

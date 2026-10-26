@@ -249,7 +249,7 @@ function lossNote(trade: RoundTrip, winners: RoundTrip[]): string {
   const kols = topNames(pool.flatMap((row) => row.kols.filter((kol) => kol.timing !== "after").map((kol) => kolLabel(kol))), 2);
   const kolBit = kols.length > 0 ? `, with ${kols.join(" or ")} already in` : "";
   const yours = trade.kols.length === 0 ? "no tagged KOL" : trade.kols.map((kol) => `${kolLabel(kol)} ${kol.timing}`).join(", ");
-  return `${scope} entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtCoin(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}.`;
+  return `${scope} in this book entered near ${fmtMc(median(pool.map((row) => row.entryMarketCapUsd)))}${kolBit}, sized around ${fmtUsdPlain(median(pool.map((row) => row.amountUsd)))}, and were held about ${fmtHold(median(pool.map((row) => row.holdMinutes)))}. This one entered at ${fmtCoin(trade.entryMarketCapUsd)} with ${yours}, sized ${fmtUsdPlain(trade.amountUsd)}, and was closed in ${fmtHold(trade.holdMinutes)}. The hold is a comparison, not a target.`;
 }
 
 function winNote(trade: RoundTrip, winners: RoundTrip[], losers: RoundTrip[]): string {
@@ -259,7 +259,7 @@ function winNote(trade: RoundTrip, winners: RoundTrip[], losers: RoundTrip[]): s
     trade.entryMarketCapUsd > 0 && loserMc > trade.entryMarketCapUsd * 1.5
       ? ` The losing entries sat nearer ${fmtMc(loserMc)}.`
       : "";
-  return `Fits the winning cluster: ${fmtCoin(trade.entryMarketCapUsd)} entry, ${fmtUsdPlain(trade.amountUsd)} ticket, ${fmtHold(trade.holdMinutes)} hold, ${sessionName(trade).toLowerCase()}.${mcBit}`;
+  return `Sits with the winning cluster in this book: ${fmtCoin(trade.entryMarketCapUsd)} entry, ${fmtUsdPlain(trade.amountUsd)} ticket, ${fmtHold(trade.holdMinutes)} hold, ${sessionName(trade).toLowerCase()}.${mcBit}`;
 }
 
 function writeLede(
@@ -273,11 +273,11 @@ function writeLede(
       : "Every closed trade in this window is red. The desk needs some green trades before a repeatable habit shows up.";
   }
   const kols = winners.topKols.length > 0 ? ` ${winners.topKols.slice(0, 2).join(" and ")} show up on that side.` : "";
-  return `Winners cluster near ${fmtMc(winners.medianEntryMc)} market cap, about ${fmtUsdPlain(winners.medianSize)} a ticket, held around ${fmtHold(winners.medianHold)}, mostly in the ${winners.topSession.toLowerCase()} session.${kols} Losers cluster near ${fmtMc(losers.medianEntryMc)}, about ${fmtUsdPlain(losers.medianSize)} a ticket, mostly in the ${losers.topSession.toLowerCase()} session, in ${losers.topMeta.toLowerCase()}. The book is ${fmtUsd(summary.netPnlUsd)} over ${summary.trades} closed trades. The suggestions below come from the gap between those two clusters.`;
+  return `In this book, winners cluster near ${fmtMc(winners.medianEntryMc)} market cap, about ${fmtUsdPlain(winners.medianSize)} a ticket, held around ${fmtHold(winners.medianHold)}, mostly in the ${winners.topSession.toLowerCase()} session.${kols} Losers cluster near ${fmtMc(losers.medianEntryMc)}, about ${fmtUsdPlain(losers.medianSize)} a ticket, mostly in the ${losers.topSession.toLowerCase()} session, in ${losers.topMeta.toLowerCase()}. The book is ${fmtUsd(summary.netPnlUsd)} over ${summary.trades} closed trades. The notes below describe the gap between those two clusters. They are this book's record.`;
 }
 
 function thinLede(count: number): string {
-  return `${count} closed round trip${count === 1 ? "" : "s"} so far. Suggestions start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Two base rules start on: exit under half the position, and a base trade of at most 10% of the portfolio.`;
+  return `${count} closed round trip${count === 1 ? "" : "s"} so far. Comparisons start at 8 closed trades, and they get specific around 20. Size, market cap, and the hour are worth reading now. Three base rules start on: exit under half the position, a base trade of at most 10% of the portfolio at the time of the trade, and no more than 50 closed trades in a day.`;
 }
 
 function kolModeLabel(modeName: ReturnType<typeof kolMode>): string {

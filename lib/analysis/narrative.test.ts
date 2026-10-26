@@ -328,8 +328,8 @@ describe("narrative score", () => {
     );
     const plain = endOfDayReport(weak, "2026-10-24");
     const mixed = endOfDayReport(rescued, "2026-10-24");
-    expect(plain.biases.map((bias) => bias.title)).toContain("Sunk-cost fallacy");
-    expect(mixed.biases.map((bias) => bias.title)).toContain("Sunk-cost fallacy");
+    expect(plain.biases.map((bias) => bias.title)).toContain("Break-even chase");
+    expect(mixed.biases.map((bias) => bias.title)).toContain("Break-even chase");
     expect(plain.score).toBeLessThan(50);
     expect(mixed.score).toBeLessThan(50);
     expect(mixed.score! - plain.score!).toBeLessThanOrEqual(2);

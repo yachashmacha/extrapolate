@@ -76,7 +76,7 @@ function sizeHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("size-after-loss", "negative", "Revenge trading", sizedUp, {
         mark: "Bias",
-        detail: `Loss-chasing. Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next tickets were at least 1.5× that size and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, trades, bounds)}`,
+        detail: `Within 30 minutes of a red close that was about the usual ${usualLabel}, ${sizedUp.length} of the next tickets were at least 1.5× that size and at least 1.5× the ticket that just lost. Those dropped ${money(sizedUp)}${including(sizedUp, true)}. ${sizeCloser(sizedUp, trades, bounds)}`,
       }),
     );
   }
@@ -141,7 +141,7 @@ function fomoHabits(trades: RoundTrip[]): Draft[] {
     out.push(
       draft("fomo", "negative", "FOMO", chased, {
         mark: "Bias",
-        detail: `Buying the fade. After the entry, volume started dropping and market cap dropped on ${chased.length} fills. Those dropped ${money(chased)}${including(chased, true)}.`,
+        detail: `After the entry, volume started dropping and market cap dropped on ${chased.length} fills. Those dropped ${money(chased)}${including(chased, true)}.`,
       }),
     );
   } else if (worth("positive", chased, rest)) {
@@ -162,13 +162,13 @@ function athHabits(trades: RoundTrip[]): Draft[] {
   if (worth("positive", off, others(known, off))) {
     out.push(
       draft("ath-off", "positive", "Bought well under the high", off, {
-        detail: `${off.length} entries were at or under 45% of that coin's high. The median entry sat at ${athPct(off)} of the high. Those made ${gained(off)}${including(off, false)}.`,
+        detail: `${off.length} entries were at or under 45% of that coin's high on the daily bars from the entry onward. The median entry sat at ${athPct(off)} of the high. Those made ${gained(off)}${including(off, false)}.`,
       }),
     );
   } else if (worth("negative", off, others(known, off))) {
     out.push(
       draft("ath-off-lost", "negative", "Bought under the high and still lost", off, {
-        detail: `${off.length} entries were at or under 45% of that coin's high. The median entry sat at ${athPct(off)} of the high. Those dropped ${money(off)}${including(off, true)}.`,
+        detail: `${off.length} entries were at or under 45% of that coin's high on the daily bars from the entry onward. The median entry sat at ${athPct(off)} of the high. Those dropped ${money(off)}${including(off, true)}.`,
       }),
     );
   }
@@ -207,14 +207,14 @@ function capHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   if (worth("negative", above, below)) {
     out.push(
       draft("mc-high", "negative", "Bought the higher caps", above, {
-        detail: `The paying entries clustered near ${fmtMc(ref)}. ${above.length} buys were above ${fmtMc(ref * 1.5)}, and those dropped ${money(above)}${including(above, true)}.`,
+        detail: `In this book, the paying entries clustered near ${fmtMc(ref)}. ${above.length} buys were above ${fmtMc(ref * 1.5)}, and those dropped ${money(above)}${including(above, true)}.`,
       }),
     );
   }
   if (worth("positive", below, above)) {
     out.push(
       draft("mc-low", "positive", "Got paid at the smaller caps", below, {
-        detail: `${below.length} buys were at or under ${fmtMc(ref * 1.1)}, near the ${fmtMc(ref)} entries that paid. Those made ${gained(below)}${including(below, false)}.`,
+        detail: `In this book, ${below.length} buys were at or under ${fmtMc(ref * 1.1)}, near the ${fmtMc(ref)} entries that paid. Those made ${gained(below)}${including(below, false)}.`,
       }),
     );
   }
@@ -222,9 +222,12 @@ function capHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
 }
 
 /**
- * The disposition effect is selling winners and sitting on losers. Name it only
- * when the median losing hold is at least twice the median winning hold and at
- * least five minutes longer. A small gap is not that split.
+ * Shefrin and Statman (1985) and Odean (1998) describe the disposition effect as
+ * selling winners too soon and holding losers too long. Odean's test is the rate
+ * of realizing gains versus losses against the paper positions still open. This
+ * book only has closed trades, so the card compares those hold times and says so.
+ * Name it only when the median losing hold is at least twice the median winning
+ * hold and at least five minutes longer. A small gap is not that split.
  */
 function holdHabits(trades: RoundTrip[]): Draft[] {
   const winners = trades.filter((trade) => trade.pnlUsd > 0);
@@ -239,7 +242,7 @@ function holdHabits(trades: RoundTrip[]): Draft[] {
       out.push(
         draft("hold-losers", "negative", "Disposition effect", group, {
           mark: "Bias",
-          detail: `Holding the red trades longer than the green ones. Losing trades were held about ${fmtHold(lossHold)}. Winning trades were held about ${fmtHold(winHold)}. ${group.length} of the red trades outlasted that winning hold${including(group, true)}.`,
+          detail: `Holding the red trades longer than the green ones. This compares hold time on closed trades. A position still open is not in the count. Losing trades were held about ${fmtHold(lossHold)}. Winning trades were held about ${fmtHold(winHold)}. ${group.length} of the red trades outlasted that winning hold${including(group, true)}.`,
         }),
       );
     }
@@ -249,7 +252,7 @@ function holdHabits(trades: RoundTrip[]): Draft[] {
     if (group.length >= 3) {
       out.push(
         draft("hold-winners", "positive", "Let the green trades work", group, {
-          detail: `Winning trades were held about ${fmtHold(winHold)}. Losing trades were held about ${fmtHold(lossHold)}. ${group.length} of the green trades outlasted that losing hold${including(group, false)}.`,
+          detail: `This compares hold time on closed trades. A position still open is not in the count. Winning trades were held about ${fmtHold(winHold)}. Losing trades were held about ${fmtHold(lossHold)}. ${group.length} of the green trades outlasted that losing hold${including(group, false)}.`,
         }),
       );
     }
@@ -294,7 +297,7 @@ function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     out.push(
       draft("adds", "negative", "Averaging down", down, {
         mark: "Bias",
-        detail: `Adding to a loser. ${down.length} tickets bought more after the coin was already down. ${rule} Those dropped ${money(down)}${including(down, true)}.`,
+        detail: `Another buy in the open position, at least 10% under the average already held, after the coin was already down. ${down.length} tickets did that. ${rule} Those dropped ${money(down)}${including(down, true)}.`,
       }),
     );
   }
@@ -310,9 +313,12 @@ function addHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
 }
 
 /**
- * Sunk cost is more money in a coin that already lost: a later round trip on
- * the same mint after a red close. A later ticket in a different coin is not
- * sunk cost. Adding inside the open position is averaging down, above.
+ * Thaler and Johnson (1990) call the preference for a bet that can erase a loss
+ * the break-even effect. This book only sees a new round trip in a coin that had
+ * already closed red, so the card states that sequence and does not claim the
+ * trader was trying to get back to even. Arkes and Blumer (1985) sunk cost is
+ * continuing an endeavor already invested in. That is closer to averaging down,
+ * above, and this re-entry is not labeled sunk cost.
  */
 function reentryHabits(trades: RoundTrip[]): Draft[] {
   const ordered = chronological(trades);
@@ -333,17 +339,20 @@ function reentryHabits(trades: RoundTrip[]): Draft[] {
   if (again.length < 2 || net(again) >= 0) return [];
   if (again.length < 3 && again.some((trade) => trade.pnlUsd >= 0)) return [];
   return [
-    draft("reentry", "negative", "Sunk-cost fallacy", again, {
-      mark: "Fallacy",
-      detail: `Trying to get back to even. ${again.length} later tickets were the same coin after a red close. Those dropped ${money(again)}${including(again, true)}.`,
+    draft("reentry", "negative", "Break-even chase", again, {
+      mark: "Repeat",
+      detail: `A later ticket in a coin that had already closed red. ${again.length} later tickets were that coin. Those dropped ${money(again)}${including(again, true)}.`,
     }),
   ];
 }
 
 /**
- * Confirmation bias here is following a caller: a tracked wallet bought before
- * this fill, and the entry came after that buy. A caller who bought after the
- * fill means this wallet led. That is not confirmation, and it is not labeled.
+ * Nickerson (1998) confirmation bias is seeking or reading evidence to fit a
+ * belief already held. A tracked wallet buying before this fill is only an order
+ * of two buys. The book does not see the belief, or that this trader saw the
+ * other buy, so the card states the order and does not say the trader followed
+ * anyone. A caller who bought after the fill means this wallet led. That order
+ * is not labeled here.
  */
 function callerHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
   const tagged = trades.filter((trade) => trade.kols.length > 0);
@@ -356,9 +365,9 @@ function callerHabits(trades: RoundTrip[], bounds?: BookBounds): Draft[] {
     const names = callerNames(followed, ["before"]);
     const verb = names.includes(" and ") || names.includes(", ") ? "were" : "was";
     out.push(
-      draft("confirmation", "negative", "Confirmation bias", followed, {
-        mark: "Bias",
-        detail: `${names} ${verb} already in, and the entry followed that buy. Those trades dropped ${money(followed)}${including(followed, true)}. ${closer}`,
+      draft("confirmation", "negative", "Entered after a tracked wallet", followed, {
+        mark: "Repeat",
+        detail: `${names} ${verb} already in, and this entry came after that buy. Those trades dropped ${money(followed)}${including(followed, true)}. ${closer}`,
       }),
     );
   }

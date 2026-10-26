@@ -42,14 +42,13 @@ export function buildFixes(trades: RoundTrip[], terminal: TerminalId): PlayCard[
   const callers = callerCandidate(trades, early, quiet, desk, mc);
   if (callers) candidates.push(callers);
   candidates.push(...narrativeCandidates(trades, desk, mc));
-  const behavior = behaviorCandidate(trades, overnight, day, revenge, desk, size);
+  const behavior = behaviorCandidate(trades, overnight, day, revenge, size);
   if (behavior) candidates.push(behavior);
 
   return pickFixes(candidates).map(toCard("fix"));
 }
 
-export function buildKeeps(trades: RoundTrip[], terminal: TerminalId): PlayCard[] {
-  const desk = terminalName(terminal);
+export function buildKeeps(trades: RoundTrip[], _terminal: TerminalId): PlayCard[] {
   const keeps: Candidate[] = [];
   const mc = bestSplit(trades, (trade) => trade.entryMarketCapUsd, MC_CUTS);
   const size = bestSplit(trades, (trade) => trade.amountUsd, SIZE_CUTS);
@@ -63,10 +62,10 @@ export function buildKeeps(trades: RoundTrip[], terminal: TerminalId): PlayCard[
       title: "The entry range that paid",
       shortLabel: `Under ${fmtMc(mc.cut)}`,
       evidence: portrait(mc.good, `Entries under ${fmtMc(mc.cut)} market cap`),
-      rule: `Keep hunting where the winners already cluster, near ${fmtMc(medianMc)} market cap and under ${fmtMc(mc.cut)}.`,
+      rule: `In this book, the winners clustered near ${fmtMc(medianMc)} market cap and under ${fmtMc(mc.cut)}.`,
       steps: [
-        `Before a new session on ${desk}, write “under ${fmtMc(mc.cut)}” on the ticket. That is the range this book got paid in.`,
-        `When a coin leaves that range, let the fix rule decide. The winning habit is the small entry, repeated.`,
+        `The paying range in this book is under ${fmtMc(mc.cut)}. That line is this book's.`,
+        "When a coin leaves that range, the comparison above is what this book shows. The paying entries were the smaller ones.",
       ],
       trades: mc.good,
       damage: net(mc.good),
@@ -81,10 +80,10 @@ export function buildKeeps(trades: RoundTrip[], terminal: TerminalId): PlayCard[
       title: "The ticket size that paid",
       shortLabel: `About ${fmtUsdPlain(medianSize)}`,
       evidence: portrait(size.good, `Tickets under ${fmtUsdPlain(size.cut)}`),
-      rule: `Save ${fmtUsdPlain(medianSize)} as the preset. That is the size the winning tickets actually used.`,
+      rule: `In this book, the winning tickets sat near ${fmtUsdPlain(medianSize)}. That is the size they actually used.`,
       steps: [
-        `On ${desk}, set the default buy to ${fmtUsdPlain(medianSize)} and name the preset “base”.`,
-        `A stronger setup gets the same preset. Size stays put when the read is good.`,
+        `The preset that matches those tickets is ${fmtUsdPlain(medianSize)}.`,
+        "A stronger setup in this book did not get a larger ticket. Size stayed put.",
       ],
       trades: size.good,
       damage: net(size.good),
@@ -101,11 +100,11 @@ export function buildKeeps(trades: RoundTrip[], terminal: TerminalId): PlayCard[
       evidence: portrait(early, "Trades with a KOL already in"),
       rule:
         names.length > 0
-          ? `Keep taking the trades where ${joinOr(names)} is already in the coin, at the base size.`
-          : "Keep taking the trades where a tagged KOL was already in, at the base size.",
+          ? `In this book, the trades where ${joinOr(names)} was already in the coin finished green, at the base size. That order is not a confirmation, and it does not change the size.`
+          : "In this book, trades with a tagged wallet already in finished green, at the base size. That order is not a confirmation, and it does not change the size.",
       steps: [
-        "Tag the KOL on the fill the same day, with the timing: before you, with you, or after you.",
-        "A KOL who is already in can confirm a trade that also passes the market-cap and size rules.",
+        "Tag the wallet on the fill the same day, with the timing: before you, with you, or after you.",
+        "A wallet already in is a sequence this book can count. It does not confirm the trade, and it does not change the size.",
       ],
       trades: early,
       damage: net(early),
@@ -133,11 +132,11 @@ function entryCandidate(mc: Split, desk: string, size: Split | null): Candidate 
     title: `Cap new buys at ${fmtMc(mc.cut)}`,
     shortLabel: `Above ${fmtMc(mc.cut)}`,
     evidence: `${portrait(mc.bad, `Entries at ${fmtMc(mc.cut)} market cap and above`)} ${portrait(mc.good, `Entries under ${fmtMc(mc.cut)}`)}`,
-    rule: `A new buy at or above ${fmtMc(mc.cut)} market cap is a pass. The ticket that paid in this book sat near ${fmtUsdPlain(winnerSize)}, under that cap.`,
+    rule: `In this book, entries at or above ${fmtMc(mc.cut)} market cap lost. The tickets that paid sat near ${fmtUsdPlain(winnerSize)}, under that cap.`,
     steps: [
-      `On ${desk}, read the market cap out loud before the buy click. At ${fmtMc(mc.cut)} or above, close the ticket.`,
-      `Leave the buy preset at ${fmtUsdPlain(winnerSize)}. A higher market cap does not earn a larger ticket.`,
-      "After ten sessions, open this desk again. Keep the cap while the upper band is still red.",
+      `On ${desk}, the losing band in this book starts at ${fmtMc(mc.cut)}. Read the market cap before the buy click.`,
+      `The paying tickets sat near ${fmtUsdPlain(winnerSize)}. A higher market cap does not earn a larger ticket.`,
+      "After ten sessions, open this desk again. The line is this book's, and it stays only while that upper band is still red.",
     ],
     trades: mc.bad,
     damage: mc.damage,
@@ -152,11 +151,11 @@ function sizeCandidate(size: Split, desk: string): Candidate {
     title: `Preset the ticket at ${fmtUsdPlain(base)}`,
     shortLabel: `Ticket over ${fmtUsdPlain(size.cut)}`,
     evidence: `${portrait(size.bad, `Tickets of ${fmtUsdPlain(size.cut)} and up`)} ${portrait(size.good, `Tickets under ${fmtUsdPlain(size.cut)}`)}`,
-    rule: `The working ticket is ${fmtUsdPlain(base)}. Anything at ${fmtUsdPlain(size.cut)} or above is retired until the next review.`,
+    rule: `In this book, the tickets that paid sat near ${fmtUsdPlain(base)}. Tickets at ${fmtUsdPlain(size.cut)} or above are the ones that lost.`,
     steps: [
-      `On ${desk}, set one buy preset to ${fmtUsdPlain(base)} and delete the larger keys for the next ten sessions.`,
-      "Use the same preset on the next trade after a win. A good read keeps the size, it does not raise it.",
-      "After ten sessions, compare the preset with the new median winner. Move it only if the winners moved.",
+      `On ${desk}, the preset that matches the paying tickets in this book is ${fmtUsdPlain(base)}.`,
+      "The same preset on the next trade after a win keeps the size. A good read does not raise it.",
+      "After ten sessions, compare the preset with the new median winner in this book. Move it only if the winners moved.",
     ],
     trades: size.bad,
     damage: size.damage,
@@ -184,14 +183,14 @@ function callerCandidate(
   return {
     id: "fix-callers",
     category: "callers",
-    title: names.length > 0 ? `Need ${joinOr(names)} already in` : "Need an early KOL in the trade",
-    shortLabel: "No early KOL",
-    evidence: `${portrait(quiet, "Trades with no KOL in before you")}${late} ${portrait(early, "Trades with a KOL already in")}`,
-    rule: `A buy needs ${joinOr(names.length > 0 ? names : [who])} already in the coin, and it still has to sit under ${cap} at the base size.`,
+    title: names.length > 0 ? `In this book, ${joinOr(names)} was in before the winners` : "In this book, a tracked wallet was in before the winners",
+    shortLabel: "No early wallet",
+    evidence: `${portrait(quiet, "Trades with no tracked wallet in before you")}${late} ${portrait(early, "Trades with a tracked wallet already in")}`,
+    rule: `In this book, trades with ${joinOr(names.length > 0 ? names : [who])} already in finished ahead of trades with nobody in before the entry. The buy still has to sit under ${cap} at the base size. A tracked wallet is not a confirmation.`,
     steps: [
       `The desk checks the tracked wallets on each coin and shows the name. Add anyone still missing from a ${desk} fill on the tape, with the timing.`,
-      `If ${joinOr(names.length > 0 ? names : [who])} is absent, pass. A KOL who posts after your fill is a mark on the chart, not a confirmation.`,
-      "Re-read the KOL table after two weeks of tags. Keep the names that still sit on the green side.",
+      `A wallet that posts after the fill is a later print. It does not confirm the entry, and it is not a reason to add.`,
+      "Re-read the table after two weeks. The names that still sit on the green side are this book's record.",
     ],
     trades: quiet,
     damage: -net(quiet),
@@ -215,10 +214,10 @@ function narrativeCandidates(trades: RoundTrip[], desk: string, mc: Split | null
         title: `${label} only under ${fmtMc(split.cut)}`,
         shortLabel: `${label} above ${fmtMc(split.cut)}`,
         evidence: `${portrait(split.bad, `${label} at ${fmtMc(split.cut)} and above`)} ${portrait(split.good, `${label} under ${fmtMc(split.cut)}`)}`,
-        rule: `${label} is tradable under ${fmtMc(split.cut)} market cap, at the base size, with an early KOL. Above that, ${label.toLowerCase()} is a pass.`,
+        rule: `In this book, ${label} was green under ${fmtMc(split.cut)} market cap, at the base size. Above that, it was red. A tracked wallet does not move that line or the size.`,
         steps: [
           `When the narrative is ${label.toLowerCase()}, the market-cap check comes before the ticker. ${fmtMc(split.cut)} is the line on this book.`,
-          `On ${desk}, a ${label.toLowerCase()} coin above the line gets closed, even when the timeline is loud.`,
+          `On ${desk}, this book's line for ${label.toLowerCase()} is ${fmtMc(split.cut)}. A loud timeline does not move it.`,
         ],
         trades: split.bad,
         damage: split.damage,
@@ -233,11 +232,11 @@ function narrativeCandidates(trades: RoundTrip[], desk: string, mc: Split | null
         title: `${label} is a leak in this book`,
         shortLabel: label,
         evidence: portrait(subset, label),
-        rule: `${label} goes to half size for the next ten sessions, and only under ${mc ? fmtMc(mc.cut) : "the market-cap cap"} with an early KOL. Otherwise it is a pass.`,
+        rule: `${label} lost in this book. A later look, if any, stays at half the base size and under ${mc ? fmtMc(mc.cut) : "the market-cap line in this book"}. A tracked wallet does not raise that size.`,
         steps: [
-          `Say the narrative out loud before the buy. If it is ${label.toLowerCase()} and the coin is already extended, pass.`,
-          "One exception per session is the maximum, at half the base ticket.",
-          "If the next ten are still red, this narrative leaves the menu.",
+          `${label} is a narrative this book already lost. Extended means the coin is already up the range this book measured.`,
+          "A later ticket, if any, stays at half the base size. This book does not show a full-size ticket working there.",
+          "If the next ten in this book are still red, the comparison stands.",
         ],
         trades: subset,
         damage: -net(subset),
@@ -273,7 +272,6 @@ function behaviorCandidate(
   overnight: RoundTrip[],
   day: RoundTrip[],
   revenge: RoundTrip[],
-  desk: string,
   size: Split | null,
 ): Candidate | null {
   const options: Candidate[] = [];
@@ -282,16 +280,16 @@ function behaviorCandidate(
     options.push({
       id: "fix-overnight",
       category: "behavior",
-      title: "Flat from 10pm to 6am ET",
+      title: "Overnight lost in this book",
       shortLabel: "Overnight",
       evidence: `${portrait(overnight, "Overnight entries, 10pm–6am ET")} ${portrait(day, "Entries from 6am–10pm ET")}`,
-      rule: "The session ends at 10pm ET. The next one starts at 10am ET, with the base preset loaded.",
+      rule: "In this book, entries from 10pm to 6am ET lost against the daytime entries. The split is this book's.",
       steps: [
-        `Close ${desk} at 10pm ET. A coin that is still there in the morning can be judged with the market-cap rule in front of you.`,
-        holdNote ?? "A setup that appears after 10pm gets written down and checked at 10am.",
+        "The overnight entries in this book are the ones that lost. A coin still open in the morning can be judged against the market-cap line.",
+        holdNote ?? "In this book, the daytime entries are the ones that paid. An overnight print is not a separate edge.",
         revenge.length >= 4 && net(revenge) < 0
-          ? `After a red close, the next ticket stays at ${fmtUsdPlain(size ? median(size.good.map((trade) => trade.amountUsd)) : median(day.map((trade) => trade.amountUsd)))}. Getting it back is not a larger preset.`
-          : "After a red close, take one full minute before the next ticket. Same preset.",
+          ? `After a red close, the next ticket in this book that paid stayed near ${fmtUsdPlain(size ? median(size.good.map((trade) => trade.amountUsd)) : median(day.map((trade) => trade.amountUsd)))}. A larger ticket is not what those closes show.`
+          : "After a red close, the next ticket stays on the same preset. This book does not show a larger ticket working there.",
       ],
       trades: overnight,
       damage: -net(overnight),
@@ -306,10 +304,10 @@ function behaviorCandidate(
       title: "The trade after a loss stays small",
       shortLabel: "Revenge size",
       evidence: portrait(revenge, "The next ticket within 30 minutes of a loss that was about your usual size, when it was at least 1.5× your median and at least 1.5× that losing ticket"),
-      rule: `After a red close, the next ticket is ${fmtUsdPlain(base)}. The larger preset stays off.`,
+      rule: `After a red close, the next ticket that paid in this book sat near ${fmtUsdPlain(base)}. A larger ticket is not what those closes show.`,
       steps: [
-        `When a trade closes red, the only enabled preset on ${desk} is ${fmtUsdPlain(base)} until the next green close.`,
-        "If you want the size back, wait for the next session.",
+        `When a trade closes red, the preset that matches this book is ${fmtUsdPlain(base)} until the next green close.`,
+        "The size stays there. This book does not show a larger ticket working after that red close.",
       ],
       trades: revenge,
       damage: -net(revenge),
@@ -343,10 +341,10 @@ function bestMetaKeep(trades: RoundTrip[]): Candidate | null {
       title: `${label} paid`,
       shortLabel: label,
       evidence: portrait(subset, label),
-      rule: `Keep ${label.toLowerCase()} on the menu when the market-cap, size, and KOL rules all pass. Median entry in this set was ${fmtMc(median(subset.map((trade) => trade.entryMarketCapUsd)))}.`,
+      rule: `In this book, ${label.toLowerCase()} finished green. Median entry in this set was ${fmtMc(median(subset.map((trade) => trade.entryMarketCapUsd)))}. A tracked wallet does not raise the size.`,
       steps: [
-        `A ${label.toLowerCase()} coin inside the entry range is the setup this book already knows how to trade.`,
-        "The narrative is permission to look, not permission to raise size.",
+        `A ${label.toLowerCase()} coin inside that entry range is what this book already shows.`,
+        "The narrative is a tag on the coin. It is not a reason to raise size.",
       ],
       trades: subset,
       damage: net(subset),
@@ -365,7 +363,7 @@ function holdSentence(trades: RoundTrip[]): string {
   const good = bands.filter((band) => band.trades.length >= 4 && net(band.trades) > 0).sort((a, b) => net(b.trades) - net(a.trades))[0];
   const bad = bands.filter((band) => band.trades.length >= 4 && net(band.trades) < 0).sort((a, b) => net(a.trades) - net(b.trades))[0];
   if (!good || !bad) return "";
-  return `Inside the day, holds of ${good.label} went ${record(good.trades)}. Holds ${bad.label} went ${record(bad.trades)}. On an entry that already passed the market-cap rule, make the decision at the start of the window that paid.`;
+  return `In this book, holds of ${good.label} went ${record(good.trades)}. Holds ${bad.label} went ${record(bad.trades)}. That is this book's record, not a hold to copy.`;
 }
 
 function joinOr(names: string[]): string {
