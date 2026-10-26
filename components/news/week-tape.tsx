@@ -45,18 +45,15 @@ export function WeekTape({ initial }: { initial: WeekBoard }) {
     <section className={styles.week} aria-label="Coins up over the last seven days, pinned">
       <p className={styles.weekLabel}>7d</p>
       <div className={styles.weekWindow}>
-        <div className={styles.weekTrack}>
-          <WeekRow tickers={rising} />
-          <WeekRow tickers={rising} hidden />
-        </div>
+        <WeekRow tickers={rising} />
       </div>
     </section>
   );
 }
 
-function WeekRow({ tickers, hidden = false }: { tickers: WeekTicker[]; hidden?: boolean }) {
+function WeekRow({ tickers }: { tickers: WeekTicker[] }) {
   return (
-    <ol className={hidden ? `${styles.weekRow} ${styles.weekGhost}` : styles.weekRow} aria-hidden={hidden || undefined}>
+    <ol className={styles.weekRow}>
       {tickers.map((ticker, index) => (
         <li key={`${ticker.id}-${index}`} className={styles.weekItem}>
           <b>{ticker.symbol.length < 3 ? ticker.name : ticker.symbol}</b>

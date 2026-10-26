@@ -32,22 +32,22 @@
 }
 
 .weekWindow {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   min-width: 0;
   flex: 1;
-  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent);
+  scrollbar-width: none;
 }
 
-.weekTrack {
-  display: flex;
-  width: max-content;
-}
+.weekWindow::-webkit-scrollbar { display: none; }
 
 .weekRow {
   display: flex;
+  flex-wrap: nowrap;
   gap: 18px;
+  width: max-content;
   margin: 0;
-  padding: 0 18px 0 12px;
+  padding: 0 16px 0 12px;
   list-style: none;
 }
 
@@ -82,23 +82,9 @@
   opacity: 0.8;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .weekTrack {
-    animation: week-run 48s linear infinite;
-  }
-  .week:hover .weekTrack { animation-play-state: paused; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .weekTrack { animation: none; }
-  .weekGhost { display: none; }
-  .weekWindow { overflow-x: auto; mask-image: none; }
-  .weekRow { flex-wrap: nowrap; }
-}
-
-@keyframes week-run {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+.card,
+.story {
+  overflow-wrap: anywhere;
 }
 
 .lead {
