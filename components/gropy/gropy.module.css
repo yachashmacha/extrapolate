@@ -5,17 +5,216 @@
   padding-bottom: 48px;
 }
 
-.intro {
+.chartCard {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-width: 42rem;
-  padding-bottom: 8px;
+  gap: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 0;
 }
 
-.intro h1 {
+.chartHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.chartHead h1 {
+  margin: 4px 0 0;
   font-size: 36px;
-  line-height: 1.15;
+  line-height: 1.1;
+}
+
+.pnlFigure {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.good { color: var(--sage); }
+.bad { color: var(--clay); }
+.flat { color: var(--brass); }
+
+.plot {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.yAxis {
+  position: relative;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+.yAxis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  min-height: 168px;
+  display: block;
+}
+
+.gridLine { stroke: var(--line); stroke-width: 1; }
+.zero { stroke: var(--brass); stroke-width: 1; opacity: 0.7; }
+.area { opacity: 0.18; }
+.area.good { fill: var(--sage); }
+.area.bad { fill: var(--clay); }
+.area.flat { fill: var(--brass); }
+.line { fill: none; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.line.good { stroke: var(--sage); }
+.line.bad { stroke: var(--clay); }
+.line.flat { stroke: var(--brass); }
+
+.times {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.timeRow > span {
+  min-width: 0;
+}
+
+.times b {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.prompt {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.promptRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.hardRule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 88px minmax(0, 1.3fr);
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.hardRule input[type="checkbox"] {
+  accent-color: var(--brass);
+}
+
+.amount {
+  display: contents;
+}
+
+.amount input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hardLabel {
+  font-weight: 600;
+}
+
+.unit {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.extraForm {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.extraForm :global(.field) {
+  flex: 1;
+  min-width: 0;
+}
+
+.extraList,
+.armed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.extraList li,
+.armed li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-weight: 500;
+}
+
+.extraList input {
+  margin-top: 4px;
+  accent-color: var(--brass);
+}
+
+.armed li {
+  color: var(--text);
 }
 
 .grid {
@@ -193,7 +392,45 @@
 }
 
 @media (max-width: 800px) {
-  .grid {
+  .grid,
+  .controls {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .svg {
+    height: 168px;
+  }
+
+  .extraForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .extraForm button {
+    align-self: flex-start;
+  }
+
+  .hardRule {
+    grid-template-columns: auto 5.5rem minmax(0, 1fr);
+  }
+
+  .hardLabel {
+    grid-column: 2 / -1;
+  }
+
+  .amount input {
+    grid-column: 2;
+  }
+
+  .unit {
+    grid-column: 3;
+  }
+
+  .chartHead h1 {
+    font-size: 28px;
+  }
+
+  .pnlFigure {
+    font-size: 24px;
   }
 }

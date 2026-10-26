@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Mark } from "@/components/mark";
+import { GropyControls } from "@/components/gropy/controls";
+import { GropyPnlChart } from "@/components/gropy/pnl-chart";
 import { fmtUsd, fmtWhen } from "@/lib/format";
 import { fmtSol } from "@/lib/gropy/sol";
 import type { GropyView } from "@/lib/gropy/view";
@@ -24,10 +26,8 @@ export function GropyBoard({ view }: { view: GropyView }) {
         </div>
       </header>
 
-      <div className={styles.intro}>
-        <p className="kicker">Grokbot</p>
-        <h1>gropy</h1>
-      </div>
+      <GropyPnlChart points={view.pnl} />
+      <GropyControls />
 
       <section className={styles.card} aria-labelledby="gropy-wallet">
         <p className="kicker" id="gropy-wallet">

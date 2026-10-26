@@ -1,4 +1,5 @@
 import { eligibleWallets, FIRE_LOSS_LIMIT } from "@/lib/gropy/engine";
+import { botPnlPoints, type PnlPoint } from "@/lib/gropy/pnl";
 import { sizeCopies } from "@/lib/gropy/spend";
 import type { ClosedTrade, CopyBook, CopyFill } from "@/lib/gropy/types";
 
@@ -40,6 +41,7 @@ export interface GropyView {
   log: GropyLogRow[];
   skippedUnnamedBuys: number;
   unfunded: boolean;
+  pnl: PnlPoint[];
 }
 
 export function buildGropyView(input: {
@@ -52,6 +54,8 @@ export function buildGropyView(input: {
   readCount?: number;
   skippedWallets?: readonly string[];
   unreadableCount?: number;
+  botCloses?: readonly { at: string; pnlSol: number }[];
+  now?: Date;
 }): GropyView {
   const balanceSol = input.balanceSol === undefined ? null : input.balanceSol;
   const funded = typeof balanceSol === "number" && balanceSol > 0;
@@ -102,6 +106,7 @@ export function buildGropyView(input: {
     }),
     skippedUnnamedBuys: input.book.skippedUnnamedBuys,
     unfunded: !funded,
+    pnl: botPnlPoints(input.botCloses ?? [], input.now),
   };
 }
 

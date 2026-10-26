@@ -35,7 +35,9 @@ describe("gropy names", () => {
       nameOf: gropyName,
       botAddress: "BotWalletOnly",
       balanceSol: 0,
+      now: new Date("2026-10-25T16:00:00.000Z"),
     });
+    expect(view.pnl.map((point) => point.pnl)).toEqual([0, 0]);
     expect(view.copying).toBeNull();
     expect(view.copies).toEqual([]);
     expect(view.unfunded).toBe(true);
