@@ -489,6 +489,13 @@ ul.facts span { overflow-wrap: anywhere; }
   border-color: var(--brass);
 }
 .page-switch a[aria-current="page"]:hover { color: var(--ink); }
+.page-switch a.gropy-name,
+a.ghost.gropy-name {
+  font-family: var(--font-fraunces), "Iowan Old Style", "Palatino Linotype", serif;
+  font-weight: 520;
+  font-size: 16px;
+  letter-spacing: -0.03em;
+}
 
 .pager { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .month-stats { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 16px; color: var(--muted); font-weight: 500; }

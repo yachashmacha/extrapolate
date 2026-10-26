@@ -22,8 +22,8 @@ export function GropyBoard({ view }: { view: GropyView }) {
           <nav className="page-switch" aria-label="Book pages">
             <Link href="/desk">Desk</Link>
             <Link href="/portfolio">Portfolio</Link>
-            <Link href="/gropy" aria-current="page">
-              gropy
+            <Link className="gropy-name" href="/gropy" aria-current="page">
+              Gropy Trade
             </Link>
           </nav>
         </div>
@@ -37,7 +37,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
       <GropyWalletCard />
 
       <p className="lede">
-        gropy copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
+        Gropy Trade copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
       </p>
 
       <p className={styles.stats}>

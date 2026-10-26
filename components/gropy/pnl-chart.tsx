@@ -16,7 +16,7 @@ export function GropyPnlChart({ points }: { points: readonly PnlPoint[] }) {
       <div className={styles.chartHead}>
         <div>
           <p className="kicker">Bot PnL</p>
-          <h1>gropy</h1>
+          <h1>Gropy Trade</h1>
         </div>
         <p className={`${styles.pnlFigure} ${tone}`}>{fmtSol(model.end, true)}</p>
       </div>

@@ -23,7 +23,7 @@ export default function HomePage() {
         <span className="actions">
           <Link className="ghost" href={`/desk${search}`}>Desk</Link>
           <Link className="ghost" href={`/portfolio${search}`}>Portfolio</Link>
-          <Link className="ghost" href="/gropy">gropy</Link>
+          <Link className="ghost gropy-name" href="/gropy">Gropy Trade</Link>
         </span>
       </header>
       <section className="hero">

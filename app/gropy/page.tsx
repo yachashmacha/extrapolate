@@ -10,8 +10,8 @@ import { buildGropyView } from "@/lib/gropy/view";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "gropy — extrapolate",
-  description: "Grokbot copy trader. Fund the bot wallet with SOL. It follows a profitable KOL and fires them on the third loss.",
+  title: "Gropy Trade — extrapolate",
+  description: "Gropy Trade, a grokbot copy trader. Fund the bot wallet with SOL. It follows a profitable KOL and fires them on the third loss.",
 };
 
 export default async function GropyPage() {

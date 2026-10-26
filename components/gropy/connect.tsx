@@ -153,7 +153,7 @@ export function GropyWalletCard() {
       ) : (
         <>
           <p className={styles.address}>{spend.address}</p>
-          <p className={styles.note}>Load this wallet with SOL, or connect yours and gropy will size copies from that balance.</p>
+          <p className={styles.note}>Load this wallet with SOL, or connect yours and Gropy Trade will size copies from that balance.</p>
           <div className="wallet-row">
             {WALLETS.map((wallet) => (
               <button key={wallet.id} type="button" className="ghost" onClick={() => void spend.connect(wallet.id)} disabled={spend.busy !== ""}>

@@ -30,7 +30,7 @@ export function BookBar({
           <Link href={`/portfolio${search}`} aria-current={page === "portfolio" ? "page" : undefined}>
             Portfolio
           </Link>
-          <Link href="/gropy">gropy</Link>
+          <Link className="gropy-name" href="/gropy">Gropy Trade</Link>
         </nav>
       </div>
       <div className="who">
