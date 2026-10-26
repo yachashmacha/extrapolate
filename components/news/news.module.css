@@ -53,6 +53,29 @@
 
 .handle { white-space: nowrap; }
 
+.gropy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tick {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--brass-dim);
+  color: var(--brass);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .coins,
 .posts {
   display: grid;

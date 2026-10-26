@@ -9,6 +9,11 @@ export const NEWS_LANES: { id: NewsLane | "all"; label: string }[] = [
   { id: "strategy", label: "Strategies" },
 ];
 
+export interface CoinMark {
+  symbol: string;
+  changePct: number;
+}
+
 export interface WireItem {
   title: string;
   url: string;
@@ -16,6 +21,7 @@ export interface WireItem {
   publishedAt: string;
   excerpt: string;
   lanes: NewsLane[];
+  marks: CoinMark[];
 }
 
 export interface AttentionCoin {
@@ -36,6 +42,7 @@ export interface XPost {
   url: string;
   publishedAt: string;
   coinSymbol: string | null;
+  marks: CoinMark[];
 }
 
 export interface NewsDesk {

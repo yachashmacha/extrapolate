@@ -1,7 +1,10 @@
 import { lanesFor } from "@/lib/news/lanes";
+import { findMentions, marksFrom, quoteKey } from "@/lib/news/marks";
 import { parseFeed } from "@/lib/news/parse";
 import { mentionsMarket } from "@/lib/news/relevance";
-import type { AttentionCoin, NewsDesk, WireItem, XPost } from "@/lib/news/types";
+import type { AttentionCoin, CoinMark, NewsDesk, WireItem, XPost } from "@/lib/news/types";
+
+type RawWire = Omit<WireItem, "marks">;
 
 const WIRES: { name: string; url: string }[] = [
   { name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
@@ -38,10 +41,11 @@ export async function assembleNews(fetchImpl: typeof fetch, now = new Date()): P
   const missed: string[] = [];
   const wires = await loadWires(fetchImpl, now, missed);
   const { coins, posts } = await loadTape(fetchImpl, missed);
-  return { wires, coins, posts, missed, loadedAt: now.toISOString() };
+  const marked = await applyMarks(fetchImpl, wires, posts, coins);
+  return { wires: marked.wires, coins, posts: marked.posts, missed, loadedAt: now.toISOString() };
 }
 
-async function loadWires(fetchImpl: typeof fetch, now: Date, missed: string[]): Promise<WireItem[]> {
+async function loadWires(fetchImpl: typeof fetch, now: Date, missed: string[]): Promise<RawWire[]> {
   const batches = await Promise.all(
     WIRES.map(async (source) => {
       try {
@@ -146,6 +150,7 @@ async function loadPosts(fetchImpl: typeof fetch, rows: DexRow[], symbols: Map<s
           url: tweet.url,
           publishedAt,
           coinSymbol: item.symbol,
+          marks: [] as CoinMark[],
         } satisfies XPost;
       } catch {
         return null;
@@ -178,6 +183,47 @@ function tweetTime(tweet: NonNullable<FxTweet["tweet"]>): string | null {
     if (Number.isFinite(time)) return new Date(time).toISOString();
   }
   return null;
+}
+
+async function applyMarks(
+  fetchImpl: typeof fetch,
+  wires: RawWire[],
+  posts: XPost[],
+  coins: AttentionCoin[],
+): Promise<{ wires: WireItem[]; posts: XPost[] }> {
+  const wireMentions = wires.map((item) => findMentions(`${item.title} ${item.excerpt}`, coins));
+  const postMentions = posts.map((post) => findMentions(post.text, coins));
+  const changes = new Map<string, number>();
+  for (const coin of coins) {
+    if (coin.changePct == null) continue;
+    changes.set(quoteKey(coin.symbol), coin.changePct);
+  }
+  const ids = new Map<string, string>();
+  for (const mention of [...wireMentions, ...postMentions].flat()) {
+    if (!mention.id || changes.has(mention.symbol)) continue;
+    ids.set(mention.id, mention.symbol);
+  }
+  if (ids.size > 0) {
+    const query = [...ids.keys()].map((id) => encodeURIComponent(id)).join(",");
+    const body = await readJson<Record<string, { usd_24h_change?: unknown }>>(
+      fetchImpl,
+      `https://api.coingecko.com/api/v3/simple/price?ids=${query}&vs_currencies=usd&include_24hr_change=true`,
+      "",
+      [],
+    );
+    if (body) {
+      for (const [id, row] of Object.entries(body)) {
+        const symbol = ids.get(id);
+        const changePct = numberOrNull(row?.usd_24h_change);
+        if (!symbol || changePct == null) continue;
+        changes.set(symbol, changePct);
+      }
+    }
+  }
+  return {
+    wires: wires.map((item, index) => ({ ...item, marks: marksFrom(wireMentions[index] ?? [], changes) })),
+    posts: posts.map((post, index) => ({ ...post, marks: marksFrom(postMentions[index] ?? [], changes) })),
+  };
 }
 
 async function readJson<T>(fetchImpl: typeof fetch, url: string, label: string, missed: string[]): Promise<T | null> {

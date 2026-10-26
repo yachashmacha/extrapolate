@@ -4,7 +4,7 @@ import { Mark } from "@/components/mark";
 import { fmtMc, fmtPct, fmtWhen } from "@/lib/format";
 import { isNewsLane } from "@/lib/news/lanes";
 import { tapeSentence } from "@/lib/news/tape";
-import { NEWS_LANES, type NewsDesk, type NewsLane, type WireItem } from "@/lib/news/types";
+import { NEWS_LANES, type CoinMark, type NewsDesk, type NewsLane, type WireItem } from "@/lib/news/types";
 import { traderSearch } from "@/lib/trader";
 import styles from "./news.module.css";
 
@@ -108,6 +108,7 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
                 <p className="kicker">{post.coinSymbol ? post.coinSymbol : `@${post.handle}`}</p>
                 <h3>{post.author}</h3>
                 <p>{post.text}</p>
+                <GropyMarks marks={post.marks} />
                 <p className="note">{fmtWhen(post.publishedAt)} ET · <span className={styles.handle}>{`@${post.handle}`}</span></p>
                 <a href={post.url} target="_blank" rel="noreferrer">Open on X</a>
               </article>
@@ -180,8 +181,25 @@ function Story({ item }: { item: WireItem }) {
       <span>
         <h3>{item.title}</h3>
         {item.excerpt ? <p className="note">{item.excerpt}</p> : null}
+        <GropyMarks marks={item.marks} />
       </span>
     </a>
+  );
+}
+
+function GropyMarks({ marks }: { marks: CoinMark[] }) {
+  if (marks.length === 0) return null;
+  return (
+    <span className={styles.gropy}>
+      {marks.map((mark) => (
+        <span key={mark.symbol} className={styles.tick}>
+          Gropy trading {mark.symbol}{" "}
+          <b className={mark.changePct < 0 ? "bad num" : mark.changePct > 0 ? "good num" : "num"}>
+            {fmtPct(mark.changePct, 1)}
+          </b>
+        </span>
+      ))}
+    </span>
   );
 }
 

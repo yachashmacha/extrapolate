@@ -165,5 +165,101 @@ describe("news wire", () => {
     expect(desk.posts[0]).toEqual(expect.objectContaining({ handle: "trader", coinSymbol: "AXE" }));
     expect(desk.posts[1].coinSymbol).toBeNull();
     expect(JSON.stringify(desk.posts)).not.toContain("dance");
+    expect(desk.wires[0].marks).toEqual([]);
+    expect(desk.posts[0].marks).toEqual([]);
+    expect(desk.posts[1].marks).toEqual([]);
+    expect(desk.missed).not.toContain("coin prices");
+  });
+
+  it("notes the day change when a story or post names a coin", async () => {
+    const marked = `<?xml version="1.0"?>
+<rss><channel>
+  <item>
+    <title>Dogecoin slips while bitcoin holds</title>
+    <link>https://example.com/doge</link>
+    <pubDate>Sat, 25 Oct 2026 12:00:00 GMT</pubDate>
+    <description>Funding stays elevated.</description>
+  </item>
+  <item>
+    <title>Trump spoke at a rally</title>
+    <link>https://example.com/rally</link>
+    <pubDate>Sat, 25 Oct 2026 11:00:00 GMT</pubDate>
+    <description>No coin in this copy.</description>
+  </item>
+  <item>
+    <title>AXE leads the hour</title>
+    <link>https://example.com/axe</link>
+    <pubDate>Sat, 25 Oct 2026 10:00:00 GMT</pubDate>
+    <description>Volume is the tell.</description>
+  </item>
+</channel></rss>`;
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("coindesk")) return new Response("nope", { status: 500 });
+      if (url.includes("rss") || url.includes("feed")) return new Response(marked, { status: 200 });
+      if (url.endsWith("token-boosts/top/v1")) {
+        return Response.json([
+          {
+            chainId: "solana",
+            tokenAddress: "Mint111",
+            totalAmount: 40,
+            links: [{ url: "https://x.com/trader/status/100" }, { url: "https://x.com/scout/status/300" }],
+          },
+        ]);
+      }
+      if (url.endsWith("token-profiles/latest/v1")) return Response.json([]);
+      if (url.includes("/tokens/v1/solana/")) {
+        return Response.json([
+          {
+            chainId: "solana",
+            url: "https://dexscreener.com/solana/pair",
+            baseToken: { address: "Mint111", name: "Axe", symbol: "AXE" },
+            volume: { h24: 12 },
+            priceChange: { h24: -3.2 },
+            liquidity: { usd: 9 },
+            marketCap: 1000,
+          },
+        ]);
+      }
+      if (url.includes("fxtwitter.com/trader/status/100")) {
+        return Response.json({
+          tweet: {
+            url: "https://x.com/trader/status/100",
+            text: "Volume faded after the entry.",
+            created_at: "Sat, 25 Oct 2026 16:00:00 GMT",
+            author: { name: "Trader", screen_name: "trader" },
+          },
+        });
+      }
+      if (url.includes("fxtwitter.com/scout/status/300")) {
+        return Response.json({
+          tweet: {
+            url: "https://x.com/scout/status/300",
+            text: "AXE volume is the whole story on this coin.",
+            created_at: "Sat, 25 Oct 2026 18:00:00 GMT",
+            author: { name: "Scout", screen_name: "scout" },
+          },
+        });
+      }
+      if (url.includes("api.coingecko.com")) {
+        return Response.json({
+          dogecoin: { usd: 0.19, usd_24h_change: 0.195 },
+          bitcoin: { usd: 80099, usd_24h_change: -0.494 },
+        });
+      }
+      throw new Error(url);
+    };
+
+    const desk = await assembleNews(fetchImpl, new Date("2026-10-25T18:00:00.000Z"));
+    const byTitle = new Map(desk.wires.map((item) => [item.title, item.marks]));
+    expect(byTitle.get("Dogecoin slips while bitcoin holds")).toEqual([
+      { symbol: "DOGE", changePct: 0.195 },
+      { symbol: "BTC", changePct: -0.494 },
+    ]);
+    expect(byTitle.get("Trump spoke at a rally")).toEqual([]);
+    expect(byTitle.get("AXE leads the hour")).toEqual([{ symbol: "AXE", changePct: -3.2 }]);
+    expect(desk.posts.find((post) => post.handle === "trader")?.marks).toEqual([]);
+    expect(desk.posts.find((post) => post.handle === "scout")?.marks).toEqual([{ symbol: "AXE", changePct: -3.2 }]);
+    expect(desk.posts.find((post) => post.handle === "trader")?.coinSymbol).toBe("AXE");
   });
 });
