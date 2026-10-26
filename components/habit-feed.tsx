@@ -26,8 +26,8 @@ export function HabitFeed({
     "This feed reads this wallet's own trades. A bias is named only when the trades match that measurement. A repeat is the order of the trades, with no motive attached. A tendency is a pattern that made money. Each card names the trades it came from.";
   const intro =
     bounds.ticketUsd > 0
-      ? `${point} Where a habit names a next trade, that trade is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A caller leaves that trade where it is.`
-      : `${point} A caller leaves the trade where this wallet and your rules put it.`;
+      ? `${point} Where a habit names a next trade, that trade is ${fmtUsdPlain(bounds.ticketUsd)}. ${ticketWhy(bounds)}${rules} A KOL in the coin does not change that size.`
+      : `${point} The next trade stays where this wallet and your rules put it.`;
   return (
     <section className="section" id="biases">
       <div className="bias-lead">

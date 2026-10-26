@@ -9,7 +9,7 @@ const CATEGORY: Record<PlayCard["category"], string> = {
   size: "Size",
   callers: "KOLs",
   narrative: "Narrative",
-  behavior: "Session",
+  behavior: "Time of day",
 };
 
 export function Suggestions({

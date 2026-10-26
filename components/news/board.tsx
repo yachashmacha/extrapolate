@@ -48,10 +48,10 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
       <section className="section" aria-label="Lanes in this read">
         <p className={styles.stats}>
           {counts.map((row) => (
-            <span key={row.id}>
+            <Link key={row.id} href={`/news?lane=${row.id}#headlines`} aria-current={lane === row.id ? "page" : undefined}>
               {row.label}
               <b className="num">{row.count}</b>
-            </span>
+            </Link>
           ))}
         </p>
         <p className={`note ${styles.center}`}>
@@ -144,7 +144,7 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
         </section>
       ) : null}
 
-      <section className="section" aria-labelledby="wire">
+      <section className="section" id="headlines" aria-labelledby="wire">
         <div className="section-head">
           <div>
             <p className="kicker">Headlines</p>
@@ -154,7 +154,7 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
         </div>
         <div className={styles.lanes}>
           {NEWS_LANES.map((row) => (
-            <Link key={row.id} className={`chip ${styles.lane}`} href={row.id === "all" ? "/news" : `/news?lane=${row.id}`} aria-current={lane === row.id ? "page" : undefined}>
+            <Link key={row.id} className={`chip ${styles.lane}`} href={row.id === "all" ? "/news#headlines" : `/news?lane=${row.id}#headlines`} aria-current={lane === row.id ? "page" : undefined}>
               {row.label}
             </Link>
           ))}
@@ -200,7 +200,8 @@ function GropyMarks({ marks }: { marks: CoinMark[] }) {
           Gropy trading {mark.symbol}{" "}
           <b className={mark.changePct < 0 ? "bad num" : mark.changePct > 0 ? "good num" : "num"}>
             {fmtPct(mark.changePct, 1)}
-          </b>
+          </b>{" "}
+          <span className={styles.tickWhen}>today</span>
         </span>
       ))}
     </span>

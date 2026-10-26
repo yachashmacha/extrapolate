@@ -28,12 +28,15 @@ export default function HomePage() {
           <p className="kicker">Memecoin trading desk</p>
           <h1>See the trade you keep repeating.</h1>
           <p className="lede">
-            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin trade. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL. Three rules start on: exit if price falls below half the position, keep the base trade to 10% of the portfolio at the time of the trade, and stop at 50 closed trades in a day.
+            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin trade. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL. Three rules start on.
           </p>
           <ul className="facts">
+            <li><b>Exit</b><span>If price falls below half the position.</span></li>
+            <li><b>Size</b><span>The base trade stays at 10% of the portfolio at the time of the trade.</span></li>
+            <li><b>Day</b><span>Stop at 50 closed trades in a day.</span></li>
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
-            <li><b>Reading</b><span>What the green trades shared. What the red trades shared.</span></li>
-            <li><b>News</b><span>Headlines, the Solana pairs being boosted, and the X posts those coins link.</span></li>
+            <li><b>Reading</b><span><Link href={`/desk${search}`}>What the green trades shared, and what the red trades shared.</Link></span></li>
+            <li><b>News</b><span><Link href="/news">Headlines, boosted Solana pairs, and the week’s top ten.</Link></span></li>
           </ul>
         </div>
         <ConnectCard />

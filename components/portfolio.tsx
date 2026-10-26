@@ -18,7 +18,7 @@ import { withStoredHigh } from "@/lib/analysis/narrative";
 import { practiceTips } from "@/lib/analysis/tips";
 import { useRules } from "@/components/use-rules";
 import { endOfDayReport, latestClosedDay } from "@/lib/analysis/day-report";
-import { currentMonthEt, dayKeyEt, dayLabel, monthOf } from "@/lib/calendar";
+import { currentMonthEt, dayKeyEt, dayLabel, monthLabel, monthOf } from "@/lib/calendar";
 import { ruleBreak } from "@/lib/rules";
 import type { AnnotatedTrade } from "@/lib/types";
 
@@ -148,7 +148,7 @@ export function Portfolio() {
             </div>
             <div className="filter-row">
               <button type="button" className="chip" aria-pressed={scope.kind === "month"} onClick={() => setScope({ kind: "month" })}>
-                This month
+                {shownMonth === currentMonthEt() ? "This month" : monthLabel(shownMonth)}
               </button>
               <button type="button" className="chip" aria-pressed={scope.kind === "book"} onClick={() => setScope({ kind: "book" })}>
                 All trades
@@ -168,7 +168,7 @@ export function Portfolio() {
                   {scope.symbol} · clear
                 </button>
               ) : null}
-              <span className="note">{scoped.length} shown</span>
+              <span className="note">{scoped.length === 1 ? "1 trade" : `${scoped.length} trades`}</span>
             </div>
             <div className="feeds">
               <div>

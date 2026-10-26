@@ -32,7 +32,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
       <GropyWalletCard />
 
       <p className="lede">
-        Gropy Trade copies KOL wallets from their own swaps. A wallet is copied only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied, and the bot stops copying them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
+        Gropy Trade copies KOL wallets from their own swaps, and only when those closes are profitable. The stop rule on this page is what ends a copy. A saved instruction can end one too, when the closes meet it. This page does not send a swap.
       </p>
 
       <p className={styles.stats}>

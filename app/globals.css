@@ -129,6 +129,8 @@ ul.facts { display: grid; gap: 12px; margin: 8px 0 0; padding: 0; list-style: no
 ul.facts li { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; color: var(--muted); }
 ul.facts b { color: var(--text); font-weight: 600; }
 ul.facts span { overflow-wrap: anywhere; }
+ul.facts a { color: inherit; text-underline-offset: 3px; }
+ul.facts a:hover { color: var(--brass); }
 
 .connect, .panel, .play, .trade, .stat, .pattern {
   background:
@@ -265,7 +267,9 @@ ul.facts span { overflow-wrap: anywhere; }
 .preview-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
 .panel { padding: 16px; min-width: 0; }
 .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.panel:has(.compare) { overflow-x: auto; }
 .compare, .data { width: 100%; border-collapse: collapse; }
+.compare { min-width: 36rem; }
 .compare th, .compare td, .data th, .data td {
   text-align: left;
   padding: 8px 12px;

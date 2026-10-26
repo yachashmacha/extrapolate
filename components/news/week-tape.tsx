@@ -41,6 +41,7 @@ export function WeekTape({ initial }: { initial: WeekBoard }) {
   }
 
   return (
+    <>
     <section className={styles.week} aria-label="Week's top 10">
       <p className={styles.weekLabel}>Week&apos;s top 10</p>
       <div className={styles.weekWindow}>
@@ -50,6 +51,8 @@ export function WeekTape({ initial }: { initial: WeekBoard }) {
         </div>
       </div>
     </section>
+    <p className={styles.weekNote}>The ten largest coins, ranked by the last seven days.</p>
+  </>
   );
 }
 
@@ -65,6 +68,7 @@ function WeekRow({ tickers, hidden = false }: { tickers: WeekTicker[]; hidden?: 
           <span className={ticker.changePct < 0 ? "bad num" : ticker.changePct > 0 ? "good num" : "num"}>
             {fmtPct(ticker.changePct, 1)}
           </span>
+          <span className={styles.weekPx}>7d</span>
         </li>
       ))}
     </ol>
