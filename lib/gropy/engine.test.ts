@@ -62,6 +62,8 @@ describe("gropy copy rule", () => {
     expect(isFired(3)).toBe(true);
     expect(book.fires).toHaveLength(1);
     expect(book.fires[0].losses).toBe(3);
+    expect(book.switches).toHaveLength(1);
+    expect(book.switches[0]).toMatchObject({ fromWallet: "A", toWallet: null, trigger: "losses", losses: 3, streak: 3 });
     expect(book.fires[0].firedWallet).toBe("A");
     expect(book.fires[0].replacementWallet).toBeNull();
     expect(book.copying).toBeNull();
@@ -96,6 +98,14 @@ describe("gropy copy rule", () => {
     expect(fire.firedRealizedUsd).toBe(25);
     expect(fire.replacementRealizedUsd).toBe(50);
     expect(fire.replacementRealizedUsd).toBeGreaterThan(fire.firedRealizedUsd);
+    expect(book.switches[0]).toMatchObject({
+      fromWallet: "A",
+      toWallet: "B",
+      trigger: "losses",
+      streak: 3,
+      lossCoins: ["COIN", "COIN", "COIN"],
+    });
+    expect(book.switches[0].buyCaps).toEqual([{ coin: "PEPE", marketCapUsd: 30_000 }]);
     expect(book.copying).toBe("B");
     expect(book.copying).not.toBe("A");
     expect(book.lossesTowardFire).toBe(0);
@@ -126,5 +136,23 @@ describe("gropy copy rule", () => {
     expect(book.copying).toBeNull();
     expect(book.copies).toEqual([]);
     expect(book.fires).toEqual([]);
+    expect(book.switches).toEqual([]);
+  });
+
+  it("leaves a wallet whose verified result is no longer positive before the third loss", () => {
+    const book = runCopyBook(
+      [
+        close("A", "2026-10-01T12:00:00.000Z", 10),
+        close("B", "2026-10-01T12:10:00.000Z", 20),
+        close("A", "2026-10-01T13:00:00.000Z", -6),
+        close("A", "2026-10-01T14:00:00.000Z", 4),
+        close("A", "2026-10-01T15:00:00.000Z", -9),
+      ],
+      [],
+    );
+    expect(book.fires).toEqual([]);
+    expect(book.switches).toHaveLength(1);
+    expect(book.switches[0]).toMatchObject({ fromWallet: "A", toWallet: "B", trigger: "unprofitable", losses: 2, streak: 1 });
+    expect(book.copying).toBe("B");
   });
 });

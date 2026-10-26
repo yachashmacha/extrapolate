@@ -1,5 +1,6 @@
 import { eligibleWallets, FIRE_LOSS_LIMIT } from "@/lib/gropy/engine";
 import { botPnlPoints, type PnlPoint } from "@/lib/gropy/pnl";
+import type { SwitchFacts } from "@/lib/gropy/reasoning";
 import { sizeCopies } from "@/lib/gropy/spend";
 import type { ClosedTrade, CopyBook, CopyFill } from "@/lib/gropy/types";
 
@@ -39,6 +40,9 @@ export interface GropyView {
   fireLossLimit: number;
   copies: GropyCopyRow[];
   log: GropyLogRow[];
+  switches: SwitchFacts[];
+  copyingStreak: number;
+  copyingLost: number;
   skippedUnnamedBuys: number;
   unfunded: boolean;
   pnl: PnlPoint[];
@@ -104,6 +108,28 @@ export function buildGropyView(input: {
         },
       ];
     }),
+    switches: input.book.switches.flatMap((change) => {
+      const fromName = input.nameOf(change.fromWallet);
+      if (!fromName) return [];
+      const toName = change.toWallet ? input.nameOf(change.toWallet) : null;
+      return [
+        {
+          at: change.at,
+          fromName,
+          toName,
+          losses: change.losses,
+          streak: change.streak,
+          lost: change.lost,
+          fromRealized: change.fromRealized,
+          toRealized: toName ? change.toRealized : null,
+          trigger: change.trigger,
+          lossCoins: change.lossCoins,
+          buyCaps: change.buyCaps,
+        },
+      ];
+    }),
+    copyingStreak: copying ? input.book.copyingStreak : 0,
+    copyingLost: copying ? input.book.copyingLost : 0,
     skippedUnnamedBuys: input.book.skippedUnnamedBuys,
     unfunded: !funded,
     pnl: botPnlPoints(input.botCloses ?? [], input.now),

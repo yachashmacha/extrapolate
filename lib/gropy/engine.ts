@@ -1,5 +1,5 @@
 import { isWalletAddress } from "@/lib/address";
-import type { BuySignal, ClosedTrade, CopyBook, CopyFill, FireEvent, WalletScore } from "@/lib/gropy/types";
+import type { BuySignal, ClosedTrade, CopyBook, CopyFill, FireEvent, SeatChange, SeatedBuyCap, WalletScore } from "@/lib/gropy/types";
 
 /**
  * A copied wallet is fired when losing closes while they are being copied go past this count.
@@ -98,8 +98,10 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
   const fired = new Set<string>();
   const copies: CopyFill[] = [];
   const fires: FireEvent[] = [];
+  const switches: SeatChange[] = [];
   let copying: string | null = null;
   let losses = 0;
+  let seatStats = emptySeat();
   let lastFiredRealized: number | null = null;
   let skippedUnnamedBuys = 0;
 
@@ -121,18 +123,36 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
   const seat = (wallet: string) => {
     copying = wallet;
     losses = 0;
+    seatStats = emptySeat();
   };
 
-  const considerSeat = () => {
-    if (copying) return;
+  const considerSeat = (): string | null => {
+    if (copying) return copying;
     const scores = scoresNow();
     if (lastFiredRealized === null) {
       const best = scores.filter((score) => score.profitable && !fired.has(score.wallet)).sort(byBetterResult)[0];
       if (best) seat(best.wallet);
-      return;
+      return best?.wallet ?? null;
     }
     const replacement = pickReplacement("__seat__", lastFiredRealized, scores, fired);
     if (replacement) seat(replacement.wallet);
+    return replacement?.wallet ?? null;
+  };
+
+  const rememberSwitch = (wallet: string, at: string, trigger: SeatChange["trigger"], toWallet: string | null, toRealized: number | null) => {
+    switches.push({
+      at,
+      fromWallet: wallet,
+      toWallet,
+      losses: seatStats.losses,
+      streak: seatStats.streak,
+      lost: seatStats.lost,
+      fromRealized: realized.get(wallet) ?? 0,
+      toRealized,
+      trigger,
+      lossCoins: seatStats.lossCoins.slice(),
+      buyCaps: seatStats.buyCaps.slice(),
+    });
   };
 
   const fire = (wallet: string, at: string) => {
@@ -140,6 +160,7 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
     fired.add(wallet);
     lastFiredRealized = firedRealizedUsd;
     const replacement = pickReplacement(wallet, firedRealizedUsd, scoresNow(), fired);
+    rememberSwitch(wallet, at, "losses", replacement?.wallet ?? null, replacement?.realizedUsd ?? null);
     fires.push({
       at,
       firedWallet: wallet,
@@ -152,6 +173,7 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
     else {
       copying = null;
       losses = 0;
+      seatStats = emptySeat();
     }
   };
 
@@ -162,19 +184,60 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
       realized.set(trade.wallet, (realized.get(trade.wallet) ?? 0) + pnl);
       closedCount.set(trade.wallet, (closedCount.get(trade.wallet) ?? 0) + 1);
       if (pnl < 0) lifetimeLosses.set(trade.wallet, (lifetimeLosses.get(trade.wallet) ?? 0) + 1);
-      if (copying === trade.wallet && pnl < 0) losses += 1;
+      if (copying === trade.wallet) {
+        if (pnl < 0) {
+          losses += 1;
+          seatStats.losses = losses;
+          seatStats.streak += 1;
+          seatStats.lost += Math.abs(pnl);
+          const coin = coinOf(trade.symbol, trade.coinName, trade.mint);
+          if (coin) seatStats.lossCoins.push(coin);
+        } else {
+          seatStats.streak = 0;
+        }
+      }
       if (copying === trade.wallet && isFired(losses)) {
         fire(trade.wallet, trade.closedAt);
       } else if (copying === trade.wallet && (realized.get(trade.wallet) ?? 0) <= 0) {
+        const from = trade.wallet;
+        const kept = {
+          losses: seatStats.losses,
+          streak: seatStats.streak,
+          lost: seatStats.lost,
+          lossCoins: seatStats.lossCoins.slice(),
+          buyCaps: seatStats.buyCaps.slice(),
+        };
         copying = null;
-        losses = 0;
-        considerSeat();
+        const next = considerSeat();
+        switches.push({
+          at: trade.closedAt,
+          fromWallet: from,
+          toWallet: next,
+          losses: kept.losses,
+          streak: kept.streak,
+          lost: kept.lost,
+          fromRealized: realized.get(from) ?? 0,
+          toRealized: next ? (realized.get(next) ?? 0) : null,
+          trigger: "unprofitable",
+          lossCoins: kept.lossCoins,
+          buyCaps: kept.buyCaps,
+        });
+        if (!next) {
+          losses = 0;
+          seatStats = emptySeat();
+        }
       } else if (!copying) {
         considerSeat();
       }
       continue;
     }
 
+    if (copying === event.buy.wallet && typeof event.buy.entryMarketCapUsd === "number" && Number.isFinite(event.buy.entryMarketCapUsd) && event.buy.entryMarketCapUsd > 0) {
+      seatStats.buyCaps.push({
+        coin: coinOf(event.buy.symbol, event.buy.coinName, event.buy.mint),
+        marketCapUsd: event.buy.entryMarketCapUsd,
+      });
+    }
     if (copying !== event.buy.wallet) continue;
     const coin = coinLabel(event.buy);
     if (!coin) {
@@ -204,8 +267,28 @@ export function runCopyBook(closed: readonly ClosedTrade[], buys: readonly BuySi
     copyingCloses: copying ? closedCount.get(copying) ?? 0 : null,
     copies,
     fires,
+    switches,
+    copyingStreak: copying ? seatStats.streak : 0,
+    copyingLost: copying ? seatStats.lost : 0,
     skippedUnnamedBuys,
   };
+}
+
+interface SeatStats {
+  losses: number;
+  streak: number;
+  lost: number;
+  lossCoins: string[];
+  buyCaps: SeatedBuyCap[];
+}
+
+function emptySeat(): SeatStats {
+  return { losses: 0, streak: 0, lost: 0, lossCoins: [], buyCaps: [] };
+}
+
+function coinOf(symbol: string | undefined, name: string | undefined, mint: string | undefined): string | null {
+  const id = mint ?? "";
+  return cleanCoin(symbol, id) ?? cleanCoin(name, id);
 }
 
 function timeline(closed: readonly ClosedTrade[], buys: readonly BuySignal[]): BookEvent[] {

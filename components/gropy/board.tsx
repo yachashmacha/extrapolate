@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Mark } from "@/components/mark";
 import { GropyControls } from "@/components/gropy/controls";
 import { GropyPnlChart } from "@/components/gropy/pnl-chart";
+import { GropyReasoning } from "@/components/gropy/reasoning";
 import { fmtUsd, fmtWhen } from "@/lib/format";
 import { fmtSol } from "@/lib/gropy/sol";
 import type { GropyView } from "@/lib/gropy/view";
@@ -29,6 +30,8 @@ export function GropyBoard({ view }: { view: GropyView }) {
       <GropyPnlChart points={view.pnl} />
       <GropyControls />
 
+      <div className={styles.work}>
+        <div className={styles.mainCol}>
       <section className={styles.card} aria-labelledby="gropy-wallet">
         <p className="kicker" id="gropy-wallet">
           Bot wallet
@@ -39,7 +42,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
       </section>
 
       <p className="lede">
-        gropy copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. The next wallet has to be a different one with a better verified result. This page does not send a swap.
+        gropy copies KOL wallets from their own swaps. A wallet is seated only when those closes are profitable. More than {view.fireLossLimit} losing trades while copied fires them. A saved instruction can also be the reason the bot leaves, when the closes meet it. The next wallet has to be a different one with a better verified result. This page does not send a swap.
       </p>
 
       <p className={styles.stats}>
@@ -172,6 +175,13 @@ export function GropyBoard({ view }: { view: GropyView }) {
           ) : null}
         </section>
       ) : null}
+        </div>
+        <GropyReasoning
+          switches={view.switches}
+          unit={view.unit}
+          seat={{ name: view.copying, losses: view.lossesTowardFire, streak: view.copyingStreak, lost: view.copyingLost }}
+        />
+      </div>
     </main>
   );
 }

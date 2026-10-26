@@ -55,6 +55,27 @@ export interface FireEvent {
   replacementRealizedUsd: number | null;
 }
 
+/** A buy copied while a wallet was seated, with a market cap only when the swap had one. */
+export interface SeatedBuyCap {
+  coin: string | null;
+  marketCapUsd: number;
+}
+
+/** One time the seat left a wallet. Facts are the closes and buys while they were copied. */
+export interface SeatChange {
+  at: string;
+  fromWallet: string;
+  toWallet: string | null;
+  losses: number;
+  streak: number;
+  lost: number;
+  fromRealized: number;
+  toRealized: number | null;
+  trigger: "losses" | "unprofitable";
+  lossCoins: string[];
+  buyCaps: SeatedBuyCap[];
+}
+
 export interface CopyBook {
   copying: string | null;
   lossesTowardFire: number;
@@ -62,5 +83,8 @@ export interface CopyBook {
   copyingCloses: number | null;
   copies: CopyFill[];
   fires: FireEvent[];
+  switches: SeatChange[];
+  copyingStreak: number;
+  copyingLost: number;
   skippedUnnamedBuys: number;
 }

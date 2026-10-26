@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { armedLines, EMPTY_HARD_RULES, parseHardRules, type ExtraHardRule, type GropyHardRules } from "@/lib/gropy/hard-rules";
+import { armedLines, EMPTY_HARD_RULES, type ExtraHardRule, type GropyHardRules } from "@/lib/gropy/hard-rules";
+import { notifyInstructions, PROMPT_KEY, PROMPT_LIMIT, readStoredInstructions, RULES_KEY } from "@/lib/gropy/instructions";
 import styles from "./gropy.module.css";
-
-const PROMPT_KEY = "gropy:prompt";
-const RULES_KEY = "gropy:hard-rules";
-const PROMPT_LIMIT = 2000;
 
 export function GropyControls() {
   const [prompt, setPrompt] = useState("");
@@ -16,9 +13,10 @@ export function GropyControls() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setPrompt(readPrompt());
-    setSavedPrompt(readPrompt());
-    setRules(parseHardRules(localStorage.getItem(RULES_KEY)));
+    const stored = readStoredInstructions();
+    setPrompt(stored.prompt);
+    setSavedPrompt(stored.prompt);
+    setRules(stored.rules);
     setReady(true);
   }, []);
 
@@ -27,11 +25,13 @@ export function GropyControls() {
     localStorage.setItem(PROMPT_KEY, text);
     setPrompt(text);
     setSavedPrompt(text);
+    notifyInstructions();
   }
 
   function saveRules(next: GropyHardRules) {
     localStorage.setItem(RULES_KEY, JSON.stringify(next));
     setRules(next);
+    notifyInstructions();
   }
 
   function addExtra() {
@@ -212,6 +212,3 @@ function HardNumber({
   );
 }
 
-function readPrompt(): string {
-  return (localStorage.getItem(PROMPT_KEY) ?? "").slice(0, PROMPT_LIMIT);
-}
