@@ -33,7 +33,7 @@ const MARKETS_URL =
 /** Pegs are not a week’s board. A flat dollar is not a ticker this desk is reading. */
 const STABLES = new Set([
   "usdt", "usdc", "dai", "usde", "usd1", "usdg", "fdusd", "tusd", "usds", "pyusd",
-  "usdd", "susd", "gusd", "usdp", "frax", "lusd", "rlusd", "crvusd", "gho", "usdy",
+  "usdd", "susd", "gusd", "usdp", "frax", "lusd", "rlusd", "crvusd", "gho", "usdy", "ousd",
 ]);
 
 let cached: { at: number; board: WeekBoard } | null = null;

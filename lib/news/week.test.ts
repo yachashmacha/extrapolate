@@ -26,6 +26,7 @@ describe("week's top ten", () => {
   it("drops a peg and a week that the chart cannot support", () => {
     const quotes = [
       quote({ id: "usdt", symbol: "usdt", changePct: 40, marketCapUsd: 9_000_000_000 }),
+      quote({ id: "ousd", symbol: "ousd", changePct: 0.9, marketCapUsd: 8_000_000_000, priceUsd: 1 }),
       quote({ id: "baby", symbol: "babyclaw", changePct: 56_177, marketCapUsd: 90_000_000 }),
       quote({ id: "pepe", symbol: "pepe", changePct: 9.1, priceUsd: 0.00000442, marketCapUsd: 1_800_000_000 }),
     ];
