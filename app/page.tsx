@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { ConnectCard } from "@/components/connect-card";
 import { HomePreview } from "@/components/home-preview";
 import { Mark } from "@/components/mark";
+import { SiteNav } from "@/components/site-nav";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { analyze } from "@/lib/analysis/engine";
 import { fetchWalletBook } from "@/lib/ingest/live";
@@ -20,11 +21,7 @@ export default function HomePage() {
           <Mark />
           extrapolate
         </Link>
-        <span className="actions">
-          <Link className="ghost" href={`/desk${search}`}>Desk</Link>
-          <Link className="ghost" href={`/portfolio${search}`}>Portfolio</Link>
-          <Link className="ghost gropy-name" href="/gropy">Gropy Trade</Link>
-        </span>
+        <SiteNav look="ghost" search={search} />
       </header>
       <section className="hero">
         <div className="hero-copy">
@@ -36,6 +33,7 @@ export default function HomePage() {
           <ul className="facts">
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
             <li><b>Reading</b><span>What the green trades shared. What the red trades shared. The comparison in this book.</span></li>
+            <li><b>News</b><span>The wires, the Solana pairs being boosted, and the X posts those coins link.</span></li>
           </ul>
         </div>
         <ConnectCard />

@@ -469,7 +469,7 @@ ul.facts span { overflow-wrap: anywhere; }
 .feed-scroll::-webkit-scrollbar-thumb { background: rgba(224, 177, 92, 0.38); border-radius: 99px; }
 
 .bar-start { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; min-width: 0; }
-.page-switch { display: flex; gap: 8px; }
+.page-switch { display: flex; flex-wrap: wrap; gap: 8px; }
 .page-switch a {
   border: 1px solid var(--line);
   border-radius: 999px;

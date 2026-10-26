@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mark } from "@/components/mark";
+import { SiteNav } from "@/components/site-nav";
 import { GropyCopyList, GropySpendProvider, GropyWalletCard } from "@/components/gropy/connect";
 import { GropyControls } from "@/components/gropy/controls";
 import { GropyPnlChart } from "@/components/gropy/pnl-chart";
@@ -19,13 +20,7 @@ export function GropyBoard({ view }: { view: GropyView }) {
             <Mark />
             extrapolate
           </Link>
-          <nav className="page-switch" aria-label="Book pages">
-            <Link href="/desk">Desk</Link>
-            <Link href="/portfolio">Portfolio</Link>
-            <Link className="gropy-name" href="/gropy" aria-current="page">
-              Gropy Trade
-            </Link>
-          </nav>
+          <SiteNav current="gropy" />
         </div>
       </header>
 

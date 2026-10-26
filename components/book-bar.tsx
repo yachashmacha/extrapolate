@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Mark } from "@/components/mark";
+import { SiteNav } from "@/components/site-nav";
 
 export function BookBar({
   page,
@@ -23,15 +24,7 @@ export function BookBar({
           <Mark />
           extrapolate
         </Link>
-        <nav className="page-switch" aria-label="Book pages">
-          <Link href={`/desk${search}`} aria-current={page === "desk" ? "page" : undefined}>
-            Desk
-          </Link>
-          <Link href={`/portfolio${search}`} aria-current={page === "portfolio" ? "page" : undefined}>
-            Portfolio
-          </Link>
-          <Link className="gropy-name" href="/gropy">Gropy Trade</Link>
-        </nav>
+        <SiteNav current={page} search={search} />
       </div>
       <div className="who">
         <strong>{title}</strong>
