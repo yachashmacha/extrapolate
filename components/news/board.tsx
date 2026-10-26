@@ -17,7 +17,9 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
   const tape = tapeSentence(desk.coins);
 
   return (
-    <main className="shell desk">
+    <>
+    <WeekTape initial={week} />
+    <main className={`shell desk ${styles.page}`}>
       <header className="desk-bar">
         <div className="bar-start">
           <Link className="wordmark" href="/">
@@ -31,8 +33,6 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
           <div className="note">Read at {fmtWhen(desk.loadedAt)} ET</div>
         </div>
       </header>
-
-      <WeekTape initial={week} />
 
       <section className={styles.lead}>
         <p className="kicker">News</p>
@@ -171,6 +171,7 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
         {desk.missed.length > 0 ? <p className="note">Did not answer: {desk.missed.join(", ")}.</p> : null}
       </section>
     </main>
+    </>
   );
 }
 
