@@ -8,6 +8,7 @@ import { NEWS_LANES, type CoinMark, type NewsDesk, type NewsLane, type WireItem 
 import type { WeekBoard } from "@/lib/news/week";
 import { traderSearch } from "@/lib/trader";
 import styles from "./news.module.css";
+import { NewsPhoto } from "./photo";
 import { WeekTape } from "./week-tape";
 
 export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane | "all"; week: WeekBoard }) {
@@ -71,24 +72,41 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
         {desk.coins.length > 0 ? (
           <div className={styles.coins}>
             {desk.coins.map((coin) => (
-              <article key={coin.url} className={`panel ${styles.card}`}>
-                <p className="kicker">{coin.symbol}</p>
-                <h3>{coin.name}</h3>
-                {coin.blurb ? <p className="note">{coin.blurb}</p> : null}
-                <p className={styles.meta}>
-                  <span>Cap <b className="num">{coin.marketCapUsd == null ? "—" : fmtMc(coin.marketCapUsd)}</b></span>
-                  <span>Volume <b className="num">{coin.volumeUsd == null ? "—" : fmtMc(coin.volumeUsd)}</b></span>
-                  <span>
-                    Day{" "}
-                    <b className={coin.changePct == null ? "num" : coin.changePct < 0 ? "bad num" : coin.changePct > 0 ? "good num" : "num"}>
-                      {coin.changePct == null ? "—" : fmtPct(coin.changePct, 1)}
-                    </b>
-                  </span>
-                  {coin.boosts != null ? <span>Boosts <b className="num">{coin.boosts.toLocaleString("en-US")}</b></span> : null}
-                </p>
-                <p className={styles.links}>
-                  <a href={coin.url} target="_blank" rel="noreferrer">DexScreener</a>
-                </p>
+              <article key={coin.url} className={`panel ${styles.card}${coin.headerUrl ? ` ${styles.cardShot}` : ""}`}>
+                {coin.headerUrl ? (
+                  <NewsPhoto
+                    src={coin.headerUrl}
+                    alt=""
+                    className={styles.banner}
+                    linkClassName={styles.bannerLink}
+                    href={coin.url}
+                    label={`${coin.symbol} on DexScreener`}
+                  />
+                ) : null}
+                <div className={styles.cardInner}>
+                  <div className={styles.coinHead}>
+                    {coin.imageUrl ? <NewsPhoto src={coin.imageUrl} alt="" className={styles.logo} /> : null}
+                    <div>
+                      <p className="kicker">{coin.symbol}</p>
+                      <h3>{coin.name}</h3>
+                    </div>
+                  </div>
+                  {coin.blurb ? <p className="note">{coin.blurb}</p> : null}
+                  <p className={styles.meta}>
+                    <span>Cap <b className="num">{coin.marketCapUsd == null ? "—" : fmtMc(coin.marketCapUsd)}</b></span>
+                    <span>Volume <b className="num">{coin.volumeUsd == null ? "—" : fmtMc(coin.volumeUsd)}</b></span>
+                    <span>
+                      Day{" "}
+                      <b className={coin.changePct == null ? "num" : coin.changePct < 0 ? "bad num" : coin.changePct > 0 ? "good num" : "num"}>
+                        {coin.changePct == null ? "—" : fmtPct(coin.changePct, 1)}
+                      </b>
+                    </span>
+                    {coin.boosts != null ? <span>Boosts <b className="num">{coin.boosts.toLocaleString("en-US")}</b></span> : null}
+                  </p>
+                  <p className={styles.links}>
+                    <a href={coin.url} target="_blank" rel="noreferrer">DexScreener</a>
+                  </p>
+                </div>
               </article>
             ))}
           </div>
@@ -109,6 +127,23 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
           <div className={styles.posts}>
             {desk.posts.map((post) => (
               <article key={post.url} className={`panel ${styles.card}`}>
+                {post.photos.length > 0 ? (
+                  <div className={styles.frames} data-count={Math.min(post.photos.length, 4)}>
+                    {post.photos.slice(0, 4).map((photo) => (
+                      <NewsPhoto
+                        key={photo.url}
+                        src={photo.url}
+                        alt=""
+                        className={styles.shot}
+                        linkClassName={styles.shotLink}
+                        href={post.url}
+                        label={`Photo from @${post.handle}`}
+                        width={photo.width}
+                        height={photo.height}
+                      />
+                    ))}
+                  </div>
+                ) : null}
                 <p className="kicker">{post.coinSymbol ? post.coinSymbol : `@${post.handle}`}</p>
                 <h3>{post.author}</h3>
                 <p>{post.text}</p>
@@ -161,8 +196,8 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
         </div>
         {wires.length > 0 ? (
           <div className={styles.wire}>
-            {wires.map((item) => (
-              <Story key={item.url} item={item} />
+            {wires.map((item, index) => (
+              <Story key={item.url} item={item} lead={index === 0} />
             ))}
           </div>
         ) : (
@@ -175,15 +210,28 @@ export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane
   );
 }
 
-function Story({ item }: { item: WireItem }) {
+function Story({ item, lead = false }: { item: WireItem; lead?: boolean }) {
+  const photo = item.image ? (
+    <NewsPhoto src={item.image.url} alt="" className={styles.photo} priority={lead} />
+  ) : null;
   return (
-    <a className={`panel ${styles.story}`} href={item.url} target="_blank" rel="noreferrer">
-      <span className={styles.when}>
-        {item.source}
-        <br />
-        {fmtWhen(item.publishedAt)} ET
-      </span>
-      <span>
+    <a className={`panel ${styles.story}${photo ? ` ${styles.storyPhoto}` : ""}${lead && photo ? ` ${styles.storyLead}` : ""}`} href={item.url} target="_blank" rel="noreferrer">
+      {photo}
+      {photo ? null : (
+        <span className={styles.when}>
+          {item.source}
+          <br />
+          {fmtWhen(item.publishedAt)} ET
+        </span>
+      )}
+      <span className={styles.copy}>
+        {photo ? (
+          <span className={styles.when}>
+            {item.source}
+            <br />
+            {fmtWhen(item.publishedAt)} ET
+          </span>
+        ) : null}
         <h3>{item.title}</h3>
         {item.excerpt ? <p className="note">{item.excerpt}</p> : null}
         <GropyMarks marks={item.marks} />

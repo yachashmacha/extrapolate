@@ -14,12 +14,19 @@ export interface CoinMark {
   changePct: number;
 }
 
+export interface NewsImage {
+  url: string;
+  width: number | null;
+  height: number | null;
+}
+
 export interface WireItem {
   title: string;
   url: string;
   source: string;
   publishedAt: string;
   excerpt: string;
+  image: NewsImage | null;
   lanes: NewsLane[];
   marks: CoinMark[];
 }
@@ -33,6 +40,8 @@ export interface AttentionCoin {
   changePct: number | null;
   boosts: number | null;
   blurb: string | null;
+  imageUrl: string | null;
+  headerUrl: string | null;
 }
 
 export interface XPost {
@@ -42,6 +51,7 @@ export interface XPost {
   url: string;
   publishedAt: string;
   coinSymbol: string | null;
+  photos: NewsImage[];
   marks: CoinMark[];
 }
 

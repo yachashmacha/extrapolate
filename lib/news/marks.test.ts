@@ -12,6 +12,8 @@ function coin(symbol: string, name = symbol): AttentionCoin {
     changePct: 1,
     boosts: 1,
     blurb: null,
+    imageUrl: null,
+    headerUrl: null,
   };
 }
 

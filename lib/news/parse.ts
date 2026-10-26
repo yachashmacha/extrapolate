@@ -1,8 +1,12 @@
+import { readWireImage } from "@/lib/news/images";
+import type { NewsImage } from "@/lib/news/types";
+
 export interface FeedItem {
   title: string;
   url: string;
   publishedAt: string;
   excerpt: string;
+  image: NewsImage | null;
 }
 
 const EXCERPT_LIMIT = 240;
@@ -20,6 +24,7 @@ export function parseFeed(xml: string): FeedItem[] {
       url,
       publishedAt,
       excerpt: excerpt(textOf(block, ["description", "summary", "content"])),
+      image: readWireImage(block),
     });
   }
   return items;
@@ -36,7 +41,7 @@ function textOf(block: string, names: string[]): string {
 function linkOf(block: string): string {
   const wrapped = textOf(block, ["link"]);
   if (/^https?:\/\//i.test(clean(wrapped))) return wrapped;
-  const tags = [...block.matchAll(/<link\b([^>]*)\/?>/gi)];
+  const tags = [...block.matchAll(/<link\b([^>]*)\/?>/gi)].filter((tag) => !/rel=["']enclosure["']/i.test(tag[1] ?? ""));
   const alternate = tags.find((tag) => /rel=["']alternate["']/i.test(tag[1] ?? ""));
   const href = (alternate ?? tags[0])?.[1]?.match(/href=["']([^"']+)["']/i)?.[1];
   return href ?? wrapped;

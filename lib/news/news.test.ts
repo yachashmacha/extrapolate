@@ -14,6 +14,7 @@ const rss = `<?xml version="1.0"?>
     <link>https://example.com/meme?utm=1</link>
     <pubDate>Sat, 24 Oct 2026 15:00:00 GMT</pubDate>
     <description><![CDATA[<p>A Solana narrative &amp; a funding rate setup.</p>]]></description>
+    <media:content url="https://cdn.sanity.io/images/s3y3vcno/production/desk-1920x1080.jpg?w=800&amp;h=450" type="image/*" medium="image"/>
   </item>
   <item>
     <title>No date</title>
@@ -39,6 +40,8 @@ describe("news wire", () => {
     expect(items[0].title).toBe("Memecoin momentum is the strategy desks are naming");
     expect(items[0].excerpt).toBe("A Solana narrative & a funding rate setup.");
     expect(items[0].url).toBe("https://example.com/meme?utm=1");
+    expect(items[0].image?.url).toContain("w=1600");
+    expect(items[0].image?.url).toContain("h=900");
     const policy = parseFeed(atom);
     expect(policy[0].url).toBe("https://example.com/sec");
     expect(policy[0].publishedAt).toBe("2026-10-25T12:00:00.000Z");
@@ -70,8 +73,8 @@ describe("news wire", () => {
 
   it("counts the boosted tape and drops a linked post that is not about a market", () => {
     const coins: AttentionCoin[] = [
-      { symbol: "AXE", name: "Axe", url: "https://dexscreener.com/solana/a", marketCapUsd: 1000, volumeUsd: 12, changePct: -3.2, boosts: 40, blurb: null },
-      { symbol: "TIT", name: "Tit", url: "https://dexscreener.com/solana/b", marketCapUsd: 200, volumeUsd: 900, changePct: 10, boosts: 10, blurb: null },
+      { symbol: "AXE", name: "Axe", url: "https://dexscreener.com/solana/a", marketCapUsd: 1000, volumeUsd: 12, changePct: -3.2, boosts: 40, blurb: null, imageUrl: null, headerUrl: null },
+      { symbol: "TIT", name: "Tit", url: "https://dexscreener.com/solana/b", marketCapUsd: 200, volumeUsd: 900, changePct: 10, boosts: 10, blurb: null, imageUrl: null, headerUrl: null },
     ];
     expect(tapeSentence(coins)).toBe("2 boosted pairs are on this read. 1 up and 1 down on the day. 1 has more 24-hour volume than market cap. Widest day move: TIT +10.0%. Heaviest volume: TIT $900.");
     expect(tapeSentence([])).toBeNull();
@@ -91,6 +94,8 @@ describe("news wire", () => {
             chainId: "solana",
             tokenAddress: "Mint111",
             description: "The project wrote this line.",
+            icon: "not-a-url",
+            header: "https://cdn.dexscreener.com/cms/images/small-banner?width=900&height=300&quality=95",
             totalAmount: 40,
             links: [{ url: "https://x.com/trader/status/100" }],
           },
@@ -115,6 +120,10 @@ describe("news wire", () => {
             priceChange: { h24: -3.2 },
             liquidity: { usd: 9 },
             marketCap: 1000,
+            info: {
+              imageUrl: "https://cdn.dexscreener.com/cms/images/axe?width=800&height=800&quality=95",
+              header: "https://cdn.dexscreener.com/cms/images/axe-banner?width=1500&height=500&quality=95",
+            },
           },
         ]);
       }
@@ -125,6 +134,7 @@ describe("news wire", () => {
             text: "Volume faded after the entry.",
             created_at: "Sat, 25 Oct 2026 16:00:00 GMT",
             author: { name: "Trader", screen_name: "trader" },
+            media: { photos: [{ url: "https://pbs.twimg.com/media/axe.jpg?name=small", width: 800, height: 600 }] },
           },
         });
       }
@@ -156,13 +166,25 @@ describe("news wire", () => {
     expect(desk.wires.length).toBeGreaterThan(0);
     expect(desk.wires[0].lanes).toEqual(expect.arrayContaining(["memecoin", "strategy"]));
     expect(desk.coins).toEqual([
-      expect.objectContaining({ symbol: "AXE", marketCapUsd: 1000, volumeUsd: 12, changePct: -3.2, boosts: 40, blurb: "The project wrote this line." }),
+      expect.objectContaining({
+        symbol: "AXE",
+        marketCapUsd: 1000,
+        volumeUsd: 12,
+        changePct: -3.2,
+        boosts: 40,
+        blurb: "The project wrote this line.",
+        imageUrl: "https://cdn.dexscreener.com/cms/images/axe?width=800&height=800&quality=95",
+        headerUrl: "https://cdn.dexscreener.com/cms/images/axe-banner?width=1500&height=500&quality=95",
+      }),
     ]);
     expect(desk.posts.map((post) => post.text)).toEqual([
       "Volume faded after the entry.",
       "Pump.fun fees are the story on this coin.",
     ]);
     expect(desk.posts[0]).toEqual(expect.objectContaining({ handle: "trader", coinSymbol: "AXE" }));
+    expect(desk.posts[0].photos).toEqual([{ url: "https://pbs.twimg.com/media/axe.jpg?name=large", width: 800, height: 600 }]);
+    expect(desk.wires[0].image?.url).toContain("desk-1920x1080.jpg");
+    expect(desk.wires[0].image?.url).toContain("w=1600");
     expect(desk.posts[1].coinSymbol).toBeNull();
     expect(JSON.stringify(desk.posts)).not.toContain("dance");
     expect(desk.wires[0].marks).toEqual([]);

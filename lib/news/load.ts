@@ -1,8 +1,9 @@
+import { httpsImage, sharpen } from "@/lib/news/images";
 import { lanesFor } from "@/lib/news/lanes";
 import { findMentions, marksFrom, quoteKey } from "@/lib/news/marks";
 import { parseFeed } from "@/lib/news/parse";
 import { mentionsMarket } from "@/lib/news/relevance";
-import type { AttentionCoin, CoinMark, NewsDesk, WireItem, XPost } from "@/lib/news/types";
+import type { AttentionCoin, CoinMark, NewsDesk, NewsImage, WireItem, XPost } from "@/lib/news/types";
 
 type RawWire = Omit<WireItem, "marks">;
 
@@ -116,6 +117,8 @@ function coinFrom(address: string, row: DexRow | undefined, pairs: DexPair[]): A
     changePct: numberOrNull(pair.priceChange?.h24),
     boosts: numberOrNull(row?.totalAmount),
     blurb: clip(row?.description ?? "", 180),
+    imageUrl: wider(dexPhoto(pair.info?.imageUrl), dexPhoto(row?.icon)),
+    headerUrl: wider(dexPhoto(pair.info?.header), dexPhoto(row?.header)),
   };
 }
 
@@ -150,6 +153,7 @@ async function loadPosts(fetchImpl: typeof fetch, rows: DexRow[], symbols: Map<s
           url: tweet.url,
           publishedAt,
           coinSymbol: item.symbol,
+          photos: photosFrom(tweet),
           marks: [] as CoinMark[],
         } satisfies XPost;
       } catch {
@@ -246,6 +250,48 @@ async function pull(fetchImpl: typeof fetch, url: string): Promise<string> {
   return response.text();
 }
 
+function photosFrom(tweet: NonNullable<FxTweet["tweet"]> | undefined): NewsImage[] {
+  const photos = tweet?.media?.photos;
+  if (!Array.isArray(photos)) return [];
+  const out: NewsImage[] = [];
+  for (const photo of photos) {
+    if (!photo || typeof photo.url !== "string") continue;
+    const url = httpsImage(photo.url);
+    if (!url) continue;
+    out.push(sharpen({ url, width: numberOrNull(photo.width), height: numberOrNull(photo.height) }));
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+function dexPhoto(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const url = httpsImage(value);
+  if (!url) return null;
+  return sharpen({ url, width: null, height: null }).url;
+}
+
+function wider(left: string | null, right: string | null): string | null {
+  if (!left) return right;
+  if (!right) return left;
+  return widthOf(right) > widthOf(left) ? right : left;
+}
+
+function widthOf(url: string): number {
+  try {
+    const parsed = new URL(url);
+    for (const key of ["width", "w"]) {
+      const raw = parsed.searchParams.get(key);
+      if (!raw) continue;
+      const parsedWidth = Number(raw);
+      if (Number.isFinite(parsedWidth) && parsedWidth > 0) return parsedWidth;
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
 function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -264,6 +310,8 @@ interface DexRow {
   tokenAddress: string;
   url?: string;
   description?: string;
+  icon?: string;
+  header?: string;
   totalAmount?: number;
   links?: { url?: string; type?: string }[];
 }
@@ -277,6 +325,7 @@ interface DexPair {
   liquidity?: { usd?: number };
   marketCap?: number;
   fdv?: number;
+  info?: { imageUrl?: string; header?: string };
 }
 
 interface FxTweet {
@@ -286,5 +335,6 @@ interface FxTweet {
     created_at?: string;
     created_timestamp?: number;
     author?: { name?: string; screen_name?: string };
+    media?: { photos?: { url?: string; width?: number; height?: number }[] };
   };
 }
