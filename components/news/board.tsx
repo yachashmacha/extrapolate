@@ -5,10 +5,12 @@ import { fmtMc, fmtPct, fmtWhen } from "@/lib/format";
 import { isNewsLane } from "@/lib/news/lanes";
 import { tapeSentence } from "@/lib/news/tape";
 import { NEWS_LANES, type CoinMark, type NewsDesk, type NewsLane, type WireItem } from "@/lib/news/types";
+import type { WeekBoard } from "@/lib/news/week";
 import { traderSearch } from "@/lib/trader";
 import styles from "./news.module.css";
+import { WeekTape } from "./week-tape";
 
-export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "all" }) {
+export function NewsBoard({ desk, lane, week }: { desk: NewsDesk; lane: NewsLane | "all"; week: WeekBoard }) {
   const wires = lane === "all" ? desk.wires : desk.wires.filter((item) => item.lanes.includes(lane));
   const strategies = desk.wires.filter((item) => item.lanes.includes("strategy")).slice(0, 3);
   const counts = countLanes(desk.wires);
@@ -29,6 +31,8 @@ export function NewsBoard({ desk, lane }: { desk: NewsDesk; lane: NewsLane | "al
           <div className="note">Read at {fmtWhen(desk.loadedAt)} ET</div>
         </div>
       </header>
+
+      <WeekTape initial={week} />
 
       <section className={styles.lead}>
         <p className="kicker">News</p>

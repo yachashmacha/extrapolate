@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { NewsBoard } from "@/components/news/board";
 import { isNewsLane } from "@/lib/news/lanes";
 import { loadNews } from "@/lib/news/load";
+import { loadWeek } from "@/lib/news/week";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,6 @@ export const metadata: Metadata = {
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ lane?: string }> }) {
   const { lane } = await searchParams;
-  const desk = await loadNews();
-  return <NewsBoard desk={desk} lane={isNewsLane(lane) ? lane : "all"} />;
+  const [desk, week] = await Promise.all([loadNews(), loadWeek()]);
+  return <NewsBoard desk={desk} lane={isNewsLane(lane) ? lane : "all"} week={week} />;
 }
