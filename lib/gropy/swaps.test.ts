@@ -38,6 +38,7 @@ describe("gropy swap reads", () => {
     expect(paired.closed[0].pnlSol).toBeCloseTo(-0.6, 6);
     expect(paired.closed[0]).not.toHaveProperty("pnlUsd");
     expect(paired.buys[0].amountSol).toBeCloseTo(1, 6);
+    expect(paired.open).toEqual([]);
 
     const orphan = booksFromLegs([sell!]);
     expect(orphan.closed).toEqual([]);
@@ -81,6 +82,7 @@ describe("gropy swap reads", () => {
     expect(read.closed.map((trade) => trade.wallet)).toEqual([traded]);
     expect(read.closed[0].pnlSol).toBeGreaterThan(0);
     expect(read.closed.some((trade) => trade.wallet === broken || trade.wallet === empty)).toBe(false);
+    expect(read.open).toEqual([]);
     const book = runCopyBook(read.closed, read.buys);
     expect(book.copying).toBe(traded);
     expect(book.copying).not.toBe(empty);

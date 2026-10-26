@@ -15,6 +15,14 @@ export interface ClosedTrade {
   entryMarketCapUsd?: number;
 }
 
+/** Tokens still held after pairing the buys and sells in one read. */
+export interface OpenLot {
+  id: string;
+  wallet: string;
+  mint: string;
+  tokens: number;
+}
+
 /** A buy that was already on file. No pnl is inferred from it. */
 export interface BuySignal {
   id: string;

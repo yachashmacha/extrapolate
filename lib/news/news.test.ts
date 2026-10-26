@@ -193,7 +193,7 @@ describe("news wire", () => {
     expect(desk.missed).not.toContain("coin prices");
   });
 
-  it("notes the day change when a story or post names a coin", async () => {
+  it("notes the day change only when gropy still holds that coin", async () => {
     const marked = `<?xml version="1.0"?>
 <rss><channel>
   <item>
@@ -272,8 +272,13 @@ describe("news wire", () => {
       throw new Error(url);
     };
 
-    const desk = await assembleNews(fetchImpl, new Date("2026-10-25T18:00:00.000Z"));
+    const desk = await assembleNews(fetchImpl, new Date("2026-10-25T18:00:00.000Z"), new Set(["DOGE", "BTC", "AXE"]));
     const byTitle = new Map(desk.wires.map((item) => [item.title, item.marks]));
+    const idle = await assembleNews(fetchImpl, new Date("2026-10-25T18:00:00.000Z"), new Set(["AXE"]));
+    const idleByTitle = new Map(idle.wires.map((item) => [item.title, item.marks]));
+    expect(idleByTitle.get("Dogecoin slips while bitcoin holds")).toEqual([]);
+    expect(idleByTitle.get("AXE leads the hour")).toEqual([{ symbol: "AXE", changePct: -3.2 }]);
+    expect(idle.posts.find((post) => post.handle === "scout")?.marks).toEqual([{ symbol: "AXE", changePct: -3.2 }]);
     expect(byTitle.get("Dogecoin slips while bitcoin holds")).toEqual([
       { symbol: "DOGE", changePct: 0.195 },
       { symbol: "BTC", changePct: -0.494 },

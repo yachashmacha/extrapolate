@@ -1,4 +1,4 @@
-import type { BuySignal, ClosedTrade } from "@/lib/gropy/types";
+import type { BuySignal, ClosedTrade, OpenLot } from "@/lib/gropy/types";
 
 const WSOL = "So11111111111111111111111111111111111111112";
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -66,24 +66,31 @@ export function legFromTransaction(wallet: string, value: unknown, signature?: s
 }
 
 /** Pair buys and sells. A sell with no buy in this read is skipped, not given an invented entry. */
-export function booksFromLegs(legs: readonly SwapLeg[]): { closed: ClosedTrade[]; buys: BuySignal[] } {
+export function booksFromLegs(legs: readonly SwapLeg[]): { closed: ClosedTrade[]; buys: BuySignal[]; open: OpenLot[] } {
   const closed: ClosedTrade[] = [];
   const buys: BuySignal[] = [];
+  const open: OpenLot[] = [];
   const byMint = new Map<string, SwapLeg[]>();
   for (const leg of [...legs].sort((left, right) => left.at.localeCompare(right.at) || left.signature.localeCompare(right.signature))) {
-    const rows = byMint.get(leg.mint) ?? [];
+    const key = `${leg.wallet}\0${leg.mint}`;
+    const rows = byMint.get(key) ?? [];
     rows.push(leg);
-    byMint.set(leg.mint, rows);
+    byMint.set(key, rows);
   }
-  for (const [mint, rows] of byMint) {
+  for (const rows of byMint.values()) {
+    const mint = rows[0].mint;
+    const wallet = rows[0].wallet;
+    const lots: { id: string; tokens: number }[] = [];
     let tokens = 0;
     let cost = 0;
     for (const leg of rows) {
       if (leg.side === "buy") {
         tokens += leg.tokens;
         cost += leg.sol;
+        const id = `${leg.signature}|${mint}`;
+        lots.push({ id, tokens: leg.tokens });
         buys.push({
-          id: `${leg.signature}|${mint}`,
+          id,
           wallet: leg.wallet,
           mint,
           boughtAt: leg.at,
@@ -104,6 +111,13 @@ export function booksFromLegs(legs: readonly SwapLeg[]): { closed: ClosedTrade[]
         pnlSol: proceeds - costOut,
         amountSol: costOut,
       });
+      let left = matched;
+      for (const lot of lots) {
+        if (left <= 1e-9) break;
+        const take = Math.min(lot.tokens, left);
+        lot.tokens -= take;
+        left -= take;
+      }
       tokens -= matched;
       cost -= costOut;
       if (tokens <= 1e-9) {
@@ -111,8 +125,11 @@ export function booksFromLegs(legs: readonly SwapLeg[]): { closed: ClosedTrade[]
         cost = 0;
       }
     }
+    for (const lot of lots) {
+      if (lot.tokens > 1e-6) open.push({ id: lot.id, wallet, mint, tokens: lot.tokens });
+    }
   }
-  return { closed, buys };
+  return { closed, buys, open };
 }
 
 export function decodeTokenName(data: Uint8Array): { name: string; symbol: string } | null {

@@ -4,7 +4,7 @@ import { isWalletAddress } from "@/lib/address";
 import { TRACKED_KOLS } from "@/lib/kols";
 import { gropyRpc } from "@/lib/gropy/rpc";
 import { booksFromLegs, decodeTokenName, legFromTransaction, type SwapLeg } from "@/lib/gropy/swaps";
-import type { BuySignal, ClosedTrade } from "@/lib/gropy/types";
+import type { BuySignal, ClosedTrade, OpenLot } from "@/lib/gropy/types";
 
 /** gropy's own read of KOL wallets. Not the desk scan cache. */
 export const GROPY_CHAIN_CACHE = "/tmp/gropy-chain.json";
@@ -16,6 +16,7 @@ const RETRY_MS = 5 * 60 * 1000;
 export interface KolRead {
   closed: ClosedTrade[];
   buys: BuySignal[];
+  open: OpenLot[];
   readWallets: string[];
   skippedWallets: string[];
   unreadable: number;
@@ -25,6 +26,7 @@ interface CacheRow {
   at: number;
   closed: ClosedTrade[];
   buys: BuySignal[];
+  open: OpenLot[];
   unreadable?: boolean;
 }
 
@@ -67,10 +69,10 @@ export async function loadKolRecords(options?: {
     if (row && age < (row.unreadable ? RETRY_MS : FRESH_MS)) continue;
     try {
       const parsed = await readWallet(wallet, rpc, deadline, signatureLimit, txLimit);
-      cache.wallets[wallet] = { at: now(), closed: parsed.closed, buys: parsed.buys };
+      cache.wallets[wallet] = { at: now(), closed: parsed.closed, buys: parsed.buys, open: parsed.open };
     } catch (error) {
       if (error instanceof BudgetError) break;
-      cache.wallets[wallet] = { at: now(), closed: [], buys: [], unreadable: true };
+      cache.wallets[wallet] = { at: now(), closed: [], buys: [], open: [], unreadable: true };
     }
   }
   cache.cursor = index;
@@ -78,7 +80,7 @@ export async function loadKolRecords(options?: {
   return collect(cache, new Set(list.map((row) => row.wallet)));
 }
 
-async function readWallet(wallet: string, rpc: Rpc, deadline: number, signatureLimit: number, txLimit: number): Promise<{ closed: ClosedTrade[]; buys: BuySignal[] }> {
+async function readWallet(wallet: string, rpc: Rpc, deadline: number, signatureLimit: number, txLimit: number): Promise<{ closed: ClosedTrade[]; buys: BuySignal[]; open: OpenLot[] }> {
   if (Date.now() > deadline) throw new BudgetError();
   const signatures = await rpc("getSignaturesForAddress", [wallet, { limit: signatureLimit }]);
   if (!Array.isArray(signatures)) throw new Error("signatures");
@@ -151,6 +153,7 @@ function cleanLabel(value: string): string {
 function collect(cache: CacheFile, allowed: Set<string>): KolRead {
   const closed: ClosedTrade[] = [];
   const buys: BuySignal[] = [];
+  const open: OpenLot[] = [];
   const readWallets: string[] = [];
   const skippedWallets: string[] = [];
   let unreadable = 0;
@@ -163,11 +166,13 @@ function collect(cache: CacheFile, allowed: Set<string>): KolRead {
     readWallets.push(wallet);
     const ownClosed = row.closed.filter((trade) => trade.wallet === wallet);
     const ownBuys = row.buys.filter((buy) => buy.wallet === wallet);
+    const ownOpen = row.open.filter((lot) => lot.wallet === wallet);
     if (ownClosed.length === 0) skippedWallets.push(wallet);
     closed.push(...ownClosed);
     buys.push(...ownBuys);
+    open.push(...ownOpen);
   }
-  return { closed, buys, readWallets, skippedWallets, unreadable };
+  return { closed, buys, open, readWallets, skippedWallets, unreadable };
 }
 
 function readCache(file: string): CacheFile {
@@ -189,14 +194,24 @@ function readCache(file: string): CacheFile {
 
 function sanitizeRow(value: unknown): CacheRow | null {
   if (!value || typeof value !== "object") return null;
-  const row = value as { at?: unknown; closed?: unknown; buys?: unknown; unreadable?: unknown };
+  const row = value as { at?: unknown; closed?: unknown; buys?: unknown; open?: unknown; unreadable?: unknown };
   if (typeof row.at !== "number") return null;
+  const legacy = !Array.isArray(row.open);
   return {
-    at: row.at,
+    at: legacy && row.unreadable !== true ? 0 : row.at,
     closed: Array.isArray(row.closed) ? row.closed.flatMap(sanitizeClosed) : [],
     buys: Array.isArray(row.buys) ? row.buys.flatMap(sanitizeBuy) : [],
+    open: Array.isArray(row.open) ? row.open.flatMap(sanitizeOpen) : [],
     unreadable: row.unreadable === true,
   };
+}
+
+function sanitizeOpen(value: unknown): OpenLot[] {
+  if (!value || typeof value !== "object") return [];
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string" || typeof row.wallet !== "string" || typeof row.mint !== "string") return [];
+  if (typeof row.tokens !== "number" || !Number.isFinite(row.tokens) || !(row.tokens > 0)) return [];
+  return [{ id: row.id, wallet: row.wallet, mint: row.mint, tokens: row.tokens }];
 }
 
 function sanitizeClosed(value: unknown): ClosedTrade[] {

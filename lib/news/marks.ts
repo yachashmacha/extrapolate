@@ -112,8 +112,9 @@ export function findMentions(text: string, coins: AttentionCoin[]): Mention[] {
   return mentions;
 }
 
-export function marksFrom(mentions: Mention[], changes: Map<string, number>): CoinMark[] {
+export function marksFrom(mentions: Mention[], changes: Map<string, number>, holding: ReadonlySet<string>): CoinMark[] {
   return mentions.flatMap((mention) => {
+    if (!holding.has(mention.symbol)) return [];
     const changePct = changes.get(mention.symbol);
     return changePct == null ? [] : [{ symbol: mention.symbol, changePct }];
   });

@@ -9,6 +9,11 @@ export function botWalletPath(file = BOT_WALLET_FILE): string {
   return path.isAbsolute(file) ? file : path.join(process.cwd(), file);
 }
 
+/** The saved bot address, or null when no wallet file exists. Does not create one. */
+export function savedBotAddress(file = BOT_WALLET_FILE): string | null {
+  return readPair(botWalletPath(file));
+}
+
 /** Public address only. The secret stays in the gitignored file. */
 export function loadBotWallet(file = BOT_WALLET_FILE): { publicKey: string } {
   const full = botWalletPath(file);

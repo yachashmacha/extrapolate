@@ -1,3 +1,4 @@
+import { gropyOpenSymbols } from "@/lib/gropy/open";
 import { httpsImage, sharpen } from "@/lib/news/images";
 import { lanesFor } from "@/lib/news/lanes";
 import { findMentions, marksFrom, quoteKey } from "@/lib/news/marks";
@@ -33,17 +34,31 @@ let cached: { at: number; desk: NewsDesk } | null = null;
 
 export async function loadNews(): Promise<NewsDesk> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.desk;
-  const desk = await assembleNews(fetch);
+  const holding = gropyOpenSymbols().then(heldKeys, () => new Set<string>());
+  const desk = await assembleNews(fetch, new Date(), holding);
   cached = { at: Date.now(), desk };
   return desk;
 }
 
-export async function assembleNews(fetchImpl: typeof fetch, now = new Date()): Promise<NewsDesk> {
+export async function assembleNews(
+  fetchImpl: typeof fetch,
+  now = new Date(),
+  holding: ReadonlySet<string> | Promise<ReadonlySet<string>> = new Set(),
+): Promise<NewsDesk> {
   const missed: string[] = [];
   const wires = await loadWires(fetchImpl, now, missed);
   const { coins, posts } = await loadTape(fetchImpl, missed);
-  const marked = await applyMarks(fetchImpl, wires, posts, coins);
+  const marked = await applyMarks(fetchImpl, wires, posts, coins, await holding);
   return { wires: marked.wires, coins, posts: marked.posts, missed, loadedAt: now.toISOString() };
+}
+
+function heldKeys(symbols: readonly string[]): Set<string> {
+  const open = new Set<string>();
+  for (const symbol of symbols) {
+    const key = quoteKey(symbol);
+    if (key) open.add(key);
+  }
+  return open;
 }
 
 async function loadWires(fetchImpl: typeof fetch, now: Date, missed: string[]): Promise<RawWire[]> {
@@ -194,6 +209,7 @@ async function applyMarks(
   wires: RawWire[],
   posts: XPost[],
   coins: AttentionCoin[],
+  holding: ReadonlySet<string>,
 ): Promise<{ wires: WireItem[]; posts: XPost[] }> {
   const wireMentions = wires.map((item) => findMentions(`${item.title} ${item.excerpt}`, coins));
   const postMentions = posts.map((post) => findMentions(post.text, coins));
@@ -225,8 +241,8 @@ async function applyMarks(
     }
   }
   return {
-    wires: wires.map((item, index) => ({ ...item, marks: marksFrom(wireMentions[index] ?? [], changes) })),
-    posts: posts.map((post, index) => ({ ...post, marks: marksFrom(postMentions[index] ?? [], changes) })),
+    wires: wires.map((item, index) => ({ ...item, marks: marksFrom(wireMentions[index] ?? [], changes, holding) })),
+    posts: posts.map((post, index) => ({ ...post, marks: marksFrom(postMentions[index] ?? [], changes, holding) })),
   };
 }
 
