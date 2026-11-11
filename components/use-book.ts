@@ -80,7 +80,9 @@ export function useBook() {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 45_000);
     setLoading(true);
     setError("");
     fetch(`/api/book?address=${encodeURIComponent(address)}&terminal=${terminal}&depth=${encodeURIComponent(depth)}`, {
@@ -89,17 +91,26 @@ export function useBook() {
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "Could not read that wallet.");
-        setBook(body as Book);
+        if (!cancelled) setBook(body as Book);
       })
       .catch((caught: unknown) => {
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (cancelled) return;
+        if (caught instanceof DOMException && caught.name === "AbortError") {
+          setError("The wallet read timed out. Try Reread, or import a CSV.");
+          return;
+        }
         setBook(null);
         setError(caught instanceof Error ? caught.message : "Could not read that wallet.");
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        window.clearTimeout(timeout);
+        if (!cancelled) setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [source, address, terminal, depth, reloadKey]);
 
   useEffect(() => {

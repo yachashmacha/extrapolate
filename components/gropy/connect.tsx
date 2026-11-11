@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { WalletLogo } from "@/components/wallet-logos";
 import { isWalletAddress } from "@/lib/address";
-import { fmtWhen } from "@/lib/format";
+import { fmtWhen, shortAddress } from "@/lib/format";
 import { fundedCopies, GROPY_SPEND_KEY, parseSpendWallet } from "@/lib/gropy/spend-wallet";
 import { fmtSol } from "@/lib/gropy/sol";
 import type { GropyCopyDraft, GropyCopyRow } from "@/lib/gropy/view";
@@ -141,7 +142,7 @@ export function GropyWalletCard() {
       {spend.usingYours ? (
         <>
           <h2 className={styles.name}>{spend.kindName}</h2>
-          <p className={styles.address}>{spend.address}</p>
+          <p className={styles.address}>{shortAddress(spend.address)}</p>
           <p className={styles.note}>
             Copies are sized from the SOL in this wallet. This page does not send a swap.
           </p>
@@ -152,12 +153,20 @@ export function GropyWalletCard() {
         </>
       ) : (
         <>
-          <p className={styles.address}>{spend.address}</p>
+          <p className={styles.address}>{shortAddress(spend.address)}</p>
           <p className={styles.note}>Load this wallet with SOL, or connect yours and Gropy Trade will size copies from that balance.</p>
-          <div className="wallet-row">
+          <div className="wallet-row" role="group" aria-label="Connect a wallet">
             {WALLETS.map((wallet) => (
-              <button key={wallet.id} type="button" className="ghost" onClick={() => void spend.connect(wallet.id)} disabled={spend.busy !== ""}>
-                {spend.busy === wallet.id ? "Connecting…" : wallet.name}
+              <button
+                key={wallet.id}
+                type="button"
+                className="wallet-logo"
+                onClick={() => void spend.connect(wallet.id)}
+                disabled={spend.busy !== ""}
+                aria-label={spend.busy === wallet.id ? `Connecting ${wallet.name}` : `Connect ${wallet.name}`}
+                title={wallet.name}
+              >
+                <WalletLogo kind={wallet.id} />
               </button>
             ))}
           </div>

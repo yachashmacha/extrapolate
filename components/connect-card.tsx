@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { isWalletAddress } from "@/lib/address";
+import { shortAddress } from "@/lib/format";
 import { CSV_TEMPLATE, parseCsvBook } from "@/lib/ingest/csv";
 import { TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import { connectWallet, type WalletKind } from "@/lib/wallet";
+import { WalletLogo } from "@/components/wallet-logos";
 
 const WALLETS: { id: WalletKind; name: string }[] = [
   { id: "phantom", name: "Phantom" },
@@ -15,7 +17,7 @@ const WALLETS: { id: WalletKind; name: string }[] = [
 
 export function ConnectCard() {
   const router = useRouter();
-  const [address, setAddress] = useState(TRADER_WALLET);
+  const [address, setAddress] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
 
@@ -61,13 +63,21 @@ export function ConnectCard() {
       className="connect"
       onSubmit={(event) => {
         event.preventDefault();
-        openAddress(address);
+        openAddress(address.trim() || TRADER_WALLET);
       }}
     >
-      <div className="wallet-row">
+      <div className="wallet-row" role="group" aria-label="Connect a wallet">
         {WALLETS.map((wallet) => (
-          <button key={wallet.id} type="button" className="ghost" onClick={() => onConnect(wallet.id)} disabled={busy !== ""}>
-            {busy === wallet.id ? "Connecting…" : wallet.name}
+          <button
+            key={wallet.id}
+            type="button"
+            className="wallet-logo"
+            onClick={() => onConnect(wallet.id)}
+            disabled={busy !== ""}
+            aria-label={busy === wallet.id ? `Connecting ${wallet.name}` : `Connect ${wallet.name}`}
+            title={wallet.name}
+          >
+            <WalletLogo kind={wallet.id} />
           </button>
         ))}
       </div>
@@ -76,7 +86,7 @@ export function ConnectCard() {
         <input
           value={address}
           onChange={(event) => setAddress(event.target.value)}
-          placeholder="Solana wallet"
+          placeholder={shortAddress(TRADER_WALLET)}
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"

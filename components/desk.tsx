@@ -15,7 +15,7 @@ import { Tape } from "@/components/tape";
 import { useBook } from "@/components/use-book";
 import { useRules } from "@/components/use-rules";
 import { useTradeContext } from "@/components/use-trade-context";
-import { deskDayName, deskTradesForDay, isSelectableDeskDay, todayKeyEt } from "@/lib/desk-day";
+import { defaultDeskDay, deskDayName, deskTradesForDay, isSelectableDeskDay, todayKeyEt } from "@/lib/desk-day";
 import { ruleBreak } from "@/lib/rules";
 import { terminalName } from "@/lib/terminals";
 import type { AnnotatedTrade } from "@/lib/types";
@@ -25,8 +25,9 @@ export function Desk() {
   const { rules } = useRules(bookKey);
   const today = todayKeyEt();
   const [picked, setPicked] = useState<string | null>(null);
-  const selected = picked != null && isSelectableDeskDay(picked) ? picked : today;
   const { trades: habitTrades, pending: pendingHighs } = useTradeContext(book, analysis.trades);
+  const fallbackDay = useMemo(() => defaultDeskDay(habitTrades), [habitTrades]);
+  const selected = picked != null && isSelectableDeskDay(picked) ? picked : fallbackDay;
   const dayTrades = useMemo(() => deskTradesForDay(habitTrades, selected), [habitTrades, selected]);
   const dayAnalysis = useMemo(
     () => analyze(dayTrades, book?.terminal ?? "wallet"),
@@ -72,10 +73,13 @@ export function Desk() {
     <main className="shell desk">
       <BookBar page="desk" title={title} note={dayNote} search={search} onReread={reread} />
       <AnalysingDay dayKey={selected} onSelect={setPicked} />
-      {loading ? <p className="loading">Reading signatures, rebuilding closed trades, and comparing the winners with the losers.</p> : null}
+      {loading && !book ? (
+        <p className="loading">Reading signatures, rebuilding closed trades, and comparing the winners with the losers.</p>
+      ) : null}
+      {loading && book ? <p className="note">Rereading the wallet…</p> : null}
       {error ? <BookError error={error} /> : null}
 
-      {book && !loading ? (
+      {book ? (
         <>
           <BookNotices book={book} />
           <HabitFeed
@@ -102,7 +106,11 @@ export function Desk() {
               }}
             />
           ) : (
-            <p className="note analysing-empty">No closed trades on this day.</p>
+            <p className="note analysing-empty">
+              {habitTrades.some((trade) => trade.exitAt)
+                ? "No closed trades on this day. Pick another day above."
+                : "No closed trades showed up for this wallet yet."}
+            </p>
           )}
           <Tape trades={shown} allTrades={habitTrades} activeLabel={focus?.label ?? null} onClear={() => setFocus(null)} onChange={update} ruleNote={ruleNote} />
         </>

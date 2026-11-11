@@ -132,7 +132,7 @@ ul.facts span { overflow-wrap: anywhere; }
 ul.facts a { color: inherit; text-underline-offset: 3px; }
 ul.facts a:hover { color: var(--brass); }
 
-.connect, .panel, .play, .trade, .stat, .pattern {
+.panel, .play, .trade, .stat, .pattern {
   background:
     linear-gradient(180deg, rgba(246, 241, 231, 0.045), transparent 56px),
     var(--bg-2);
@@ -144,7 +144,17 @@ ul.facts a:hover { color: var(--brass); }
 .panel:hover, .play:hover, .trade:hover, .stat:hover, .pattern:hover, .habit-card:hover, .tip-card:hover {
   border-color: rgba(224, 177, 92, 0.38);
 }
-.connect { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.connect {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
 .chip, .ghost, .primary, .texty {
   border: 1px solid var(--line);
   background: transparent;
@@ -189,7 +199,56 @@ ul.facts a:hover { color: var(--brass); }
 }
 .ghost, .texty { padding: 8px 16px; text-decoration: none; display: inline-flex; align-items: center; }
 .texty { border: 0; padding: 0; color: var(--brass); background: transparent; border-radius: 0; }
-.wallet-row button { flex: 1; justify-content: center; min-width: 0; }
+.wallet-row {
+  justify-content: flex-end;
+  align-self: flex-end;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.wallet-row button.wallet-logo {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 14px;
+  line-height: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.wallet-row button.wallet-logo svg {
+  display: block;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.wallet-row button.wallet-logo:hover:not(:disabled) svg {
+  transform: translateY(-2px) scale(1.04);
+  filter: brightness(1.06);
+}
+.wallet-row button.wallet-logo:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.connect > .field input {
+  background: transparent;
+  border-color: transparent;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+.connect > .field input:focus,
+.connect > .field input:focus-visible {
+  border-bottom-color: var(--brass);
+  outline: none;
+}
+.connect > .field input::placeholder {
+  color: var(--faint);
+}
 .note { color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; }
 .error {
   color: var(--clay);
@@ -754,8 +813,12 @@ dl.facts { display: grid; gap: 4px; margin: 0; }
   .day .amt { font-size: 11px; letter-spacing: -0.03em; }
   .dow { font-size: 11px; padding-bottom: 4px; }
   .rule-form { align-items: stretch; width: 100%; }
-  .wallet-row { flex-direction: column; }
-  .wallet-row button { width: 100%; }
+  .wallet-row {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-self: stretch;
+  }
+  .wallet-row button.wallet-logo { width: auto; }
   .hero { gap: 24px; padding-bottom: 24px; }
   .compare th, .compare td, .data th, .data td { padding: 8px 4px; }
   .trade-main, .recent-open { padding: 12px; }

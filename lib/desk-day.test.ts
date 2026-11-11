@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tradingHabits } from "@/lib/analysis/habits";
-import { analysingLabel, deskTradesForDay, isSelectableDeskDay, selectableDeskDays, todayKeyEt } from "@/lib/desk-day";
+import { analysingLabel, defaultDeskDay, deskTradesForDay, isSelectableDeskDay, selectableDeskDays, todayKeyEt } from "@/lib/desk-day";
 import type { RoundTrip } from "@/lib/types";
 
 const NOON_ET_OCT_26 = new Date("2026-10-26T16:00:00.000Z");
@@ -50,6 +50,12 @@ describe("desk trades for an Eastern day", () => {
     expect(deskTradesForDay(book, "2026-10-25", NOON_ET_OCT_26).map((row) => row.id)).toEqual(["next"]);
     expect(deskTradesForDay(book, "2026-10-27", NOON_ET_OCT_26)).toEqual([]);
     expect(deskTradesForDay(book, "2026-10-26", NOON_ET_OCT_26).map((row) => row.id)).not.toContain("future");
+  });
+
+  it("opens on today when it has closes, else the newest day with closes", () => {
+    expect(defaultDeskDay(book, NOON_ET_OCT_26)).toBe("2026-10-26");
+    expect(defaultDeskDay([prior, heldOvernight, oct24Late, oct25], NOON_ET_OCT_26)).toBe("2026-10-25");
+    expect(defaultDeskDay([], NOON_ET_OCT_26)).toBe("2026-10-26");
   });
 
   it("still sees a break-even chase whose red close was an earlier day", () => {

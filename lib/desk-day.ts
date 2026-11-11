@@ -48,3 +48,13 @@ export function deskTradesForDay<T extends { exitAt?: string }>(trades: readonly
   if (!isSelectableDeskDay(dayKey, now)) return [];
   return trades.filter((trade) => Boolean(trade.exitAt) && dayKeyEt(trade.exitAt as string) === dayKey);
 }
+
+/** Prefer today when it has closes; otherwise the newest selectable day that does. */
+export function defaultDeskDay<T extends { exitAt?: string }>(trades: readonly T[], now = new Date()): string {
+  const today = todayKeyEt(now);
+  if (deskTradesForDay(trades, today, now).length > 0) return today;
+  for (const day of selectableDeskDays(now)) {
+    if (deskTradesForDay(trades, day, now).length > 0) return day;
+  }
+  return today;
+}

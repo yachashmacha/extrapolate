@@ -104,9 +104,11 @@ export function sessionOf(hour: number): "Morning" | "Midday" | "Evening" | "Ove
   return "Overnight";
 }
 
+/** Cut a wallet address past halfway for display anonymity. */
 export function shortAddress(address: string): string {
-  if (address.length < 12) return address;
-  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+  if (address.length < 8) return address;
+  const keep = Math.min(8, Math.floor(address.length / 2));
+  return `${address.slice(0, keep)}…`;
 }
 
 function trim(value: number): string {
