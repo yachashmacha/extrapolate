@@ -34,7 +34,7 @@ export default function HomePage() {
             <li><b>Exit</b><span>If price falls below half the position.</span></li>
             <li><b>Size</b><span>The base trade stays at 10% of the portfolio at the time of the trade.</span></li>
             <li><b>Day</b><span>Stop at 50 closed trades in a day.</span></li>
-            <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
+            <li><b>Wallet</b><span>{shortAddress(TRADER_WALLET)}</span></li>
             <li><b>Reading</b><span><Link href={`/desk${search}`}>What the green trades shared, and what the red trades shared.</Link></span></li>
             <li><b>News</b><span><Link href="/news">Headlines, boosted Solana pairs, and the week’s top ten.</Link></span></li>
           </ul>
