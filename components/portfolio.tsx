@@ -99,9 +99,10 @@ export function Portfolio() {
   return (
     <main className="shell desk">
       <BookBar page="portfolio" title={title} note={note} search={search} onReread={reread} />
-      {loading ? <p className="loading">Reading signatures and building the month.</p> : null}
+      {loading && !book ? <p className="loading">Reading signatures and building the month.</p> : null}
+      {loading && book ? <p className="note">Rereading the wallet…</p> : null}
       {error ? <BookError error={error} /> : null}
-      {book && !loading ? (
+      {book ? (
         <>
           <BookNotices book={book} />
           {dayReport ? <DayReportPanel report={dayReport} /> : null}
