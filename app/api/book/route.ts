@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchWalletBook } from "@/lib/ingest/live";
+import { softenRpcText } from "@/lib/ingest/rpc-message";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,8 @@ export async function GET(request: Request) {
     const book = await fetchWalletBook(address, terminal, depth);
     return NextResponse.json(book);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The wallet could not be read.";
-    const status = /address/i.test(message) ? 400 : 502;
+    const message = softenRpcText(error instanceof Error ? error.message : "The wallet could not be read.");
+    const status = /does not look like a Solana address/i.test(message) ? 400 : 502;
     return NextResponse.json({ error: message }, { status });
   }
 }

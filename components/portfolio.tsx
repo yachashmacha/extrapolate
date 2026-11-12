@@ -100,8 +100,8 @@ export function Portfolio() {
     <main className="shell desk">
       <BookBar page="portfolio" title={title} note={note} search={search} onReread={reread} />
       {loading ? <p className="loading">Reading signatures and building the month.</p> : null}
-      {error ? <BookError error={error} /> : null}
-      {book && !loading ? (
+      {error && !book ? <BookError error={error} /> : null}
+      {book ? (
         <>
           <BookNotices book={book} />
           {dayReport ? <DayReportPanel report={dayReport} /> : null}

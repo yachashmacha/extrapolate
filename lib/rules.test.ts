@@ -18,6 +18,7 @@ import {
   parseRules,
   portfolioAtEntry,
   ruleBreak,
+  seedStoredRules,
   ticketBrokeSize,
   withBaseRules,
 } from "@/lib/rules";
@@ -54,6 +55,25 @@ describe("trading rules", () => {
     expect(hadTwo.map((rule) => rule.id)).toEqual([BASE_RULES[0].id, BASE_RULES[1].id, BASE_RULES[2].id, "own"]);
     expect(hadTwo[1].active).toBe(false);
     expect(hadTwo[2].active).toBe(true);
+  });
+
+  it("does not put a removed base rule back when the book is seeded", () => {
+    const removed = [BASE_RULES[0].id];
+    const kept = seedStoredRules(
+      [
+        { id: BASE_RULES[1].id, text: SIZE_RULE_TEXT, active: true },
+        { id: "own", text: "One coin a day", active: true },
+      ],
+      { seeded: false, paceSeeded: false, removedIds: removed },
+    );
+    expect(kept.map((rule) => rule.id)).toEqual([BASE_RULES[1].id, BASE_RULES[2].id, "own"]);
+    const again = seedStoredRules(kept, { seeded: true, paceSeeded: true, removedIds: removed });
+    expect(again.map((rule) => rule.id)).toEqual([BASE_RULES[1].id, BASE_RULES[2].id, "own"]);
+    const paceKeptOut = seedStoredRules(
+      [{ id: BASE_RULES[0].id, text: EXIT_RULE_TEXT, active: true }],
+      { seeded: true, paceSeeded: false, removedIds: [PACE_RULE_ID] },
+    );
+    expect(paceKeptOut.map((rule) => rule.id)).toEqual([BASE_RULES[0].id]);
   });
 
   it("lists the active rules the score can read", () => {

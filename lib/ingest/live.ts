@@ -1,9 +1,15 @@
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { isWalletAddress } from "@/lib/address";
 import { isTerminalId } from "@/lib/terminals";
 import type { Book, TerminalId } from "@/lib/types";
 import type { MintMeta } from "@/lib/ingest/round-trips";
 import { noteMints, startHighs } from "@/lib/ingest/highs";
 import { buildRoundTrips } from "@/lib/ingest/round-trips";
+import { beginBookRead, endBookRead, gatedRpc, holdPublicRpc, isRpcLimited, RpcLimitError } from "@/lib/ingest/rpc-gate";
+import { RPC_BUSY } from "@/lib/ingest/rpc-message";
 import {
   parseHeliusTransaction,
   parseRpcTransaction,
@@ -12,7 +18,17 @@ import {
   type ParsedTransaction,
 } from "@/lib/ingest/parse";
 
-const DEFAULT_RPC = "https://solana-rpc.publicnode.com";
+const BOOK_CACHE_MS = 45_000;
+/**
+ * Enough paced getTransaction calls to reach the recent closes, plus a cooldown
+ * when the public node answers 429. A longer walk stays in the background once a
+ * book with closes is already on disk.
+ */
+const TX_BUDGET_MS = 60_000;
+const BOOK_DIR = path.join(tmpdir(), "extrapolate-wallet-books");
+const freshCache = new Map<string, { expires: number; book: Book }>();
+const lastGood = new Map<string, Book>();
+const inflight = new Map<string, Promise<Book>>();
 
 export async function fetchWalletBook(
   address: string,
@@ -24,6 +40,95 @@ export async function fetchWalletBook(
     throw new Error("That does not look like a Solana address.");
   }
   const terminal: TerminalId = isTerminalId(terminalInput) ? terminalInput : "wallet";
+  const key = `${wallet}|${terminal}|${clampDepth(depth)}`;
+  const fresh = freshCache.get(key);
+  if (fresh && fresh.expires > Date.now()) return fresh.book;
+
+  rememberDisk(key);
+  const prior = lastGood.get(key);
+  const pending = inflight.get(key) ?? startRefresh(key, wallet, terminal, depth);
+  // Opens alone are not the book. Wait for the read that can still find the closes.
+  if (prior && prior.trades.length > 0) return prior;
+  return pending;
+}
+
+function startRefresh(key: string, wallet: string, terminal: TerminalId, depth: number): Promise<Book> {
+  const pending = readWalletBook(wallet, terminal, depth)
+    .then((book) => keepBook(key, book))
+    .catch((error: unknown) => {
+      const prior = lastGood.get(key);
+      if (prior && (rateLimited(error) || worthKeeping(prior))) return prior;
+      throw error;
+    })
+    .finally(() => {
+      if (inflight.get(key) === pending) inflight.delete(key);
+    });
+  inflight.set(key, pending);
+  return pending;
+}
+
+function keepBook(key: string, book: Book): Book {
+  const prior = lastGood.get(key);
+  const next = prior && prior.trades.length > book.trades.length ? prior : book;
+  if (!worthKeeping(next)) return book;
+  lastGood.set(key, next);
+  freshCache.set(key, { expires: Date.now() + BOOK_CACHE_MS, book: next });
+  writeDisk(key, next);
+  return next;
+}
+
+function worthKeeping(book: Book): boolean {
+  return book.trades.length > 0 || book.opens.length > 0;
+}
+
+function rememberDisk(key: string): void {
+  if (lastGood.has(key)) return;
+  const stored = readDisk(key);
+  if (stored) lastGood.set(key, stored);
+}
+
+function bookFile(key: string): string {
+  const name = createHash("sha256").update(key).digest("hex").slice(0, 24);
+  return path.join(BOOK_DIR, `${name}.json`);
+}
+
+function readDisk(key: string): Book | null {
+  try {
+    const parsed = JSON.parse(readFileSync(bookFile(key), "utf8")) as Book;
+    if (!parsed || parsed.source !== "wallet" || !Array.isArray(parsed.trades) || !Array.isArray(parsed.opens)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDisk(key: string, book: Book): void {
+  try {
+    mkdirSync(BOOK_DIR, { recursive: true });
+    writeFileSync(bookFile(key), JSON.stringify(book));
+  } catch {
+    // The memory copy still serves this process.
+  }
+}
+
+async function readWalletBook(
+  wallet: string,
+  terminal: TerminalId,
+  depth: number,
+): Promise<Book> {
+  beginBookRead();
+  try {
+    return await readWalletBookNow(wallet, terminal, depth);
+  } finally {
+    endBookRead();
+  }
+}
+
+async function readWalletBookNow(
+  wallet: string,
+  terminal: TerminalId,
+  depth: number,
+): Promise<Book> {
   const warnings: string[] = [];
 
   const solPrice = await loadSolPrices();
@@ -39,8 +144,8 @@ export async function fetchWalletBook(
       const helius = await loadHelius(wallet, heliusKey, solPrice.priceAt);
       fills = helius.fills;
       scanned = helius.scanned;
-    } catch (error) {
-      warnings.push(`Helius did not answer (${messageOf(error)}). Fell back to a public RPC.`);
+    } catch {
+      warnings.push("Helius did not answer. Fell back to a public RPC.");
     }
   }
   if (fills.length === 0) {
@@ -54,7 +159,7 @@ export async function fetchWalletBook(
   noteMints(metas);
   const built = buildRoundTrips(fills, metas, terminal);
   startHighs([...new Set(built.trades.map((trade) => trade.mint))]);
-  if (built.trades.length === 0 && fills.length === 0) {
+  if (built.trades.length === 0 && fills.length === 0 && !warnings.includes(RPC_BUSY)) {
     warnings.push("No SOL or USDC memecoin swaps showed up in the recent transactions. A CSV export from the terminal still works.");
   }
 
@@ -62,9 +167,7 @@ export async function fetchWalletBook(
   if (!(spot && spot > 0)) {
     warnings.push("The current SOL price did not load, so the wallet total was left blank.");
   }
-  const balances = spot && spot > 0
-    ? await loadAccountUsd(process.env.SOLANA_RPC_URL || DEFAULT_RPC, wallet, spot, built.opens)
-    : undefined;
+  const balances = spot && spot > 0 ? await loadAccountUsd(wallet, spot, built.opens) : undefined;
 
   return {
     source: "wallet",
@@ -89,19 +192,18 @@ const STABLES = new Set([
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
 async function loadAccountUsd(
-  rpc: string,
   wallet: string,
   solPrice: number,
   opens: { costUsd: number }[],
 ): Promise<{ portfolioUsd?: number; cashUsd?: number } | undefined> {
   try {
-    const balance = await rpcCall<number | { value?: number }>(rpc, "getBalance", [wallet]);
+    const balance = await rpcCall<number | { value?: number }>("getBalance", [wallet]);
     const lamports = typeof balance === "number" ? balance : Number(balance?.value ?? 0);
     const sol = (Number.isFinite(lamports) ? lamports : 0) / 1_000_000_000;
     let stables = 0;
     let wrapped = 0;
     try {
-      const accounts = await rpcCall<{ value?: TokenAccount[] }>(rpc, "getTokenAccountsByOwner", [
+      const accounts = await rpcCall<{ value?: TokenAccount[] }>("getTokenAccountsByOwner", [
         wallet,
         { programId: TOKEN_PROGRAM },
         { encoding: "jsonParsed" },
@@ -164,18 +266,8 @@ async function loadRpc(
   priceAt: (iso: string) => number,
   depth: number,
 ): Promise<{ fills: Fill[]; scanned: number; warning?: string }> {
-  const rpc = process.env.SOLANA_RPC_URL || DEFAULT_RPC;
-  const sigs = await loadSignatures(rpc, wallet, depth);
-  let firstError = "";
-  const transactions = await mapPool(sigs, 6, (signature) =>
-    rpcCall<ParsedTransaction | null>(rpc, "getTransaction", [
-      signature,
-      { encoding: "jsonParsed", maxSupportedTransactionVersion: 1 },
-    ]).catch((error: unknown) => {
-      if (!firstError) firstError = error instanceof Error ? error.message : "read failed";
-      return null;
-    }),
-  );
+  const sigs = await loadSignatures(wallet, depth);
+  const { transactions, stoppedEarly } = await loadParsedTransactions(sigs);
   const fills: Fill[] = [];
   transactions.forEach((tx, index) => {
     if (!tx) return;
@@ -184,14 +276,70 @@ async function loadRpc(
     const fill = parseRpcTransaction(tx, wallet, priceAt(at), signature);
     if (fill) fills.push(fill);
   });
-  const missed = transactions.filter((tx) => tx === null).length;
   let warning: string | undefined;
   if (sigs.length === 0) {
     warning = "The RPC returned no recent signatures for this address.";
-  } else if (missed > sigs.length / 2) {
-    warning = `Only ${sigs.length - missed} of the last ${sigs.length} transactions could be read${firstError ? ` (${firstError})` : ""}. A Helius key or a CSV export reaches further.`;
+  } else if (stoppedEarly && fills.length === 0) {
+    warning = RPC_BUSY;
   }
   return { fills, scanned: sigs.length, warning };
+}
+
+/**
+ * Retries a 429 quietly. Stops after several signatures fail in a row, including timeouts,
+ * and stops when the budget runs out so a slow node cannot hold the desk on a blank page.
+ */
+async function loadParsedTransactions(
+  signatures: string[],
+  budgetMs = TX_BUDGET_MS,
+): Promise<{ transactions: (ParsedTransaction | null)[]; stoppedEarly: boolean }> {
+  const transactions: (ParsedTransaction | null)[] = new Array(signatures.length).fill(null);
+  const deadline = Date.now() + budgetMs;
+  let stoppedEarly = false;
+  let run = 0;
+  for (let index = 0; index < signatures.length; index += 1) {
+    if (Date.now() >= deadline) {
+      stoppedEarly = true;
+      break;
+    }
+    let loaded = false;
+    let failed = false;
+    let limited = false;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      if (Date.now() >= deadline) break;
+      try {
+        transactions[index] = await gatedRpc<ParsedTransaction | null>("getTransaction", [
+          signatures[index],
+          { encoding: "jsonParsed", maxSupportedTransactionVersion: 1 },
+        ], { priority: "book" });
+        loaded = true;
+        break;
+      } catch (error) {
+        failed = true;
+        limited = isRpcLimited(error);
+        if (!limited || attempt === 3) break;
+        const pause = Math.min(12_000, deadline - Date.now());
+        if (pause < 500) break;
+        holdPublicRpc(pause);
+        await new Promise((resolve) => setTimeout(resolve, pause));
+      }
+    }
+    if (loaded) {
+      run = 0;
+      continue;
+    }
+    if (Date.now() >= deadline) {
+      stoppedEarly = true;
+      break;
+    }
+    if (!failed || limited) continue;
+    run += 1;
+    if (run >= 4) {
+      stoppedEarly = true;
+      break;
+    }
+  }
+  return { transactions, stoppedEarly };
 }
 
 async function loadMintMeta(mints: string[]): Promise<Map<string, MintMeta>> {
@@ -297,12 +445,12 @@ async function loadSpotSol(): Promise<number | null> {
   return null;
 }
 
-async function loadSignatures(rpc: string, wallet: string, depth: number): Promise<string[]> {
+async function loadSignatures(wallet: string, depth: number): Promise<string[]> {
   const signatures: string[] = [];
   let before: string | undefined;
   while (signatures.length < depth) {
     const limit = Math.min(1000, depth - signatures.length);
-    const page = await rpcCall<{ signature: string }[]>(rpc, "getSignaturesForAddress", [
+    const page = await rpcCall<{ signature: string }[]>("getSignaturesForAddress", [
       wallet,
       before ? { limit, before } : { limit },
     ]);
@@ -321,49 +469,26 @@ function clampDepth(depth: number): number {
   return Math.max(20, Math.min(250, Math.round(depth)));
 }
 
-async function rpcCall<T>(rpc: string, method: string, params: unknown[]): Promise<T> {
-  let last = "RPC failed";
+async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
+  let last: unknown = new Error("The wallet could not be read.");
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
-      return await rpcCallOnce<T>(rpc, method, params);
+      return await gatedRpc<T>(method, params, { priority: "book" });
     } catch (error) {
-      last = error instanceof Error ? error.message : "RPC failed";
-      if (!/429|502|503|timeout|timed out|congested/i.test(last) || attempt === 3) break;
-      await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      last = error;
+      if (!rateLimited(error) || attempt === 3) break;
+      // The public window is 10 seconds. A 429 waits it out. Other blips wait 3 seconds.
+      const pause = isRpcLimited(error) ? 12_000 : 3_000;
+      if (isRpcLimited(error)) holdPublicRpc(pause);
+      await new Promise((resolve) => setTimeout(resolve, pause));
     }
   }
-  throw new Error(last);
+  if (isRpcLimited(last)) throw new RpcLimitError();
+  throw last instanceof Error ? last : new Error("The wallet could not be read.");
 }
 
-async function rpcCallOnce<T>(rpc: string, method: string, params: unknown[]): Promise<T> {
-  const response = await fetch(rpc, {
-    method: "POST",
-    cache: "no-store",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`RPC ${method} status ${response.status}: ${detail.slice(0, 180)}`);
-  }
-  const body = (await response.json()) as { result?: T; error?: { message?: string } };
-  if (body.error) throw new Error(body.error.message || "RPC error");
-  return body.result as T;
-}
-
-async function mapPool<T, U>(items: T[], concurrency: number, fn: (item: T) => Promise<U>): Promise<U[]> {
-  const out: U[] = new Array(items.length);
-  let cursor = 0;
-  async function worker() {
-    while (cursor < items.length) {
-      const index = cursor;
-      cursor += 1;
-      out[index] = await fn(items[index]);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
-  return out;
+function rateLimited(error: unknown): boolean {
+  return isRpcLimited(error) || /502|503|timeout|timed out|congested/i.test(messageOf(error));
 }
 
 function messageOf(error: unknown): string {

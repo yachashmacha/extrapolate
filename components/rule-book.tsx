@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRules } from "@/components/use-rules";
 
 export function RuleBook({ bookKey }: { bookKey: string }) {
-  const { rules, save } = useRules(bookKey);
+  const { rules, save, remove } = useRules(bookKey);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -24,7 +24,7 @@ export function RuleBook({ bookKey }: { bookKey: string }) {
   function commitEdit(id: string) {
     const text = editingText.trim();
     if (!text) {
-      save(rules.filter((rule) => rule.id !== id));
+      remove(id);
     } else {
       save(rules.map((rule) => (rule.id === id ? { ...rule, text } : rule)));
     }
@@ -97,7 +97,7 @@ export function RuleBook({ bookKey }: { bookKey: string }) {
                 >
                   Edit
                 </button>
-                <button type="button" className="texty" onClick={() => save(rules.filter((item) => item.id !== rule.id))}>
+                <button type="button" className="texty" onClick={() => remove(rule.id)}>
                   Delete
                 </button>
               </div>

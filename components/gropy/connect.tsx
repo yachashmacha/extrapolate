@@ -7,13 +7,8 @@ import { fundedCopies, GROPY_SPEND_KEY, parseSpendWallet } from "@/lib/gropy/spe
 import { fmtSol } from "@/lib/gropy/sol";
 import type { GropyCopyDraft, GropyCopyRow } from "@/lib/gropy/view";
 import { connectWallet, type WalletKind } from "@/lib/wallet";
+import { WalletMarks } from "@/components/wallet-marks";
 import styles from "./gropy.module.css";
-
-const WALLETS: { id: WalletKind; name: string }[] = [
-  { id: "phantom", name: "Phantom" },
-  { id: "solflare", name: "Solflare" },
-  { id: "backpack", name: "Backpack" },
-];
 
 const NAMES: Record<WalletKind, string> = {
   phantom: "Phantom",
@@ -154,13 +149,7 @@ export function GropyWalletCard() {
         <>
           <p className={styles.address}>{spend.address}</p>
           <p className={styles.note}>Load this wallet with SOL, or connect yours and Gropy Trade will size copies from that balance.</p>
-          <div className="wallet-row">
-            {WALLETS.map((wallet) => (
-              <button key={wallet.id} type="button" className="ghost" onClick={() => void spend.connect(wallet.id)} disabled={spend.busy !== ""}>
-                {spend.busy === wallet.id ? "Connecting…" : wallet.name}
-              </button>
-            ))}
-          </div>
+          <WalletMarks busy={spend.busy} onConnect={(kind) => void spend.connect(kind)} />
           <p className={styles.realized}>{balanceLine(spend.balanceSol)}</p>
         </>
       )}

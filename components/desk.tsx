@@ -73,9 +73,9 @@ export function Desk() {
       <BookBar page="desk" title={title} note={dayNote} search={search} onReread={reread} />
       <AnalysingDay dayKey={selected} onSelect={setPicked} />
       {loading ? <p className="loading">Reading signatures, rebuilding closed trades, and comparing the winners with the losers.</p> : null}
-      {error ? <BookError error={error} /> : null}
+      {error && !book ? <BookError error={error} /> : null}
 
-      {book && !loading ? (
+      {book ? (
         <>
           <BookNotices book={book} />
           <HabitFeed

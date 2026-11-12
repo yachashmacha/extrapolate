@@ -7,6 +7,7 @@ import { SiteNav } from "@/components/site-nav";
 import { bookBounds } from "@/lib/analysis/bounds";
 import { analyze } from "@/lib/analysis/engine";
 import { fetchWalletBook } from "@/lib/ingest/live";
+import { RPC_BUSY, softenRpcText } from "@/lib/ingest/rpc-message";
 import { TRADER_DEPTH, TRADER_TERMINAL, TRADER_WALLET, traderSearch } from "@/lib/trader";
 import { fmtUsdPlain, shortAddress } from "@/lib/format";
 
@@ -26,14 +27,11 @@ export default function HomePage() {
       <section className="hero">
         <div className="hero-copy">
           <p className="kicker">Memecoin trading desk</p>
-          <h1>See the trade you keep repeating.</h1>
+          <h1>Allow your subconscious to emerge.</h1>
           <p className="lede">
-            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin trade. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL. Three rules start on.
+            Extrapolate reads {shortAddress(TRADER_WALLET)} and rebuilds every closed memecoin trade. It lines the winners up against the losers: market cap, size, hold, hour, the narrative, and which KOLs were in the coin. Portfolio keeps the daily PnL.
           </p>
           <ul className="facts">
-            <li><b>Exit</b><span>If price falls below half the position.</span></li>
-            <li><b>Size</b><span>The base trade stays at 10% of the portfolio at the time of the trade.</span></li>
-            <li><b>Day</b><span>Stop at 50 closed trades in a day.</span></li>
             <li><b>Wallet</b><span>{TRADER_WALLET}</span></li>
             <li><b>Reading</b><span><Link href={`/desk${search}`}>What the green trades shared, and what the red trades shared.</Link></span></li>
             <li><b>News</b><span><Link href="/news">Headlines, boosted Solana pairs, and the week’s top ten.</Link></span></li>
@@ -67,7 +65,7 @@ async function LiveHome() {
       />
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The wallet could not be read.";
-    return <p className="error">{message}</p>;
+    const message = softenRpcText(error instanceof Error ? error.message : "The wallet could not be read.");
+    return <p className={message === RPC_BUSY ? "note" : "error"}>{message}</p>;
   }
 }

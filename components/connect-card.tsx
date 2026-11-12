@@ -6,12 +6,7 @@ import { isWalletAddress } from "@/lib/address";
 import { CSV_TEMPLATE, parseCsvBook } from "@/lib/ingest/csv";
 import { TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import { connectWallet, type WalletKind } from "@/lib/wallet";
-
-const WALLETS: { id: WalletKind; name: string }[] = [
-  { id: "phantom", name: "Phantom" },
-  { id: "solflare", name: "Solflare" },
-  { id: "backpack", name: "Backpack" },
-];
+import { WalletMarks } from "@/components/wallet-marks";
 
 export function ConnectCard() {
   const router = useRouter();
@@ -64,13 +59,7 @@ export function ConnectCard() {
         openAddress(address);
       }}
     >
-      <div className="wallet-row">
-        {WALLETS.map((wallet) => (
-          <button key={wallet.id} type="button" className="ghost" onClick={() => onConnect(wallet.id)} disabled={busy !== ""}>
-            {busy === wallet.id ? "Connecting…" : wallet.name}
-          </button>
-        ))}
-      </div>
+      <WalletMarks busy={busy} onConnect={(kind) => void onConnect(kind)} />
       <label className="field">
         <span>Wallet address</span>
         <input

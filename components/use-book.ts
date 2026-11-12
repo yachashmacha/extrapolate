@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { analyze } from "@/lib/analysis/engine";
 import { isWalletAddress } from "@/lib/address";
 import { bookSearch } from "@/lib/book-query";
@@ -10,6 +10,37 @@ import { isTerminalId, terminalName } from "@/lib/terminals";
 import { TRADER_DEPTH, TRADER_TERMINAL, TRADER_WALLET } from "@/lib/trader";
 import type { Analysis, Book, KolTag, MetaId, TerminalId } from "@/lib/types";
 import { shortAddress } from "@/lib/format";
+
+const BOOK_PREFIX = "extrapolate:book:";
+
+function bookStorageKey(address: string, terminal: TerminalId, depth: string): string {
+  return `${BOOK_PREFIX}${address}|${terminal}|${depth}`;
+}
+
+function worthKeeping(book: Book | null): book is Book {
+  return Boolean(book && (book.trades.length > 0 || book.opens.length > 0));
+}
+
+function readStoredBook(key: string): Book | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const book = JSON.parse(raw) as Book;
+    if (!book || book.source !== "wallet" || !Array.isArray(book.trades) || !Array.isArray(book.opens)) return null;
+    return book;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredBook(key: string, book: Book): void {
+  if (!worthKeeping(book)) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(book));
+  } catch {
+    // A full disk still leaves this response on the page.
+  }
+}
 
 export interface KolScanProgress {
   checked: number;
@@ -43,7 +74,13 @@ export function useBook() {
   const bookKey = source === "csv" ? "csv" : address || "unknown";
   const search = bookSearch({ demo: false, source, address, terminal, depth });
 
-  const [book, setBook] = useState<Book | null>(null);
+  const [book, setBookState] = useState<Book | null>(null);
+  const bookRef = useRef<Book | null>(null);
+  const setBook = (value: Book | null | ((current: Book | null) => Book | null)) => {
+    const next = typeof value === "function" ? value(bookRef.current) : value;
+    bookRef.current = next;
+    setBookState(next);
+  };
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(source !== "csv");
   const [overrides, setOverrides] = useState<Overrides>(EMPTY);
@@ -80,26 +117,47 @@ export function useBook() {
       setLoading(false);
       return;
     }
+    const storageKey = bookStorageKey(address, terminal, depth);
+    const stored = readStoredBook(storageKey);
+    if (worthKeeping(stored)) {
+      setBook((current) => (worthKeeping(current) ? current : stored));
+      setError("");
+    }
     const controller = new AbortController();
+    let cancelled = false;
     setLoading(true);
-    setError("");
     fetch(`/api/book?address=${encodeURIComponent(address)}&terminal=${terminal}&depth=${encodeURIComponent(depth)}`, {
       signal: controller.signal,
     })
       .then(async (response) => {
-        const body = await response.json();
+        const body = (await response.json()) as Book & { error?: string };
         if (!response.ok) throw new Error(body.error || "Could not read that wallet.");
-        setBook(body as Book);
+        if (cancelled) return;
+        setBook((current) => {
+          if (worthKeeping(body) || !worthKeeping(current)) {
+            writeStoredBook(storageKey, body);
+            return body;
+          }
+          return current;
+        });
+        setError("");
       })
       .catch((caught: unknown) => {
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (cancelled || (caught instanceof DOMException && caught.name === "AbortError")) return;
+        if (worthKeeping(bookRef.current)) {
+          setError("");
+          return;
+        }
         setBook(null);
         setError(caught instanceof Error ? caught.message : "Could not read that wallet.");
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!cancelled) setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [source, address, terminal, depth, reloadKey]);
 
   useEffect(() => {

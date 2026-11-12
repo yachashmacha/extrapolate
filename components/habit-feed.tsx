@@ -75,7 +75,7 @@ function HabitColumn({
       <div className="feed-scroll">
         {habits.map((habit) => (
           <article key={habit.id} className={selectedId === habit.id ? "trade panel picked habit-card" : "trade panel habit-card"}>
-            <p className={habit.mark === "Tendency" ? "kicker good" : "kicker bad"}>{habit.mark}</p>
+            <p className="kicker">{habit.mark}</p>
             <h3>{habit.title}</h3>
             <p className="habit-stat num">{habit.stat}</p>
             <p>{habit.detail}</p>

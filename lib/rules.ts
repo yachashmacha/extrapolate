@@ -70,6 +70,25 @@ export function withBaseRules(rules: TradingRule[]): TradingRule[] {
   return next;
 }
 
+/**
+ * First load fills in base rules. A later load can add the daily-cap rule once.
+ * A base rule the trader removed stays out, including on that first fill.
+ */
+export function seedStoredRules(
+  rules: TradingRule[],
+  options: { seeded: boolean; paceSeeded: boolean; removedIds: readonly string[] },
+): TradingRule[] {
+  const removed = new Set(options.removedIds);
+  let next = rules;
+  if (!options.seeded) {
+    next = withBaseRules(next);
+  } else if (!options.paceSeeded && !removed.has(PACE_RULE_ID)) {
+    next = withBaseRule(next, PACE_RULE_ID);
+  }
+  if (removed.size === 0) return next;
+  return next.filter((rule) => !removed.has(rule.id));
+}
+
 export function parseRules(raw: string | null): TradingRule[] {
   if (!raw) return baseRules();
   try {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Sans } from "next/font/google";
+import { Cinzel, Fraunces, IBM_Plex_Sans } from "next/font/google";
 import { DailyReportTab } from "@/components/daily-report-tab";
+import { ParticleField } from "@/components/particle-field";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -16,6 +17,13 @@ const plex = IBM_Plex_Sans({
   display: "swap",
 });
 
+const wordmark = Cinzel({
+  subsets: ["latin"],
+  weight: "700",
+  variable: "--font-wordmark",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Extrapolate — memecoin trading desk",
   description:
@@ -24,8 +32,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${plex.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${plex.variable} ${wordmark.variable}`}>
       <body>
+        <ParticleField />
         <DailyReportTab />
         {children}
       </body>
