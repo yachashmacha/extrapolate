@@ -92,7 +92,18 @@ p { margin: 0; }
   transition: color 0.2s ease;
 }
 .wordmark:hover { color: var(--brass); }
-.wordmark svg { display: block; flex: none; }
+.wordmark svg,
+.wordmark .mark,
+img.mark {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  /* Knock out the logo's black plate on the dark desk. */
+  mix-blend-mode: screen;
+  border-radius: 7px;
+}
 .kicker {
   margin: 0 0 8px;
   color: var(--brass);
