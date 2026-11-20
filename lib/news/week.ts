@@ -1,3 +1,7 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 export interface WeekTicker {
   id: string;
   symbol: string;
@@ -27,6 +31,8 @@ const POOL = 100;
 const OUTLIER = 400;
 const MIN_SPAN_MS = 5 * 24 * 60 * 60 * 1000;
 const CACHE_MS = 45_000;
+const STALE_MS = 10 * 60 * 1000;
+const DISK_FILE = path.join(tmpdir(), "extrapolate-week-board.json");
 const MARKETS_URL =
   "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=7d";
 
@@ -37,12 +43,56 @@ const STABLES = new Set([
 ]);
 
 let cached: { at: number; board: WeekBoard } | null = null;
+let inflight: Promise<WeekBoard> | null = null;
 
 export async function loadWeek(): Promise<WeekBoard> {
-  if (cached && Date.now() - cached.at < CACHE_MS) return cached.board;
-  const board = await assembleWeek(fetch);
-  cached = { at: Date.now(), board };
-  return board;
+  const now = Date.now();
+  if (cached && now - cached.at < CACHE_MS) return cached.board;
+  const disk = readDisk();
+  if (disk && now - disk.at < CACHE_MS) {
+    cached = disk;
+    return disk.board;
+  }
+  if (disk && now - disk.at < STALE_MS) {
+    void refresh().catch(() => undefined);
+    return disk.board;
+  }
+  return refresh();
+}
+
+function refresh(): Promise<WeekBoard> {
+  if (inflight) return inflight;
+  const pending = assembleWeek(fetch)
+    .then((board) => {
+      const saved = { at: Date.now(), board };
+      cached = saved;
+      writeDisk(saved);
+      return board;
+    })
+    .finally(() => {
+      if (inflight === pending) inflight = null;
+    });
+  inflight = pending;
+  return pending;
+}
+
+function readDisk(): { at: number; board: WeekBoard } | null {
+  try {
+    const parsed = JSON.parse(readFileSync(DISK_FILE, "utf8")) as { at?: unknown; board?: WeekBoard };
+    if (typeof parsed.at !== "number" || !parsed.board || !Array.isArray(parsed.board.tickers) || typeof parsed.board.loadedAt !== "string") return null;
+    return { at: parsed.at, board: parsed.board };
+  } catch {
+    return null;
+  }
+}
+
+function writeDisk(saved: { at: number; board: WeekBoard }): void {
+  try {
+    mkdirSync(path.dirname(DISK_FILE), { recursive: true });
+    writeFileSync(DISK_FILE, JSON.stringify(saved));
+  } catch {
+    // The memory copy still serves this process.
+  }
 }
 
 export async function assembleWeek(fetchImpl: typeof fetch, now = Date.now()): Promise<WeekBoard> {

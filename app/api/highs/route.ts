@@ -12,5 +12,5 @@ export async function POST(request: Request) {
   for (const [mint, tape] of Object.entries(tapes)) {
     if (tape.highMarketCapUsd != null && tape.highMarketCapUsd > 0) highs[mint] = tape.highMarketCapUsd;
   }
-  return NextResponse.json({ highs, tapes });
+  return NextResponse.json({ highs, tapes }, { headers: { "Cache-Control": "private, no-store" } });
 }

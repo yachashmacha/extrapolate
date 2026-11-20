@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     if (!unique.has(trade.id)) unique.set(trade.id, trade);
   }
   const reads = await biasContextFor([...unique.values()].slice(0, 120));
-  return NextResponse.json({ reads });
+  return NextResponse.json({ reads }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 function asTrade(value: unknown): BiasTrade | null {

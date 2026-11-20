@@ -144,7 +144,7 @@ export function Portfolio() {
           <section className="section" id="feeds">
             <div className="section-head">
               <h2>Trades</h2>
-              <p>Winners on one side, losers on the other. Pick a day to review that day's trades.</p>
+              <p>Winners on one side, losers on the other. Pick a day to review that day&apos;s trades.</p>
             </div>
             <div className="filter-row">
               <button type="button" className="chip" aria-pressed={scope.kind === "month"} onClick={() => setScope({ kind: "month" })}>

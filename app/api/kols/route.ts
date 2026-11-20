@@ -16,5 +16,7 @@ export async function POST(request: Request) {
     : [];
   const unique = mints.slice(0, 80);
   startKolScan(unique);
-  return NextResponse.json(kolScanSnapshot(unique.map((row) => row.mint)));
+  return NextResponse.json(kolScanSnapshot(unique.map((row) => row.mint)), {
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }

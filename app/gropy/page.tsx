@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { GropyBoard } from "@/components/gropy/board";
 import { loadKolRecords } from "@/lib/gropy/chain";
 import { runCopyBook } from "@/lib/gropy/engine";
@@ -14,7 +15,15 @@ export const metadata: Metadata = {
   description: "Gropy Trade, a grokbot copy trader. Fund the bot wallet with SOL. It follows a profitable KOL and fires them on the third loss.",
 };
 
-export default async function GropyPage() {
+export default function GropyPage() {
+  return (
+    <Suspense fallback={<main className="shell"><p className="loading">Opening Gropy Trade…</p></main>}>
+      <GropyLive />
+    </Suspense>
+  );
+}
+
+async function GropyLive() {
   const bot = loadBotWallet();
   const [balanceSol, records] = await Promise.all([readSolBalance(bot.publicKey), loadKolRecords()]);
   const book = runCopyBook(records.closed, records.buys);

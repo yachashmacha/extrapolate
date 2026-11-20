@@ -11,10 +11,10 @@ export async function GET(request: Request) {
   const depth = Number(searchParams.get("depth") ?? "200");
   try {
     const book = await fetchWalletBook(address, terminal, depth);
-    return NextResponse.json(book);
+    return NextResponse.json(book, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     const message = softenRpcText(error instanceof Error ? error.message : "The wallet could not be read.");
     const status = /does not look like a Solana address/i.test(message) ? 400 : 502;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store" } });
   }
 }

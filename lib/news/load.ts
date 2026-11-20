@@ -1,3 +1,6 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { gropyOpenSymbols } from "@/lib/gropy/open";
 import { httpsImage, sharpen } from "@/lib/news/images";
 import { lanesFor } from "@/lib/news/lanes";
@@ -29,15 +32,64 @@ const MAX_POSTS = 6;
 const MAX_POST_CANDIDATES = 16;
 const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const CACHE_MS = 120_000;
+const STALE_MS = 10 * 60 * 1000;
+const DISK_FILE = path.join(tmpdir(), "extrapolate-news-desk.json");
 
 let cached: { at: number; desk: NewsDesk } | null = null;
+let inflight: Promise<NewsDesk> | null = null;
 
 export async function loadNews(): Promise<NewsDesk> {
-  if (cached && Date.now() - cached.at < CACHE_MS) return cached.desk;
-  const holding = gropyOpenSymbols().then(heldKeys, () => new Set<string>());
-  const desk = await assembleNews(fetch, new Date(), holding);
-  cached = { at: Date.now(), desk };
-  return desk;
+  const now = Date.now();
+  if (cached && now - cached.at < CACHE_MS) return cached.desk;
+  const disk = readDisk();
+  if (disk && now - disk.at < CACHE_MS) {
+    cached = disk;
+    return disk.desk;
+  }
+  if (disk && now - disk.at < STALE_MS) {
+    void refresh().catch(() => undefined);
+    return disk.desk;
+  }
+  return refresh();
+}
+
+function refresh(): Promise<NewsDesk> {
+  if (inflight) return inflight;
+  const pending = (async () => {
+    const holding = gropyOpenSymbols().then(heldKeys, () => new Set<string>());
+    const desk = await assembleNews(fetch, new Date(), holding);
+    const saved = { at: Date.now(), desk };
+    cached = saved;
+    writeDisk(saved);
+    return desk;
+  })().finally(() => {
+    if (inflight === pending) inflight = null;
+  });
+  inflight = pending;
+  return pending;
+}
+
+function readDisk(): { at: number; desk: NewsDesk } | null {
+  try {
+    const parsed = JSON.parse(readFileSync(DISK_FILE, "utf8")) as { at?: unknown; desk?: NewsDesk };
+    if (typeof parsed.at !== "number" || !isDesk(parsed.desk)) return null;
+    return { at: parsed.at, desk: parsed.desk };
+  } catch {
+    return null;
+  }
+}
+
+function isDesk(value: NewsDesk | undefined): value is NewsDesk {
+  return Boolean(value && Array.isArray(value.wires) && Array.isArray(value.coins) && Array.isArray(value.posts) && typeof value.loadedAt === "string" && Array.isArray(value.missed));
+}
+
+function writeDisk(saved: { at: number; desk: NewsDesk }): void {
+  try {
+    mkdirSync(path.dirname(DISK_FILE), { recursive: true });
+    writeFileSync(DISK_FILE, JSON.stringify(saved));
+  } catch {
+    // The memory copy still serves this process.
+  }
 }
 
 export async function assembleNews(

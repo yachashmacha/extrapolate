@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Cinzel, Fraunces, IBM_Plex_Sans } from "next/font/google";
 import { DailyReportTab } from "@/components/daily-report-tab";
-import { ParticleField } from "@/components/particle-field";
+import { SiteParticles } from "@/components/site-particles";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -12,7 +12,7 @@ const fraunces = Fraunces({
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["500", "600", "700"],
   variable: "--font-plex",
   display: "swap",
 });
@@ -22,6 +22,7 @@ const wordmark = Cinzel({
   weight: "700",
   variable: "--font-wordmark",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${fraunces.variable} ${plex.variable} ${wordmark.variable}`}>
       <body>
-        <ParticleField />
+        <SiteParticles />
         <DailyReportTab />
         {children}
       </body>

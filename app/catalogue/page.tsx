@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Mark } from "@/components/mark";
 import { SiteNav } from "@/components/site-nav";
 
+export const dynamic = "force-static";
+
 export const metadata: Metadata = {
   title: "Catalogue of Doom — extrapolate",
   description:

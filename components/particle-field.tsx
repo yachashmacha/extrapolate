@@ -99,7 +99,15 @@ export function ParticleField() {
     };
 
     fit();
-    play();
+    // One still frame now. The loop waits until the browser is idle so it does not
+    // compete with hydration on the first paint.
+    let idle = 0;
+    let delayed = 0;
+    const later = () => {
+      if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(() => play(), { timeout: 1200 });
+      else delayed = window.setTimeout(play, 200);
+    };
+    later();
     window.addEventListener("resize", fit);
     document.addEventListener("visibilitychange", play);
     motion.addEventListener("change", play);
@@ -107,6 +115,8 @@ export function ParticleField() {
     return () => {
       alive = false;
       stop();
+      if (idle) window.cancelIdleCallback(idle);
+      if (delayed) window.clearTimeout(delayed);
       body.style.isolation = previousIsolation;
       window.removeEventListener("resize", fit);
       document.removeEventListener("visibilitychange", play);

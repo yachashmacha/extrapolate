@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const address = new URL(request.url).searchParams.get("address")?.trim() ?? "";
   if (!isWalletAddress(address)) {
-    return NextResponse.json({ error: "That is not a Solana wallet address." }, { status: 400 });
+    return NextResponse.json({ error: "That is not a Solana wallet address." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
   }
   const balanceSol = await readSolBalance(address);
-  return NextResponse.json({ address, balanceSol });
+  return NextResponse.json({ address, balanceSol }, { headers: { "Cache-Control": "private, no-store" } });
 }

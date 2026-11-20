@@ -29,7 +29,7 @@ export function WalletMarks({
             disabled={busy !== ""}
             onClick={() => onConnect(wallet.id)}
           >
-            <img src={wallet.src} alt="" width={18} height={18} />
+            <img src={wallet.src} alt="" width={18} height={18} decoding="async" />
           </button>
         );
       })}

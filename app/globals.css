@@ -22,7 +22,7 @@
   --s-4: 16px;
   --s-5: 24px;
   --s-6: 32px;
-  --sans: "IBM Plex Sans", "Source Sans 3", sans-serif;
+  --sans: var(--font-plex), "Source Sans 3", sans-serif;
   --serif: var(--sans);
   color-scheme: dark;
 }
